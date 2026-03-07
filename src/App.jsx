@@ -883,9 +883,11 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
               <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 10 }}>Recipe (quantities per serving)</div>
               {form.ingredients.map((row, i) => (
                 <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px", gap: 8, marginBottom: 8 }}>
-                  <input value={row.ingredient_name} onChange={(e) => updateRow(i, "ingredient_name", e.target.value)}
-                    placeholder="Ingredient name" list="ingredient-list"
-                    style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 12px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }} />
+                  <select value={row.ingredient_name} onChange={(e) => updateRow(i, "ingredient_name", e.target.value)}
+                    style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 12px", color: row.ingredient_name ? T.text : T.muted, fontSize: 13, fontFamily: T.body, outline: "none" }}>
+                    <option value="">Select ingredient...</option>
+                    {ingredients.map(ing => <option key={ing.id} value={ing.name}>{ing.name}</option>)}
+                  </select>
                   <input value={row.qty} onChange={(e) => updateRow(i, "qty", e.target.value)}
                     placeholder="Qty" type="number"
                     style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 10px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }} />
@@ -895,9 +897,6 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
                   </select>
                 </div>
               ))}
-              <datalist id="ingredient-list">
-                {ingredients.map(i => <option key={i.id} value={i.name} />)}
-              </datalist>
               <button onClick={addRow} style={{ background: "none", border: `1px dashed ${T.border}`, borderRadius: 6, color: T.muted, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontFamily: T.body, width: "100%", marginTop: 4 }}>+ Add ingredient</button>
             </div>
 
