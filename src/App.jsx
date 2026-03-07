@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const fontLink = document.createElement("link");
@@ -6,15 +7,20 @@ fontLink.rel = "stylesheet";
 fontLink.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap";
 document.head.appendChild(fontLink);
 
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
 const uid = () => Math.random().toString(36).slice(2, 9);
 const today = () => new Date().toISOString().split("T")[0];
 const fmt$ = (n) => `$${Number(n).toFixed(2)}`;
 const fmtPct = (n) => `${Number(n).toFixed(1)}%`;
 
 function calcMenuStats(item) {
-  const cost = item.ingredients.reduce((s, i) => s + Number(i.cost), 0);
-  const profit = Number(item.salePrice) - cost;
-  const margin = item.salePrice > 0 ? (profit / item.salePrice) * 100 : 0;
+  const cost = (item.ingredients || []).reduce((s, i) => s + Number(i.cost), 0);
+  const profit = Number(item.sale_price) - cost;
+  const margin = item.sale_price > 0 ? (profit / item.sale_price) * 100 : 0;
   return { cost, profit, margin };
 }
 
@@ -31,7 +37,7 @@ function getPriceAlerts(ingredients) {
     const sorted = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
     const latest = sorted[sorted.length - 1];
     const prev = sorted[sorted.length - 2];
-    if (prev.price === 0) return;
+    if (!prev.price) return;
     const change = latest.price - prev.price;
     const pct = (change / prev.price) * 100;
     if (change !== 0) alerts.push({ name: latest.name, oldPrice: prev.price, newPrice: latest.price, pct, date: latest.date, unit: latest.unit });
@@ -43,8 +49,8 @@ function exportCSV(ingredients, menuItems) {
   const rows = [["Type", "Name", "Supplier/Sale Price", "Date/Cost", "Price/Margin", "Unit"]];
   ingredients.forEach((i) => rows.push(["Ingredient", i.name, i.supplier, i.date, fmt$(i.price), i.unit]));
   menuItems.forEach((m) => {
-    const { cost, profit, margin } = calcMenuStats(m);
-    rows.push(["Menu Item", m.name, fmt$(m.salePrice), fmt$(cost), fmtPct(margin), ""]);
+    const { cost, margin } = calcMenuStats(m);
+    rows.push(["Menu Item", m.name, fmt$(m.sale_price), fmt$(cost), fmtPct(margin), ""]);
   });
   const csv = rows.map((r) => r.join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
@@ -109,6 +115,78 @@ function Modal({ title, onClose, children }) {
   );
 }
 
+// ─── Auth Screen ─────────────────────────────────────────────────────────────
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
+
+  const submit = async () => {
+    setLoading(true); setError(null); setMessage(null);
+    if (mode === "login") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setError(error.message);
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setError(error.message);
+      else setMessage("Check your email to confirm your account, then log in.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>⬡</div>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Restaurant cost intelligence</div>
+        </div>
+
+        {/* Card */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 32 }}>
+          <div style={{ display: "flex", gap: 4, background: T.faint, borderRadius: 8, padding: 4, marginBottom: 28 }}>
+            {["login", "signup"].map((m) => (
+              <button key={m} onClick={() => { setMode(m); setError(null); setMessage(null); }} style={{
+                flex: 1, padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 13,
+                fontFamily: T.font, fontWeight: 600, letterSpacing: "0.03em",
+                background: mode === m ? T.accent : "transparent",
+                color: mode === m ? "#0f1410" : T.muted,
+                transition: "all 0.15s",
+              }}>{m === "login" ? "Log In" : "Sign Up"}</button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Input label="Email" value={email} onChange={setEmail} type="email" placeholder="you@restaurant.com" />
+            <Input label="Password" value={password} onChange={setPassword} type="password" placeholder="••••••••" />
+
+            {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>{error}</div>}
+            {message && <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.accent, fontFamily: T.body }}>{message}</div>}
+
+            <button onClick={submit} disabled={loading || !email || !password} style={{
+              background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
+              padding: "13px 20px", fontSize: 14, fontFamily: T.font, fontWeight: 700,
+              cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1,
+              marginTop: 4, letterSpacing: "0.03em",
+            }}>
+              {loading ? "..." : mode === "login" ? "Log In" : "Create Account"}
+            </button>
+          </div>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: T.muted, fontFamily: T.body }}>
+          Your data is encrypted and stored securely
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Invoice Scanner ──────────────────────────────────────────────────────────
 function InvoiceScanner({ onIngredientsFound, onClose }) {
   const [image, setImage] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
@@ -161,7 +239,7 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
   };
 
   const confirmImport = () => {
-    onIngredientsFound(results.map((r) => ({ ...r, price: Number(r.price), id: uid() })));
+    onIngredientsFound(results.map((r) => ({ ...r, price: Number(r.price) })));
     onClose();
   };
 
@@ -218,6 +296,7 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
   );
 }
 
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({ ingredients, menuItems }) {
   const alerts = getPriceAlerts(ingredients);
   const menuStats = menuItems.map((m) => ({ ...m, ...calcMenuStats(m) }));
@@ -297,25 +376,45 @@ function Dashboard({ ingredients, menuItems }) {
   );
 }
 
-function IngredientsView({ ingredients, setIngredients }) {
+// ─── Ingredients ──────────────────────────────────────────────────────────────
+function IngredientsView({ ingredients, setIngredients, userId }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", supplier: "", date: today(), price: "", unit: "" });
   const [editId, setEditId] = useState(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const openAdd = () => { setForm({ name: "", supplier: "", date: today(), price: "", unit: "" }); setEditId(null); setModal("form"); };
-  const openEdit = (ing) => { setForm({ name: ing.name, supplier: ing.supplier, date: ing.date, price: String(ing.price), unit: ing.unit }); setEditId(ing.id); setModal("form"); };
+  const openEdit = (ing) => { setForm({ name: ing.name, supplier: ing.supplier || "", date: ing.date || today(), price: String(ing.price), unit: ing.unit || "" }); setEditId(ing.id); setModal("form"); };
 
-  const save = () => {
-    if (!form.name || !form.supplier || !form.date || !form.price || !form.unit) return alert("Please fill in all fields.");
+  const save = async () => {
+    if (!form.name || !form.price) return alert("Name and price are required.");
     if (isNaN(parseFloat(form.price))) return alert("Price must be a number.");
-    const entry = { ...form, price: parseFloat(form.price), id: editId || uid() };
-    if (editId) setIngredients((prev) => prev.map((i) => i.id === editId ? entry : i));
-    else setIngredients((prev) => [...prev, entry]);
-    setModal(null);
+    setSaving(true);
+    const entry = { name: form.name, supplier: form.supplier, date: form.date, price: parseFloat(form.price), unit: form.unit, user_id: userId };
+    if (editId) {
+      const { data, error } = await supabase.from("ingredients").update(entry).eq("id", editId).select();
+      if (!error) setIngredients((prev) => prev.map((i) => i.id === editId ? data[0] : i));
+    } else {
+      const { data, error } = await supabase.from("ingredients").insert(entry).select();
+      if (!error) setIngredients((prev) => [...prev, data[0]]);
+    }
+    setSaving(false); setModal(null);
   };
 
-  const del = (id) => { if (window.confirm("Delete this ingredient?")) setIngredients((prev) => prev.filter((i) => i.id !== id)); };
+  const del = async (id) => {
+    if (!window.confirm("Delete this ingredient?")) return;
+    await supabase.from("ingredients").delete().eq("id", id);
+    setIngredients((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const handleScanned = async (items) => {
+    setSaving(true);
+    const rows = items.map((r) => ({ name: r.name, supplier: r.supplier, date: r.date, price: r.price, unit: r.unit, user_id: userId }));
+    const { data, error } = await supabase.from("ingredients").insert(rows).select();
+    if (!error) setIngredients((prev) => [...prev, ...data]);
+    setSaving(false);
+  };
 
   return (
     <div>
@@ -354,7 +453,7 @@ function IngredientsView({ ingredients, setIngredients }) {
         </div>
       )}
 
-      {showScanner && <InvoiceScanner onIngredientsFound={(items) => setIngredients((prev) => [...prev, ...items])} onClose={() => setShowScanner(false)} />}
+      {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} />}
 
       {modal === "form" && (
         <Modal title={editId ? "Edit Ingredient" : "Add Ingredient"} onClose={() => setModal(null)}>
@@ -368,7 +467,7 @@ function IngredientsView({ ingredients, setIngredients }) {
             <Input label="Price ($)" value={form.price} onChange={(v) => setForm({ ...form, price: v })} type="number" />
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
               <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
-              <Btn onClick={save}>{editId ? "Save Changes" : "Add Ingredient"}</Btn>
+              <Btn onClick={save} disabled={saving}>{saving ? "Saving..." : editId ? "Save Changes" : "Add Ingredient"}</Btn>
             </div>
           </div>
         </Modal>
@@ -377,27 +476,39 @@ function IngredientsView({ ingredients, setIngredients }) {
   );
 }
 
-function MenuView({ menuItems, setMenuItems }) {
+// ─── Menu Items ───────────────────────────────────────────────────────────────
+function MenuView({ menuItems, setMenuItems, userId }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", salePrice: "", ingredients: [{ ingredient_name: "", cost: "" }] });
   const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const openAdd = () => { setForm({ name: "", salePrice: "", ingredients: [{ ingredient_name: "", cost: "" }] }); setEditId(null); setModal("form"); };
-  const openEdit = (m) => { setForm({ name: m.name, salePrice: String(m.salePrice), ingredients: m.ingredients.map((i) => ({ ...i, cost: String(i.cost) })) }); setEditId(m.id); setModal("form"); };
+  const openEdit = (m) => { setForm({ name: m.name, salePrice: String(m.sale_price), ingredients: (m.ingredients || []).map((i) => ({ ...i, cost: String(i.cost) })) }); setEditId(m.id); setModal("form"); };
   const addRow = () => setForm((f) => ({ ...f, ingredients: [...f.ingredients, { ingredient_name: "", cost: "" }] }));
   const updateRow = (i, field, val) => setForm((f) => ({ ...f, ingredients: f.ingredients.map((row, idx) => idx === i ? { ...row, [field]: val } : row) }));
 
-  const save = () => {
+  const save = async () => {
     if (!form.name || !form.salePrice) return alert("Please enter name and sale price.");
-    const ings = form.ingredients.filter((r) => r.ingredient_name && r.cost);
+    const ings = form.ingredients.filter((r) => r.ingredient_name && r.cost).map((r) => ({ ingredient_name: r.ingredient_name, cost: parseFloat(r.cost) }));
     if (!ings.length) return alert("Add at least one ingredient.");
-    const entry = { name: form.name, salePrice: parseFloat(form.salePrice), ingredients: ings.map((r) => ({ ingredient_name: r.ingredient_name, cost: parseFloat(r.cost) })), id: editId || uid() };
-    if (editId) setMenuItems((prev) => prev.map((m) => m.id === editId ? entry : m));
-    else setMenuItems((prev) => [...prev, entry]);
-    setModal(null);
+    setSaving(true);
+    const entry = { name: form.name, sale_price: parseFloat(form.salePrice), ingredients: ings, user_id: userId };
+    if (editId) {
+      const { data, error } = await supabase.from("menu_items").update(entry).eq("id", editId).select();
+      if (!error) setMenuItems((prev) => prev.map((m) => m.id === editId ? data[0] : m));
+    } else {
+      const { data, error } = await supabase.from("menu_items").insert(entry).select();
+      if (!error) setMenuItems((prev) => [...prev, data[0]]);
+    }
+    setSaving(false); setModal(null);
   };
 
-  const del = (id) => { if (window.confirm("Delete this menu item?")) setMenuItems((prev) => prev.filter((m) => m.id !== id)); };
+  const del = async (id) => {
+    if (!window.confirm("Delete this menu item?")) return;
+    await supabase.from("menu_items").delete().eq("id", id);
+    setMenuItems((prev) => prev.filter((m) => m.id !== id));
+  };
 
   return (
     <div>
@@ -416,7 +527,7 @@ function MenuView({ menuItems, setMenuItems }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
-                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{m.ingredients.map((i) => i.ingredient_name).join(", ")}</div>
+                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{(m.ingredients || []).map((i) => i.ingredient_name).join(", ")}</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ textAlign: "right" }}>
@@ -428,7 +539,7 @@ function MenuView({ menuItems, setMenuItems }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 20, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.faint}` }}>
-                  <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Sale: <strong style={{ color: T.text }}>{fmt$(m.salePrice)}</strong></span>
+                  <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Sale: <strong style={{ color: T.text }}>{fmt$(m.sale_price)}</strong></span>
                   <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Cost: <strong style={{ color: T.text }}>{fmt$(cost)}</strong></span>
                   <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: T.accent }}>{fmt$(profit)}</strong></span>
                 </div>
@@ -455,7 +566,7 @@ function MenuView({ menuItems, setMenuItems }) {
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
               <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
-              <Btn onClick={save}>{editId ? "Save Changes" : "Add Item"}</Btn>
+              <Btn onClick={save} disabled={saving}>{saving ? "Saving..." : editId ? "Save Changes" : "Add Item"}</Btn>
             </div>
           </div>
         </Modal>
@@ -464,6 +575,7 @@ function MenuView({ menuItems, setMenuItems }) {
   );
 }
 
+// ─── Price Alerts ─────────────────────────────────────────────────────────────
 function AlertsView({ ingredients }) {
   const alerts = getPriceAlerts(ingredients);
   return (
@@ -488,28 +600,81 @@ function AlertsView({ ingredients }) {
   );
 }
 
+// ─── App Shell ────────────────────────────────────────────────────────────────
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡"];
 
 export default function KitchenIQ() {
+  const [session, setSession] = useState(undefined); // undefined = loading
   const [tab, setTab] = useState(0);
   const [ingredients, setIngredients] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Auth listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load data when logged in
+  useEffect(() => {
+    if (!session) return;
+    const load = async () => {
+      setLoading(true);
+      const [{ data: ings }, { data: menus }] = await Promise.all([
+        supabase.from("ingredients").select("*").order("created_at", { ascending: false }),
+        supabase.from("menu_items").select("*").order("created_at", { ascending: false }),
+      ]);
+      setIngredients(ings || []);
+      setMenuItems(menus || []);
+      setLoading(false);
+    };
+    load();
+  }, [session]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setIngredients([]); setMenuItems([]);
+  };
+
+  // Loading state
+  if (session === undefined) {
+    return (
+      <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: T.accent, fontFamily: T.font, fontSize: 18 }}>Loading...</div>
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!session) return <AuthScreen onAuth={setSession} />;
+
+  // App
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: T.card, height: 60 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
-          <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text, letterSpacing: "-0.3px" }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
-          <span style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", marginLeft: 4, fontFamily: T.body }}>v1.0 · trykitcheniq.com</span>
+          <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+          <span style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", marginLeft: 4, fontFamily: T.body, display: "none" }} className="hide-mobile">v1.0</span>
         </div>
-        <button onClick={() => exportCSV(ingredients, menuItems)}
-          style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer", letterSpacing: "0.05em" }}>
-          ↓ Export CSV
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{session.user.email}</span>
+          <button onClick={() => exportCSV(ingredients, menuItems)}
+            style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>
+            ↓ CSV
+          </button>
+          <button onClick={signOut}
+            style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>
+            Sign Out
+          </button>
+        </div>
       </div>
-      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", gap: 0, background: T.card, overflowX: "auto" }}>
+      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", background: T.card, overflowX: "auto" }}>
         {TABS.map((t, i) => (
           <button key={i} onClick={() => setTab(i)} style={{
             background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`,
@@ -521,10 +686,14 @@ export default function KitchenIQ() {
         ))}
       </div>
       <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
-        {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} />}
-        {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} />}
-        {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} />}
-        {tab === 3 && <AlertsView ingredients={ingredients} />}
+        {loading
+          ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
+          : <>
+            {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} />}
+            {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} />}
+            {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} userId={session.user.id} />}
+            {tab === 3 && <AlertsView ingredients={ingredients} />}
+          </>}
       </div>
     </div>
   );
