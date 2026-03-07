@@ -222,7 +222,30 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
             role: "user",
             content: [
               { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } },
-              { type: "text", text: `Analyze this restaurant supplier invoice. Extract all ingredient/product line items. Return ONLY a raw JSON array with no markdown, no backticks, no explanation. Each object must have: name (string), price (number, unit cost), unit (string: lb, oz, case, each, etc), supplier (string from invoice or "Unknown"), date (string YYYY-MM-DD, use ${today()} if not visible). Example: [{"name":"Roma Tomatoes","price":1.89,"unit":"lb","supplier":"Sysco","date":"${today()}"}]` }
+              { type: "text", text: `You are a restaurant invoice parser. Analyze this supplier invoice image and extract every product line item.
+
+Return ONLY a raw JSON array. No markdown, no backticks, no explanation, no preamble.
+
+For each line item extract:
+- name: the product name (string, clean and readable)
+- price: the UNIT price — cost per single unit, NOT the extended/total line price. If invoice shows QTY 4 x $12.50 = $50.00 then price is 12.50 not 50.00
+- unit: the unit of measure for ONE unit. Rules:
+  * Sold by weight: use "lb" or "oz"
+  * Sold as a case: use "case"
+  * Sold individually: use "each"
+  * Sold by pack: use "pack"
+  * Sold by bag: use "bag"
+  * NEVER use quantity numbers as the unit (not "4 case", just "case")
+  * Never leave blank, guess from context if needed
+- supplier: vendor/company name from invoice header (or "Unknown")
+- date: invoice date YYYY-MM-DD format (use ${today()} if not visible)
+
+Invoice layout hints:
+- Sysco/US Foods columns: Item# | Description | Pack/Size | QTY | Unit Price | Extended Price — always use Unit Price column, never Extended Price
+- For any invoice: find the per-unit cost, not the line total
+
+Example output:
+[{"name":"Roma Tomatoes","price":1.89,"unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Chicken Breast","price":42.50,"unit":"case","supplier":"Sysco","date":"${today()}"},{"name":"Large Eggs","price":3.20,"unit":"each","supplier":"Local Farm","date":"${today()}"}]` }
             ]
           }]
         })
