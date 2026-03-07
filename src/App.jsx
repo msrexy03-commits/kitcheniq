@@ -575,6 +575,8 @@ function IngredientsView({ ingredients, setIngredients, userId }) {
 
       {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} />}
 
+      {showMenuScanner && <MenuScanner onMenuFound={handleScannedMenu} onClose={() => setShowMenuScanner(false)} />}
+
       {modal === "form" && (
         <Modal title={editId ? "Edit Ingredient" : "Add Ingredient"} onClose={() => setModal(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -602,12 +604,163 @@ function IngredientsView({ ingredients, setIngredients, userId }) {
   );
 }
 
+// ─── Menu Scanner ────────────────────────────────────────────────────────────
+function MenuScanner({ onMenuFound, onClose }) {
+  const [image, setImage] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState(null);
+
+  const handleFile = (file) => {
+    if (!file) return;
+    setResults(null); setError(null);
+    setImage(URL.createObjectURL(file));
+    const reader = new FileReader();
+    reader.onload = (e) => setImageBase64(e.target.result.split(",")[1]);
+    reader.readAsDataURL(file);
+  };
+
+  const scan = async () => {
+    if (!imageBase64) return;
+    setScanning(true); setError(null);
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-opus-4-5",
+          max_tokens: 2048,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } },
+              { type: "text", text: `You are reading a restaurant menu. Extract every menu item and its price.
+
+Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
+
+For each item extract:
+- name: the menu item name, clean and readable. Keep it short. Examples: "Bacon Cheeseburger", "Eggs Benedict", "French Toast", "House Salad"
+- price: the sale price as a number (e.g. 12.99). If a range, use the higher price. Never include $ signs.
+- category: the menu section it belongs to if visible (e.g. "Breakfast", "Lunch", "Sides", "Drinks"). Use "Menu" if not clear.
+
+Critical rules:
+- ONE object per menu item
+- Never include modifiers, add-ons, or combo options as separate items unless they have their own price
+- Skip items with no price listed
+- If a price is listed as a range like $10-14, use 14
+
+Example output:
+[{"name":"Bacon Cheeseburger","price":13.99,"category":"Lunch"},{"name":"French Toast","price":9.99,"category":"Breakfast"},{"name":"House Salad","price":7.50,"category":"Sides"}]` }
+            ]
+          }]
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.content[0].text.trim();
+      const parsed = JSON.parse(text);
+      setResults(parsed);
+    } catch (e) {
+      setError("Couldn't read the menu. Try a clearer photo with good lighting.");
+    }
+    setScanning(false);
+  };
+
+  const updateResult = (i, field, val) => {
+    setResults(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+  };
+
+  const removeResult = (i) => setResults(prev => prev.filter((_, idx) => idx !== i));
+
+  const confirmImport = () => {
+    onMenuFound(results.map((r) => ({ name: r.name, sale_price: Number(r.price), category: r.category, ingredients: [] })));
+    onClose();
+  };
+
+  return (
+    <Modal title="📷 AI Menu Scanner" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: T.accent, fontFamily: T.body }}>
+          ✨ Take a photo of your printed menu — AI reads every item and price instantly
+        </div>
+        <div onClick={() => document.getElementById("menu-upload").click()} style={{
+          border: `2px dashed ${image ? T.accentMid : T.border}`, borderRadius: 10,
+          padding: "28px 20px", textAlign: "center", cursor: "pointer",
+          background: image ? T.accentDim : T.faint, transition: "all 0.2s",
+        }}>
+          {image
+            ? <img src={image} alt="Menu" style={{ maxWidth: "100%", maxHeight: 160, borderRadius: 6, objectFit: "contain" }} />
+            : <>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>🍽</div>
+                <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>Upload Menu Photo</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>Works with printed menus, chalkboards, menu boards</div>
+              </>}
+          <input id="menu-upload" type="file" accept="image/*" capture="environment"
+            style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
+        </div>
+
+        {image && !results && <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, textAlign: "center" }}>✓ Image loaded — click Scan to extract menu items</div>}
+        {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>⚠ {error}</div>}
+
+        {results && (
+          <div>
+            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 6 }}>✓ Found {results.length} items — review before importing</div>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>You'll add ingredient recipes to each item after importing</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+              {results.map((r, i) => (
+                <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "10px 12px", display: "flex", gap: 8, alignItems: "center" }}>
+                  <input value={r.name} onChange={(e) => updateResult(i, "name", e.target.value)}
+                    style={{ flex: 1, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 13, color: T.muted }}>$</span>
+                    <input value={r.price} onChange={(e) => updateResult(i, "price", e.target.value)} type="number"
+                      style={{ width: 70, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 8px", color: T.accent, fontSize: 13, fontFamily: T.body, outline: "none" }} />
+                  </div>
+                  <input value={r.category} onChange={(e) => updateResult(i, "category", e.target.value)}
+                    style={{ width: 90, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 8px", color: T.muted, fontSize: 11, fontFamily: T.body, outline: "none" }} />
+                  <button onClick={() => removeResult(i)} style={{ background: "none", border: "none", color: T.warn, cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 8 }}>Columns: Item Name · Price · Category (tap × to remove)</div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          {!results
+            ? <Btn onClick={scan} disabled={!imageBase64 || scanning} variant="ai">{scanning ? "⏳ Scanning..." : "🔍 Scan Menu"}</Btn>
+            : <>
+                <Btn variant="ghost" onClick={() => { setResults(null); setImage(null); setImageBase64(null); }}>Rescan</Btn>
+                <Btn onClick={confirmImport}>✓ Import {results.length} Items</Btn>
+              </>}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Menu Items ───────────────────────────────────────────────────────────────
 function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", salePrice: "", ingredients: [{ ingredient_name: "", qty: "", qty_unit: "oz" }] });
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showMenuScanner, setShowMenuScanner] = useState(false);
+
+  const handleScannedMenu = async (items) => {
+    setSaving(true);
+    const rows = items.map((r) => ({ name: r.name, sale_price: r.sale_price, ingredients: [], user_id: userId }));
+    const { data, error } = await supabase.from("menu_items").insert(rows).select();
+    if (!error) setMenuItems((prev) => [...prev, ...data]);
+    setSaving(false);
+  };
 
   const openAdd = () => { setForm({ name: "", salePrice: "", ingredients: [{ ingredient_name: "", qty: "", qty_unit: "oz" }] }); setEditId(null); setModal("form"); };
   const openEdit = (m) => {
@@ -655,10 +808,18 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{menuItems.length} menu items</div>
-        <Btn onClick={openAdd}>+ Add Menu Item</Btn>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Btn variant="ai" onClick={() => setShowMenuScanner(true)}>📷 Scan Menu</Btn>
+          <Btn onClick={openAdd}>+ Add Manual</Btn>
+        </div>
       </div>
       {menuItems.length === 0
-        ? <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: 40, textAlign: "center", color: T.muted, fontFamily: T.body }}>No menu items yet. Add ingredients first, then build your menu.</div>
+        ? <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "32px 28px", textAlign: "center" }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>📷</div>
+            <div style={{ fontSize: 15, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>Scan your menu to get started</div>
+            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 16 }}>Take a photo of your printed menu and AI imports all your items and prices instantly</div>
+            <Btn variant="ai" onClick={() => setShowMenuScanner(true)}>📷 Scan Your Menu</Btn>
+          </div>
         : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {menuItems.map((m) => {
             const { cost, profit, margin } = calcMenuStats(m, ingredients);
