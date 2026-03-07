@@ -575,8 +575,6 @@ function IngredientsView({ ingredients, setIngredients, userId }) {
 
       {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} />}
 
-      {showMenuScanner && <MenuScanner onMenuFound={handleScannedMenu} onClose={() => setShowMenuScanner(false)} />}
-
       {modal === "form" && (
         <Modal title={editId ? "Edit Ingredient" : "Add Ingredient"} onClose={() => setModal(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -851,6 +849,8 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
             );
           })}
         </div>}
+
+      {showMenuScanner && <MenuScanner onMenuFound={handleScannedMenu} onClose={() => setShowMenuScanner(false)} />}
 
       {modal === "form" && (
         <Modal title={editId ? "Edit Menu Item" : "Add Menu Item"} onClose={() => setModal(null)}>
