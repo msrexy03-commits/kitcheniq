@@ -401,9 +401,9 @@ export default function KitchenIQ() {
   const [menuItems, setMenuItems] = useState([]);
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: T.body, color: T.text }}>
+    <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
       {/* Header */}
-      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", background: T.card, height: 60 }}>
+      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: T.card, height: 60 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
           <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text, letterSpacing: "-0.3px" }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
@@ -416,12 +416,12 @@ export default function KitchenIQ() {
       </div>
 
       {/* Nav */}
-      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 32px", display: "flex", gap: 0, background: T.card }}>
+      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", gap: 0, background: T.card, overflowX: "auto" }}>
         {TABS.map((t, i) => (
           <button key={i} onClick={() => setTab(i)} style={{
             background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`,
             color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font,
-            fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em",
+            fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap",
           }}>
             {ICONS[i]} {t}
           </button>
@@ -429,7 +429,7 @@ export default function KitchenIQ() {
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 32px" }}>
+      <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
         {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} />}
         {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} />}
         {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} />}
