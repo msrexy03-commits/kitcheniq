@@ -1,13 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
-// ─── Fonts via Google ───────────────────────────────────────────────────────
 const fontLink = document.createElement("link");
 fontLink.rel = "stylesheet";
 fontLink.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap";
 document.head.appendChild(fontLink);
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 9);
 const today = () => new Date().toISOString().split("T")[0];
 const fmt$ = (n) => `$${Number(n).toFixed(2)}`;
@@ -53,7 +51,6 @@ function exportCSV(ingredients, menuItems) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "kitcheniq-export.csv"; a.click();
 }
 
-// ─── Theme ──────────────────────────────────────────────────────────────────
 const T = {
   bg: "#0f1410", card: "#161d17", border: "#1e2b1f",
   accent: "#4eca6e", accentDim: "#4eca6e22", accentMid: "#4eca6e55",
@@ -62,7 +59,6 @@ const T = {
   font: "'Syne', sans-serif", body: "'DM Sans', sans-serif",
 };
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, accent }) {
   return (
     <div style={{ background: T.card, border: `1px solid ${accent ? T.accentMid : T.border}`, borderRadius: 10, padding: "20px 24px", flex: 1, minWidth: 150 }}>
@@ -78,6 +74,7 @@ function Btn({ children, onClick, variant = "primary", small, disabled }) {
     primary: { background: T.accent, color: "#0f1410", border: "none" },
     ghost: { background: "transparent", color: T.muted, border: `1px solid ${T.border}` },
     danger: { background: T.warnDim, color: T.warn, border: `1px solid ${T.warn}44` },
+    ai: { background: "linear-gradient(135deg, #4eca6e22, #6e4eca22)", color: T.accent, border: `1px solid ${T.accentMid}` },
   };
   return (
     <button onClick={onClick} disabled={disabled} style={{
@@ -112,7 +109,114 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-// ─── Views ───────────────────────────────────────────────────────────────────
+function InvoiceScanner({ onIngredientsFound, onClose }) {
+  const [image, setImage] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState(null);
+
+  const handleFile = (file) => {
+    if (!file) return;
+    setResults(null); setError(null);
+    setImage(URL.createObjectURL(file));
+    const reader = new FileReader();
+    reader.onload = (e) => setImageBase64(e.target.result.split(",")[1]);
+    reader.readAsDataURL(file);
+  };
+
+  const scan = async () => {
+    if (!imageBase64) return;
+    setScanning(true); setError(null);
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-opus-4-5",
+          max_tokens: 1024,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } },
+              { type: "text", text: `Analyze this restaurant supplier invoice. Extract all ingredient/product line items. Return ONLY a raw JSON array with no markdown, no backticks, no explanation. Each object must have: name (string), price (number, unit cost), unit (string: lb, oz, case, each, etc), supplier (string from invoice or "Unknown"), date (string YYYY-MM-DD, use ${today()} if not visible). Example: [{"name":"Roma Tomatoes","price":1.89,"unit":"lb","supplier":"Sysco","date":"${today()}"}]` }
+            ]
+          }]
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.content[0].text.trim();
+      const parsed = JSON.parse(text);
+      setResults(parsed);
+    } catch (e) {
+      setError("Couldn't read the invoice. Try a clearer photo with good lighting.");
+    }
+    setScanning(false);
+  };
+
+  const confirmImport = () => {
+    onIngredientsFound(results.map((r) => ({ ...r, price: Number(r.price), id: uid() })));
+    onClose();
+  };
+
+  return (
+    <Modal title="📸 AI Invoice Scanner" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: T.accent, fontFamily: T.body }}>
+          ✨ Powered by AI — photo your invoice and ingredients auto-fill instantly
+        </div>
+        <div onClick={() => document.getElementById("invoice-upload").click()} style={{
+          border: `2px dashed ${image ? T.accentMid : T.border}`, borderRadius: 10,
+          padding: "28px 20px", textAlign: "center", cursor: "pointer",
+          background: image ? T.accentDim : T.faint, transition: "all 0.2s",
+        }}>
+          {image
+            ? <img src={image} alt="Invoice" style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 6, objectFit: "contain" }} />
+            : <>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>📄</div>
+                <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>Upload Invoice Photo</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>JPG or PNG · Works with phone camera shots</div>
+              </>}
+          <input id="invoice-upload" type="file" accept="image/*" capture="environment"
+            style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
+        </div>
+        {image && !results && <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, textAlign: "center" }}>✓ Image loaded — click Scan to extract ingredients</div>}
+        {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>⚠ {error}</div>}
+        {results && (
+          <div>
+            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 10 }}>✓ Found {results.length} ingredients</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+              {results.map((r, i) => (
+                <div key={i} style={{ background: T.faint, borderRadius: 6, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{r.supplier} · {r.unit} · {r.date}</div>
+                  </div>
+                  <span style={{ fontSize: 15, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$(r.price)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          {!results
+            ? <Btn onClick={scan} disabled={!imageBase64 || scanning} variant="ai">{scanning ? "⏳ Scanning..." : "🔍 Scan Invoice"}</Btn>
+            : <>
+                <Btn variant="ghost" onClick={() => { setResults(null); setImage(null); setImageBase64(null); }}>Rescan</Btn>
+                <Btn onClick={confirmImport}>✓ Import {results.length} Items</Btn>
+              </>}
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 function Dashboard({ ingredients, menuItems }) {
   const alerts = getPriceAlerts(ingredients);
@@ -120,22 +224,17 @@ function Dashboard({ ingredients, menuItems }) {
   const best = menuStats.length ? menuStats.reduce((a, b) => a.margin > b.margin ? a : b) : null;
   const worst = menuStats.length ? menuStats.reduce((a, b) => a.margin < b.margin ? a : b) : null;
   const avgMargin = menuStats.length ? menuStats.reduce((s, m) => s + m.margin, 0) / menuStats.length : 0;
-
-  // Chart data — last 8 ingredient price entries
   const chartData = ingredients.slice(-12).map((i) => ({ name: i.name.slice(0, 8), price: i.price }));
   const marginData = menuStats.slice(0, 8).map((m) => ({ name: m.name.slice(0, 10), margin: parseFloat(m.margin.toFixed(1)) }));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* Stat row */}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <StatCard label="Ingredients Tracked" value={ingredients.length} accent />
         <StatCard label="Menu Items" value={menuItems.length} />
         <StatCard label="Avg Margin" value={fmtPct(avgMargin)} sub={avgMargin > 60 ? "Healthy ✓" : avgMargin > 40 ? "Watch closely" : "⚠ Low"} accent={avgMargin > 60} />
         <StatCard label="Price Alerts" value={alerts.length} sub={alerts.length ? alerts[0].name : "All stable"} accent={alerts.length === 0} />
       </div>
-
-      {/* Charts */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Recent Ingredient Prices</div>
@@ -150,7 +249,6 @@ function Dashboard({ ingredients, menuItems }) {
             </ResponsiveContainer>
           ) : <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13, fontFamily: T.body }}>Add ingredients to see chart</div>}
         </div>
-
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Menu Item Margins</div>
           {marginData.length > 0 ? (
@@ -160,34 +258,27 @@ function Dashboard({ ingredients, menuItems }) {
                 <YAxis tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.body, fontSize: 12 }} formatter={(v) => [`${v}%`, "Margin"]} />
                 <Bar dataKey="margin" radius={[4, 4, 0, 0]}>
-                  {marginData.map((entry, i) => (
-                    <Cell key={i} fill={entry.margin > 60 ? T.accent : entry.margin > 40 ? "#e8c84a" : T.warn} />
-                  ))}
+                  {marginData.map((entry, i) => (<Cell key={i} fill={entry.margin > 60 ? T.accent : entry.margin > 40 ? "#e8c84a" : T.warn} />))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13, fontFamily: T.body }}>Add menu items to see chart</div>}
         </div>
       </div>
-
-      {/* Best/Worst + Alerts */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Margin Leaders</div>
-          {best ? (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>🏆 Best</span>
-                <span style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 600 }}>{best.name} — {fmtPct(best.margin)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>⚠ Worst</span>
-                <span style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 600 }}>{worst.name} — {fmtPct(worst.margin)}</span>
-              </div>
-            </>
-          ) : <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>No menu items yet</div>}
+          {best ? (<>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>🏆 Best</span>
+              <span style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 600 }}>{best.name} — {fmtPct(best.margin)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>⚠ Worst</span>
+              <span style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 600 }}>{worst.name} — {fmtPct(worst.margin)}</span>
+            </div>
+          </>) : <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>No menu items yet</div>}
         </div>
-
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Price Spike Alerts</div>
           {alerts.length === 0
@@ -207,9 +298,10 @@ function Dashboard({ ingredients, menuItems }) {
 }
 
 function IngredientsView({ ingredients, setIngredients }) {
-  const [modal, setModal] = useState(null); // null | 'add' | {edit: ingredient}
+  const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", supplier: "", date: today(), price: "", unit: "" });
   const [editId, setEditId] = useState(null);
+  const [showScanner, setShowScanner] = useState(false);
 
   const openAdd = () => { setForm({ name: "", supplier: "", date: today(), price: "", unit: "" }); setEditId(null); setModal("form"); };
   const openEdit = (ing) => { setForm({ name: ing.name, supplier: ing.supplier, date: ing.date, price: String(ing.price), unit: ing.unit }); setEditId(ing.id); setModal("form"); };
@@ -227,14 +319,25 @@ function IngredientsView({ ingredients, setIngredients }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{ingredients.length} ingredients tracked</div>
-        <Btn onClick={openAdd}>+ Add Ingredient</Btn>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Btn variant="ai" onClick={() => setShowScanner(true)}>📸 Scan Invoice</Btn>
+          <Btn onClick={openAdd}>+ Add Manual</Btn>
+        </div>
       </div>
 
-      {ingredients.length === 0
-        ? <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: 40, textAlign: "center", color: T.muted, fontFamily: T.body }}>No ingredients yet. Add your first one.</div>
-        : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {ingredients.length === 0 && (
+        <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "32px 28px", marginBottom: 16, textAlign: "center" }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}>📸</div>
+          <div style={{ fontSize: 15, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>Skip the manual entry</div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 16 }}>Take a photo of your supplier invoice and AI fills everything in automatically</div>
+          <Btn variant="ai" onClick={() => setShowScanner(true)}>📸 Scan Your First Invoice</Btn>
+        </div>
+      )}
+
+      {ingredients.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {ingredients.map((ing) => (
             <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -248,7 +351,10 @@ function IngredientsView({ ingredients, setIngredients }) {
               </div>
             </div>
           ))}
-        </div>}
+        </div>
+      )}
+
+      {showScanner && <InvoiceScanner onIngredientsFound={(items) => setIngredients((prev) => [...prev, ...items])} onClose={() => setShowScanner(false)} />}
 
       {modal === "form" && (
         <Modal title={editId ? "Edit Ingredient" : "Add Ingredient"} onClose={() => setModal(null)}>
@@ -278,7 +384,6 @@ function MenuView({ menuItems, setMenuItems }) {
 
   const openAdd = () => { setForm({ name: "", salePrice: "", ingredients: [{ ingredient_name: "", cost: "" }] }); setEditId(null); setModal("form"); };
   const openEdit = (m) => { setForm({ name: m.name, salePrice: String(m.salePrice), ingredients: m.ingredients.map((i) => ({ ...i, cost: String(i.cost) })) }); setEditId(m.id); setModal("form"); };
-
   const addRow = () => setForm((f) => ({ ...f, ingredients: [...f.ingredients, { ingredient_name: "", cost: "" }] }));
   const updateRow = (i, field, val) => setForm((f) => ({ ...f, ingredients: f.ingredients.map((row, idx) => idx === i ? { ...row, [field]: val } : row) }));
 
@@ -300,7 +405,6 @@ function MenuView({ menuItems, setMenuItems }) {
         <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{menuItems.length} menu items</div>
         <Btn onClick={openAdd}>+ Add Menu Item</Btn>
       </div>
-
       {menuItems.length === 0
         ? <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: 40, textAlign: "center", color: T.muted, fontFamily: T.body }}>No menu items yet.</div>
         : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -312,9 +416,7 @@ function MenuView({ menuItems, setMenuItems }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
-                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>
-                      {m.ingredients.map((i) => i.ingredient_name).join(", ")}
-                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{m.ingredients.map((i) => i.ingredient_name).join(", ")}</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ textAlign: "right" }}>
@@ -334,7 +436,6 @@ function MenuView({ menuItems, setMenuItems }) {
             );
           })}
         </div>}
-
       {modal === "form" && (
         <Modal title={editId ? "Edit Menu Item" : "Add Menu Item"} onClose={() => setModal(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -367,13 +468,9 @@ function AlertsView({ ingredients }) {
   const alerts = getPriceAlerts(ingredients);
   return (
     <div>
-      <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 20 }}>
-        {alerts.length} price changes detected
-      </div>
+      <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 20 }}>{alerts.length} price changes detected</div>
       {alerts.length === 0
-        ? <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: 40, textAlign: "center", color: T.muted, fontFamily: T.body }}>
-            No price changes yet. You need at least 2 entries for the same ingredient.
-          </div>
+        ? <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: 40, textAlign: "center", color: T.muted, fontFamily: T.body }}>No price changes yet. You need at least 2 entries for the same ingredient.</div>
         : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {alerts.map((a, i) => (
             <div key={i} style={{ background: T.card, border: `1px solid ${a.pct > 0 ? T.warn + "55" : T.accentMid}`, borderRadius: 10, padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -391,7 +488,6 @@ function AlertsView({ ingredients }) {
   );
 }
 
-// ─── App Shell ───────────────────────────────────────────────────────────────
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡"];
 
@@ -402,7 +498,6 @@ export default function KitchenIQ() {
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
-      {/* Header */}
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: T.card, height: 60 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
@@ -414,8 +509,6 @@ export default function KitchenIQ() {
           ↓ Export CSV
         </button>
       </div>
-
-      {/* Nav */}
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", gap: 0, background: T.card, overflowX: "auto" }}>
         {TABS.map((t, i) => (
           <button key={i} onClick={() => setTab(i)} style={{
@@ -427,8 +520,6 @@ export default function KitchenIQ() {
           </button>
         ))}
       </div>
-
-      {/* Content */}
       <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
         {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} />}
         {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} />}
