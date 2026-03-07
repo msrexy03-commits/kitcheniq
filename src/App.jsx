@@ -393,7 +393,7 @@ Example output:
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-function Dashboard({ ingredients, menuItems }) {
+function Dashboard({ ingredients, menuItems, onNavigate }) {
   const alerts = getPriceAlerts(ingredients);
   const menuStats = menuItems.map((m) => ({ ...m, ...calcMenuStats(m, ingredients) }));
   const best = menuStats.length ? menuStats.reduce((a, b) => a.margin > b.margin ? a : b) : null;
@@ -404,6 +404,7 @@ function Dashboard({ ingredients, menuItems }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <OnboardingBanner ingredients={ingredients} menuItems={menuItems} onNavigate={onNavigate} />
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <StatCard label="Ingredients Tracked" value={ingredients.length} accent />
         <StatCard label="Menu Items" value={menuItems.length} />
@@ -936,6 +937,106 @@ function AlertsView({ ingredients }) {
   );
 }
 
+
+// ─── Onboarding Banner ────────────────────────────────────────────────────────
+function OnboardingBanner({ ingredients, menuItems, onNavigate }) {
+  const hasIngredients = ingredients.length > 0;
+  const hasMenuItems = menuItems.length > 0;
+  const hasRecipes = menuItems.some(m => (m.ingredients || []).length > 0);
+  const allDone = hasIngredients && hasMenuItems && hasRecipes;
+
+  if (allDone) return null;
+
+  const steps = [
+    {
+      num: 1,
+      done: hasIngredients,
+      title: "Scan your invoices",
+      desc: "Take a photo of any supplier invoice — AI reads every ingredient and price automatically",
+      action: "Scan Invoice →",
+      tab: 1,
+    },
+    {
+      num: 2,
+      done: hasMenuItems,
+      title: "Scan your menu",
+      desc: "Photo your printed menu and AI imports all your items and prices in seconds",
+      action: "Scan Menu →",
+      tab: 2,
+    },
+    {
+      num: 3,
+      done: hasRecipes,
+      title: "Add recipes to menu items",
+      desc: "Tell the app what ingredients go into each dish so margins calculate automatically",
+      action: "Add Recipes →",
+      tab: 2,
+    },
+  ];
+
+  const currentStep = steps.find(s => !s.done) || steps[2];
+
+  return (
+    <div style={{ background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "24px 28px", marginBottom: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 17, color: T.text, marginBottom: 4 }}>
+            👋 Welcome to KitchenIQ
+          </div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>
+            Complete these 3 steps to see your restaurant's real margins
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, background: T.faint, borderRadius: 20, padding: "4px 12px" }}>
+          {steps.filter(s => s.done).length}/3 done
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {steps.map((step) => (
+          <div key={step.num} style={{
+            display: "flex", alignItems: "center", gap: 16,
+            background: step.done ? T.accentDim : step.num === currentStep.num ? T.faint : "transparent",
+            border: `1px solid ${step.done ? T.accentMid : step.num === currentStep.num ? T.border : "transparent"}`,
+            borderRadius: 10, padding: "14px 18px", transition: "all 0.2s",
+          }}>
+            {/* Check or number */}
+            <div style={{
+              width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+              background: step.done ? T.accent : step.num === currentStep.num ? T.accentDim : T.faint,
+              border: `2px solid ${step.done ? T.accent : step.num === currentStep.num ? T.accentMid : T.border}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: step.done ? 16 : 13, color: step.done ? "#0f1410" : step.num === currentStep.num ? T.accent : T.muted,
+              fontFamily: T.font, fontWeight: 700,
+            }}>
+              {step.done ? "✓" : step.num}
+            </div>
+
+            {/* Text */}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontFamily: T.font, fontWeight: 600, color: step.done ? T.muted : T.text, textDecoration: step.done ? "line-through" : "none" }}>
+                {step.title}
+              </div>
+              {!step.done && (
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>{step.desc}</div>
+              )}
+            </div>
+
+            {/* Action button */}
+            {!step.done && step.num === currentStep.num && (
+              <button onClick={() => onNavigate(step.tab)} style={{
+                background: T.accent, color: "#0f1410", border: "none", borderRadius: 6,
+                padding: "8px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 700,
+                cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+              }}>{step.action}</button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡"];
@@ -1006,7 +1107,7 @@ export default function KitchenIQ() {
         {loading
           ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
           : <>
-            {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} />}
+            {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} />}
             {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} />}
             {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
             {tab === 3 && <AlertsView ingredients={ingredients} />}
