@@ -227,7 +227,7 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
 Return ONLY a raw JSON array. No markdown, no backticks, no explanation, no preamble.
 
 For each line item extract:
-- name: the product name (string, clean and readable)
+- name: the product name, simplified and clean. Strip out brand codes, item numbers, size descriptors, and packaging details. Examples: 'BACON SLICED 18/14-16CT' becomes 'Bacon'. 'SAUSAGE LINKS ITALIAN SWEET PORK' becomes 'Italian Sweet Sausage'. 'TOMATOES ROMA 25LB CASE' becomes 'Roma Tomatoes'. Keep it short, human readable, how a chef would write it on a prep list.
 - price: the UNIT price — cost per single unit, NOT the extended/total line price. If invoice shows QTY 4 x $12.50 = $50.00 then price is 12.50 not 50.00
 - unit: the unit of measure for ONE unit. Rules:
   * Sold by weight: use "lb" or "oz"
