@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { Analytics } from "@vercel/analytics/next"
 
 // ─── Fonts via Google ───────────────────────────────────────────────────────
 const fontLink = document.createElement("link");
