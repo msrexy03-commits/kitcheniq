@@ -395,11 +395,18 @@ Example output:
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({ ingredients, menuItems, onNavigate }) {
   const alerts = getPriceAlerts(ingredients);
+
+  // Price history chart state
+  const ingredientNames = [...new Set(ingredients.map(i => i.name))].sort();
+  const [selectedIngredient, setSelectedIngredient] = useState(ingredientNames[0] || "");
+  const priceHistory = ingredients
+    .filter(i => i.name === selectedIngredient)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .map(i => ({ date: i.date, price: i.price }));
   const menuStats = menuItems.map((m) => ({ ...m, ...calcMenuStats(m, ingredients) }));
   const best = menuStats.length ? menuStats.reduce((a, b) => a.margin > b.margin ? a : b) : null;
   const worst = menuStats.length ? menuStats.reduce((a, b) => a.margin < b.margin ? a : b) : null;
   const avgMargin = menuStats.length ? menuStats.reduce((s, m) => s + m.margin, 0) / menuStats.length : 0;
-  const chartData = ingredients.slice(-12).map((i) => ({ name: i.name.slice(0, 8), price: i.price }));
   const marginData = menuStats.slice(0, 8).map((m) => ({ name: m.name.slice(0, 10), margin: parseFloat(m.margin.toFixed(1)) }));
 
   return (
@@ -413,17 +420,31 @@ function Dashboard({ ingredients, menuItems, onNavigate }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Recent Ingredient Prices</div>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={160}>
-              <LineChart data={chartData}>
-                <XAxis dataKey="name" tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.body, fontSize: 12 }} />
-                <Line type="monotone" dataKey="price" stroke={T.accent} strokeWidth={2} dot={{ fill: T.accent, r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13, fontFamily: T.body }}>Add ingredients to see chart</div>}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>Price History</div>
+            {ingredientNames.length > 0 && (
+              <select value={selectedIngredient} onChange={(e) => setSelectedIngredient(e.target.value)}
+                style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }}>
+                {ingredientNames.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            )}
+          </div>
+          {priceHistory.length === 0
+            ? <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13, fontFamily: T.body }}>Add ingredients to see price history</div>
+            : priceHistory.length === 1
+            ? <div style={{ height: 160, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <div style={{ fontSize: 28, color: T.accent, fontFamily: T.font, fontWeight: 800 }}>${priceHistory[0].price}</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Only one price recorded — scan another invoice to see trend</div>
+              </div>
+            : <ResponsiveContainer width="100%" height={160}>
+                <LineChart data={priceHistory}>
+                  <XAxis dataKey="date" tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+                  <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.body, fontSize: 12 }}
+                    formatter={(v) => [`$${Number(v).toFixed(2)}`, "Price"]} />
+                  <Line type="monotone" dataKey="price" stroke={T.accent} strokeWidth={2} dot={{ fill: T.accent, r: 4 }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>}
         </div>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Menu Item Margins</div>
