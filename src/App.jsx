@@ -227,7 +227,7 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
 Return ONLY a raw JSON array. No markdown, no backticks, no explanation, no preamble.
 
 For each line item extract:
-- name: the product name, simplified and clean. Strip out brand codes, item numbers, size descriptors, and packaging details. Examples: 'BACON SLICED 18/14-16CT' becomes 'Bacon'. 'SAUSAGE LINKS ITALIAN SWEET PORK' becomes 'Italian Sweet Sausage'. 'TOMATOES ROMA 25LB CASE' becomes 'Roma Tomatoes'. Keep it short, human readable, how a chef would write it on a prep list.
+- name: the product name, cleaned up but ONLY using words actually printed on the invoice. Remove item numbers, SKU codes, and quantity descriptors. NEVER guess, infer, or substitute words not on the invoice. If you cannot read a word clearly, skip it rather than guess. Examples: 'BACON SLICED 18/14-16CT' becomes 'Bacon Sliced'. 'SAUSAGE LINKS ITALIAN SWEET PORK' becomes 'Italian Sweet Sausage'. 'CHEDDAR JACK CHEESE SHREDDED CASAIMP' becomes 'Cheddar Jack Cheese Shredded' — drop the unreadable code, never replace it with a guess.
 - price: the UNIT price — cost per single unit, NOT the extended/total line price. If invoice shows QTY 4 x $12.50 = $50.00 then price is 12.50 not 50.00
 - unit: the unit of measure for ONE unit. Rules:
   * Sold by weight: use "lb" or "oz"
@@ -239,6 +239,11 @@ For each line item extract:
   * Never leave blank, guess from context if needed
 - supplier: vendor/company name from invoice header (or "Unknown")
 - date: invoice date YYYY-MM-DD format (use ${today()} if not visible)
+
+Critical rules:
+- ONE JSON object per invoice line item. Never split one line into two, never combine two lines into one.
+- Never guess or infer product names. Only use words visibly printed on the invoice.
+- If a line item is unclear, include it with your best literal reading rather than skipping it.
 
 Invoice layout hints:
 - Sysco/US Foods columns: Item# | Description | Pack/Size | QTY | Unit Price | Extended Price — always use Unit Price column, never Extended Price
