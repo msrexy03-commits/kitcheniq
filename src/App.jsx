@@ -102,6 +102,77 @@ function exportCSV(ingredients, menuItems) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "kitcheniq-export.csv"; a.click();
 }
 
+// ─── Email Alert Sender ───────────────────────────────────────────────────────
+async function sendPriceAlertEmail(userEmail, changes, menuItems, ingredients) {
+  const bigChanges = changes.filter(c => Math.abs(c.pct) >= 8);
+  if (!bigChanges.length) return;
+
+  const itemLines = bigChanges.map(c => {
+    const arrow = c.pct > 0 ? "🔴" : "🟢";
+    const sign = c.pct > 0 ? "+" : "";
+    // Find affected menu items
+    const affected = menuItems.filter(m =>
+      (m.ingredients || []).some(i => i.ingredient_name?.toLowerCase() === c.name.toLowerCase())
+    );
+    const affectedLine = affected.length ? `Affects: ${affected.map(m => m.name).join(", ")}` : "";
+    return `${arrow} ${c.name}: $${Number(c.oldPrice).toFixed(2)} → $${Number(c.newPrice).toFixed(2)} (${sign}${c.pct.toFixed(1)}%)${affectedLine ? "\n   " + affectedLine : ""}`;
+  }).join("\n\n");
+
+  const subject = bigChanges.length === 1
+    ? `⚠️ KitchenIQ Alert — ${bigChanges[0].name} price ${bigChanges[0].pct > 0 ? "increased" : "decreased"} ${Math.abs(bigChanges[0].pct).toFixed(0)}%`
+    : `⚠️ KitchenIQ Alert — ${bigChanges.length} ingredient price changes detected`;
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #0f1410; color: #e8f0e9; padding: 32px; border-radius: 12px;">
+      <div style="margin-bottom: 24px;">
+        <span style="font-size: 24px; font-weight: 800; color: #e8f0e9;">Kitchen<span style="color: #4eca6e;">IQ</span></span>
+      </div>
+      <h2 style="color: #e8f0e9; margin-bottom: 8px;">Price Change Alert</h2>
+      <p style="color: #6b8a6e; margin-bottom: 24px;">We detected significant price changes on your latest invoice scan.</p>
+      ${bigChanges.map(c => {
+        const isUp = c.pct > 0;
+        const sign = isUp ? "+" : "";
+        const affected = menuItems.filter(m =>
+          (m.ingredients || []).some(i => i.ingredient_name?.toLowerCase() === c.name.toLowerCase())
+        );
+        return `
+        <div style="background: #161d17; border: 1px solid ${isUp ? "#e8854a55" : "#4eca6e55"}; border-radius: 10px; padding: 20px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span style="font-size: 16px; font-weight: 700; color: #e8f0e9;">${c.name}</span>
+            <span style="font-size: 20px; font-weight: 800; color: ${isUp ? "#e8854a" : "#4eca6e"};">${isUp ? "▲" : "▼"} ${sign}${c.pct.toFixed(1)}%</span>
+          </div>
+          <div style="color: #6b8a6e; font-size: 14px; margin-bottom: 8px;">
+            $${Number(c.oldPrice).toFixed(2)} → $${Number(c.newPrice).toFixed(2)} per ${c.unit || "unit"}
+          </div>
+          ${affected.length ? `<div style="color: #6b8a6e; font-size: 13px;">Affects menu items: <strong style="color: #e8f0e9;">${affected.map(m => m.name).join(", ")}</strong></div>` : ""}
+        </div>`;
+      }).join("")}
+      <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #1e2b1f;">
+        <a href="https://trykitcheniq.com" style="background: #4eca6e; color: #0f1410; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px;">View Full Breakdown →</a>
+      </div>
+      <p style="color: #2a3a2b; font-size: 12px; margin-top: 24px;">KitchenIQ · trykitcheniq.com</p>
+    </div>
+  `;
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${import.meta.env.VITE_RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "KitchenIQ Alerts <alerts@trykitcheniq.com>",
+        to: [userEmail],
+        subject,
+        html,
+      })
+    });
+  } catch (e) {
+    console.error("Failed to send alert email:", e);
+  }
+}
+
 const T = {
   bg: "#0f1410", card: "#161d17", border: "#1e2b1f",
   accent: "#4eca6e", accentDim: "#4eca6e22", accentMid: "#4eca6e55",
@@ -495,7 +566,7 @@ function Dashboard({ ingredients, menuItems, onNavigate }) {
 }
 
 // ─── Ingredients ──────────────────────────────────────────────────────────────
-function IngredientsView({ ingredients, setIngredients, userId }) {
+function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuItems }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", supplier: "", date: today(), price: "", case_size: "", case_unit: "lb" });
   const [editId, setEditId] = useState(null);
@@ -544,7 +615,26 @@ function IngredientsView({ ingredients, setIngredients, userId }) {
     setSaving(true);
     const rows = items.map((r) => ({ name: r.name, supplier: r.supplier, date: r.date, price: r.price, case_size: r.case_size || null, case_unit: r.case_unit || r.unit, unit: r.unit, user_id: userId }));
     const { data, error } = await supabase.from("ingredients").insert(rows).select();
-    if (!error) setIngredients((prev) => [...prev, ...data]);
+    if (!error) {
+      const newIngredients = [...ingredients, ...data];
+      setIngredients(newIngredients);
+      // Detect price changes and send alerts
+      const changes = [];
+      items.forEach(item => {
+        const existing = ingredients.filter(i => i.name.toLowerCase() === item.name.toLowerCase())
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (existing.length > 0) {
+          const prev = existing[0];
+          const pct = ((item.price - prev.price) / prev.price) * 100;
+          if (Math.abs(pct) >= 5) {
+            changes.push({ name: item.name, oldPrice: prev.price, newPrice: item.price, pct, unit: item.unit });
+          }
+        }
+      });
+      if (changes.some(c => Math.abs(c.pct) >= 8)) {
+        await sendPriceAlertEmail(userEmail, changes, menuItems, newIngredients);
+      }
+    }
     setSaving(false);
   };
 
@@ -1115,20 +1205,29 @@ export default function KitchenIQ() {
         </div>
       </div>
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", background: T.card, overflowX: "auto" }}>
-        {TABS.map((t, i) => (
-          <button key={i} onClick={() => setTab(i)} style={{
-            background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`,
-            color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font,
-            fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap",
-          }}>{ICONS[i]} {t}</button>
-        ))}
+        {TABS.map((t, i) => {
+            const alertCount = i === 3 ? getPriceAlerts(ingredients).length : 0;
+            return (
+              <button key={i} onClick={() => setTab(i)} style={{
+                background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`,
+                color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font,
+                fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                {ICONS[i]} {t}
+                {alertCount > 0 && (
+                  <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{alertCount}</span>
+                )}
+              </button>
+            );
+          })}
       </div>
       <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
         {loading
           ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
           : <>
             {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} />}
-            {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} />}
+            {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} />}
             {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
             {tab === 3 && <AlertsView ingredients={ingredients} />}
           </>}
