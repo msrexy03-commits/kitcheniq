@@ -49,7 +49,9 @@ function getUnitCost(ingredient) {
 
 // Calculate cost of a recipe row
 function calcRecipeCost(row, ingredients) {
-  const ing = ingredients.find(i => i.name.toLowerCase() === row.ingredient_name?.toLowerCase());
+  // Get the latest entry for this ingredient by date
+  const matches = ingredients.filter(i => i.name.toLowerCase() === row.ingredient_name?.toLowerCase());
+  const ing = matches.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
   if (!ing) return Number(row.cost) || 0; // fallback to manual cost
   const unitCost = getUnitCost(ing);
   if (!unitCost) return Number(row.cost) || 0;
@@ -155,18 +157,10 @@ async function sendPriceAlertEmail(userEmail, changes, menuItems, ingredients) {
   `;
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    await fetch("/api/send-alert", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${import.meta.env.VITE_RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: "KitchenIQ Alerts <alerts@trykitcheniq.com>",
-        to: [userEmail],
-        subject,
-        html,
-      })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: userEmail, subject, html }),
     });
   } catch (e) {
     console.error("Failed to send alert email:", e);
