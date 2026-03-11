@@ -614,19 +614,28 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
       setIngredients(newIngredients);
       // Detect price changes and send alerts
       const changes = [];
+      console.log("Scanning for price changes...", items.length, "items scanned");
+      console.log("Existing ingredients:", ingredients.map(i => i.name));
       items.forEach(item => {
         const existing = ingredients.filter(i => i.name.toLowerCase() === item.name.toLowerCase())
           .sort((a, b) => new Date(b.date) - new Date(a.date));
+        console.log(`Checking ${item.name}: found ${existing.length} existing matches`);
         if (existing.length > 0) {
           const prev = existing[0];
           const pct = ((item.price - prev.price) / prev.price) * 100;
+          console.log(`${item.name}: ${prev.price} -> ${item.price} = ${pct.toFixed(1)}% change`);
           if (Math.abs(pct) >= 5) {
             changes.push({ name: item.name, oldPrice: prev.price, newPrice: item.price, pct, unit: item.unit });
           }
         }
       });
+      console.log("Changes detected:", changes);
       if (changes.some(c => Math.abs(c.pct) >= 8)) {
-        await sendPriceAlertEmail(userEmail, changes, menuItems, newIngredients);
+        console.log("Sending alert email to", userEmail);
+        const result = await sendPriceAlertEmail(userEmail, changes, menuItems, newIngredients);
+        console.log("Email result:", result);
+      } else {
+        console.log("No changes over 8%, no email sent");
       }
     }
     setSaving(false);
@@ -651,33 +660,60 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
         </div>
       )}
 
-      {ingredients.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {ingredients.map((ing) => {
-            const uc = getUnitCost(ing);
-            return (
-              <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
-                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>
-                    {ing.supplier} · {ing.date}
-                    {ing.case_size ? ` · ${ing.case_size} ${ing.case_unit} per case` : ""}
+      {ingredients.length > 0 && (() => {
+        // Group by date, sorted newest first, alphabetical within each group
+        const grouped = {};
+        ingredients.forEach(ing => {
+          const key = ing.date || "Unknown Date";
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(ing);
+        });
+        const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+        sortedDates.forEach(date => {
+          grouped[date].sort((a, b) => a.name.localeCompare(b.name));
+        });
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {sortedDates.map(date => (
+              <div key={date}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>
+                    📄 {date}
                   </div>
-                  {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
+                  <div style={{ flex: 1, height: 1, background: T.border }} />
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>
+                    {grouped[date].length} items · {grouped[date][0]?.supplier || ""}
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
-                    <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
-                  </div>
-                  <Btn small variant="ghost" onClick={() => openEdit(ing)}>Edit</Btn>
-                  <Btn small variant="danger" onClick={() => del(ing.id)}>Del</Btn>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {grouped[date].map(ing => {
+                    const uc = getUnitCost(ing);
+                    return (
+                      <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div>
+                          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
+                          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>
+                            {ing.case_size ? `${ing.case_size} ${ing.case_unit} per case` : "No case size"}
+                          </div>
+                          {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
+                            <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
+                          </div>
+                          <Btn small variant="ghost" onClick={() => openEdit(ing)}>Edit</Btn>
+                          <Btn small variant="danger" onClick={() => del(ing.id)}>Del</Btn>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
 
       {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} />}
 
