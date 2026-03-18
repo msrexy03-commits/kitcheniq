@@ -1177,12 +1177,124 @@ function OnboardingBanner({ ingredients, menuItems, onNavigate }) {
   );
 }
 
+
+// ─── Paywall Screen ───────────────────────────────────────────────────────────
+function PaywallScreen({ session }) {
+  const [coupon, setCoupon] = useState("");
+  const [loading, setLoading] = useState(null);
+  const [error, setError] = useState(null);
+
+  const checkout = async (priceId) => {
+    setLoading(priceId); setError(null);
+    try {
+      const res = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          couponCode: coupon.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      window.location.href = data.url;
+    } catch (e) {
+      setError(e.message);
+      setLoading(null);
+    }
+  };
+
+  const signOut = async () => await supabase.auth.signOut();
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 520 }}>
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>⬡</div>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Restaurant cost intelligence</div>
+        </div>
+
+        {/* Plans */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+          {/* Monthly */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "28px 32px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Monthly</div>
+                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 4 }}>Cancel anytime</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 32, color: T.text }}>$89</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>per month</div>
+              </div>
+            </div>
+            <button onClick={() => checkout(import.meta.env.VITE_STRIPE_PRICE_MONTHLY)} disabled={!!loading}
+              style={{ width: "100%", background: T.faint, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: "13px 20px", fontSize: 14, fontFamily: T.font, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
+              {loading === import.meta.env.VITE_STRIPE_PRICE_MONTHLY ? "Redirecting..." : "Get Started Monthly"}
+            </button>
+          </div>
+
+          {/* Yearly */}
+          <div style={{ background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 14, padding: "28px 32px", position: "relative" }}>
+            <div style={{ position: "absolute", top: -12, left: 24, background: T.accent, color: "#0f1410", borderRadius: 20, padding: "4px 14px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em" }}>BEST VALUE</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Yearly</div>
+                <div style={{ fontSize: 13, color: T.accent, fontFamily: T.body, marginTop: 4 }}>Save $269 vs monthly</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 32, color: T.accent }}>$799</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>per year</div>
+              </div>
+            </div>
+            <button onClick={() => checkout(import.meta.env.VITE_STRIPE_PRICE_YEARLY)} disabled={!!loading}
+              style={{ width: "100%", background: T.accent, border: "none", color: "#0f1410", borderRadius: 8, padding: "13px 20px", fontSize: 14, fontFamily: T.font, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
+              {loading === import.meta.env.VITE_STRIPE_PRICE_YEARLY ? "Redirecting..." : "Get Started Yearly"}
+            </button>
+          </div>
+        </div>
+
+        {/* Features */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px", marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 14 }}>Everything included</div>
+          {["AI invoice scanning", "AI menu scanning", "Automatic margin calculation", "Price spike email alerts", "Price history tracking", "Unlimited scans"].map(f => (
+            <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ color: T.accent, fontSize: 14 }}>✓</span>
+              <span style={{ fontSize: 13, color: T.text, fontFamily: T.body }}>{f}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Coupon */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 10 }}>Beta tester coupon code</div>
+          <input value={coupon} onChange={e => setCoupon(e.target.value)} placeholder="Enter your code..."
+            style={{ width: "100%", background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none", boxSizing: "border-box" }} />
+          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 8 }}>Beta testers enter your code above then select a plan — it will apply 100% off automatically</div>
+        </div>
+
+        {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "12px 16px", fontSize: 13, color: T.warn, fontFamily: T.body, marginBottom: 16 }}>⚠ {error}</div>}
+
+        <div style={{ textAlign: "center" }}>
+          <button onClick={signOut} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer" }}>Sign out</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡"];
 
 export default function KitchenIQ() {
   const [session, setSession] = useState(undefined);
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [tab, setTab] = useState(0);
   const [ingredients, setIngredients] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -1193,6 +1305,17 @@ export default function KitchenIQ() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session) { setProfile(null); return; }
+    const fetchProfile = async () => {
+      setProfileLoading(true);
+      const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+      setProfile(data);
+      setProfileLoading(false);
+    };
+    fetchProfile();
+  }, [session]);
 
   useEffect(() => {
     if (!session) return;
@@ -1209,7 +1332,22 @@ export default function KitchenIQ() {
     load();
   }, [session]);
 
-  const signOut = async () => { await supabase.auth.signOut(); setIngredients([]); setMenuItems([]); };
+  const signOut = async () => { await supabase.auth.signOut(); setIngredients([]); setMenuItems([]); setProfile(null); };
+
+  // Handle Stripe redirect back
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success") === "true") {
+      window.history.replaceState({}, "", "/");
+      // Refetch profile after successful payment
+      if (session) {
+        setTimeout(async () => {
+          const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+          setProfile(data);
+        }, 2000);
+      }
+    }
+  }, [session]);
 
   if (session === undefined) return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1218,6 +1356,12 @@ export default function KitchenIQ() {
   );
 
   if (!session) return <AuthScreen />;
+  if (profileLoading) return (
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ color: T.accent, fontFamily: T.font, fontSize: 18 }}>Loading...</div>
+    </div>
+  );
+  if (!profile?.is_subscribed) return <PaywallScreen session={session} />;
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
