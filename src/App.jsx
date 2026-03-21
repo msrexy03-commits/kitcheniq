@@ -1313,20 +1313,68 @@ const DEMO_MENU_ITEMS = [
 // ─── Demo Screen ──────────────────────────────────────────────────────────────
 function DemoScreen({ onSignUp }) {
   const [tab, setTab] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const [pulse, setPulse] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => setVisible(true), 100);
+    const interval = setInterval(() => setPulse(p => !p), 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
-      {/* Demo Banner */}
-      <div style={{ background: T.accent, padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-        <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: "#0f1410" }}>
-          ✨ You're viewing a live demo with sample restaurant data
+
+      {/* Animated Hero Banner */}
+      <div style={{
+        background: `linear-gradient(135deg, #0f1410 0%, #162018 50%, #0f1410 100%)`,
+        borderBottom: `1px solid ${T.accentMid}`,
+        padding: "48px 24px 40px",
+        textAlign: "center",
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(-20px)",
+        transition: "all 0.6s ease",
+      }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 20, padding: "6px 16px", marginBottom: 20 }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.accent, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.accent}`, transition: "box-shadow 0.5s ease" }} />
+          <span style={{ fontSize: 12, color: T.accent, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>LIVE DEMO — SAMPLE RESTAURANT DATA</span>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: "#0f1410", fontFamily: T.body }}>Ready to connect your restaurant?</span>
-          <button onClick={onSignUp} style={{ background: "#0f1410", color: T.accent, border: "none", borderRadius: 6, padding: "7px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
-            Get Started →
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 36, color: T.text, marginBottom: 12, lineHeight: 1.1 }}>
+          See exactly what Kitchen<span style={{ color: T.accent }}>IQ</span> does
+        </div>
+        <div style={{ fontSize: 15, color: T.muted, fontFamily: T.body, marginBottom: 28, maxWidth: 480, margin: "0 auto 28px" }}>
+          This is a fully interactive demo loaded with a sample restaurant. Click through every tab to see how it works — then connect your own restaurant.
+        </div>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={onSignUp} style={{
+            background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
+            padding: "14px 32px", fontSize: 15, fontFamily: T.font, fontWeight: 800,
+            cursor: "pointer", boxShadow: `0 0 24px ${T.accent}44`,
+            transform: pulse ? "scale(1.02)" : "scale(1)", transition: "transform 0.5s ease",
+          }}>
+            Connect My Restaurant →
+          </button>
+          <button onClick={() => setTab(0)} style={{
+            background: "transparent", color: T.muted, border: `1px solid ${T.border}`,
+            borderRadius: 8, padding: "14px 32px", fontSize: 15, fontFamily: T.font, fontWeight: 600, cursor: "pointer",
+          }}>
+            Explore Demo ↓
           </button>
         </div>
+        <div style={{ display: "flex", gap: 32, justifyContent: "center", marginTop: 32, flexWrap: "wrap" }}>
+          {[["📸", "Scan invoices with AI"], ["🍽", "Auto-calculate margins"], ["⚡", "Get price spike alerts"]].map(([icon, text]) => (
+            <div key={text} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18 }}>{icon}</span>
+              <span style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>{text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Demo Label Bar */}
+      <div style={{ background: "#1a0a00", borderBottom: `1px solid ${T.warn}44`, padding: "8px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ DEMO MODE</span>
+        <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>— You are viewing sample data, not a real restaurant. Click "Connect My Restaurant" to get started.</span>
       </div>
 
       {/* Header */}
@@ -1334,9 +1382,10 @@ function DemoScreen({ onSignUp }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
           <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+          <span style={{ fontSize: 11, background: T.warnDim, color: T.warn, border: `1px solid ${T.warn}44`, borderRadius: 4, padding: "2px 8px", fontFamily: T.font, fontWeight: 700, letterSpacing: "0.05em" }}>DEMO</span>
         </div>
         <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
-          Sign Up Free Trial
+          Connect My Restaurant →
         </button>
       </div>
 
@@ -1447,11 +1496,16 @@ function DemoScreen({ onSignUp }) {
       </div>
 
       {/* Bottom CTA */}
-      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, padding: "32px 24px", textAlign: "center" }}>
-        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 22, color: T.text, marginBottom: 8 }}>Ready to track your real margins?</div>
-        <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, marginBottom: 20 }}>Connect your invoices and menu in minutes. $89/month or $799/year.</div>
-        <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "14px 32px", fontSize: 15, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
-          Get Started →
+      <div style={{ background: T.card, borderTop: `1px solid ${T.accentMid}`, padding: "48px 24px", textAlign: "center" }}>
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 26, color: T.text, marginBottom: 10 }}>Stop guessing. Start knowing.</div>
+        <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, marginBottom: 8 }}>Connect your invoices and menu in under 10 minutes.</div>
+        <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 28 }}>$89/month · $799/year · Cancel anytime</div>
+        <button onClick={onSignUp} style={{
+          background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
+          padding: "16px 40px", fontSize: 16, fontFamily: T.font, fontWeight: 800,
+          cursor: "pointer", boxShadow: `0 0 32px ${T.accent}44`,
+        }}>
+          Connect My Restaurant →
         </button>
       </div>
     </div>
