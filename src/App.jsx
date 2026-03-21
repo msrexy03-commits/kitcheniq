@@ -504,7 +504,7 @@ Example output:
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-function Dashboard({ ingredients, menuItems, onNavigate }) {
+function Dashboard({ ingredients, menuItems, onNavigate, flashCard, chartOpacity }) {
   const alerts = getPriceAlerts(ingredients);
 
   // Price history chart state
@@ -524,10 +524,24 @@ function Dashboard({ ingredients, menuItems, onNavigate }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <OnboardingBanner ingredients={ingredients} menuItems={menuItems} onNavigate={onNavigate} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
-        <StatCard label="Ingredients Tracked" value={ingredients.length} accent />
-        <StatCard label="Menu Items" value={menuItems.length} />
-        <StatCard label="Avg Margin" value={fmtPct(avgMargin)} sub={avgMargin > 60 ? "Healthy ✓" : avgMargin > 40 ? "Watch closely" : "⚠ Low"} accent={avgMargin > 60} />
-        <StatCard label="Price Alerts" value={alerts.length} sub={alerts.length ? alerts[0].name : "All stable"} accent={alerts.length === 0} />
+        {[
+          { key: "ingredients", label: "Ingredients Tracked", value: ingredients.length, accent: true },
+          { key: "menu", label: "Menu Items", value: menuItems.length, accent: false },
+          { key: "margin", label: "Avg Margin", value: fmtPct(avgMargin), sub: avgMargin > 60 ? "Healthy ✓" : avgMargin > 40 ? "Watch closely" : "⚠ Low margins", accent: avgMargin > 60, warn: avgMargin < 50 },
+          { key: "alerts", label: "Price Alerts", value: alerts.length, sub: alerts.length ? alerts[0].name : "All stable", accent: alerts.length === 0, warn: alerts.length > 0 },
+        ].map(card => (
+          <div key={card.key} style={{
+            background: T.card,
+            border: `1px solid ${card.warn ? T.warn + "88" : card.accent ? T.accentMid : T.border}`,
+            borderRadius: 10, padding: "16px 20px",
+            animation: flashCard === card.key ? "cardFlash 0.9s ease" : "none",
+            transition: "border-color 0.3s ease",
+          }}>
+            <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>{card.label}</div>
+            <div style={{ fontSize: 32, color: card.warn ? T.warn : card.accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{card.value}</div>
+            {card.sub && <div style={{ fontSize: 12, color: card.warn ? T.warn : T.muted, marginTop: 6, fontFamily: T.body }}>{card.sub}</div>}
+          </div>
+        ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
@@ -566,7 +580,7 @@ function Dashboard({ ingredients, menuItems, onNavigate }) {
                 <YAxis tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.body, fontSize: 12 }} formatter={(v) => [`${v}%`, "Margin"]} />
                 <Bar dataKey="margin" radius={[4, 4, 0, 0]}>
-                  {marginData.map((entry, i) => (<Cell key={i} fill={entry.margin > 60 ? T.accent : entry.margin > 40 ? "#e8c84a" : T.warn} />))}
+                  {marginData.map((entry, i) => (<Cell key={i} fill={entry.margin > 60 ? T.accent : entry.margin > 40 ? "#e8c84a" : T.warn} opacity={entry.margin < 40 ? 1 : 0.85} />))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -1464,25 +1478,40 @@ function DemoScreen({ onSignUp }) {
   const [visible, setVisible] = useState(false);
   const [pulse, setPulse] = useState(false);
   const [showDemoScanner, setShowDemoScanner] = useState(false);
-  const [tourStep, setTourStep] = useState(0); // 0=hidden, 1-4=steps
-
+  const [tourStep, setTourStep] = useState(0);
+  const [flashCard, setFlashCard] = useState(null);
+  const [liveAlertVisible, setLiveAlertVisible] = useState(false);
+  const [chartOpacity, setChartOpacity] = useState(0);
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 100);
+    setTimeout(() => setChartOpacity(1), 900);
+
+    // Flash stat cards to feel like live data
+    const cards = ["ingredients", "menu", "margin", "alerts"];
+    let cardIdx = 0;
+    const cardFlash = setInterval(() => {
+      setFlashCard(cards[cardIdx % cards.length]);
+      cardIdx++;
+      setTimeout(() => setFlashCard(null), 900);
+    }, 3500);
+
+    // Live price alert notification
+    setTimeout(() => setLiveAlertVisible(true), 5000);
+    setTimeout(() => setLiveAlertVisible(false), 9500);
+
     const interval = setInterval(() => setPulse(p => !p), 2000);
 
-    // Only start tour when user scrolls to demo section
     const demoEl = document.getElementById("demo-section");
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
         setTimeout(() => setTourStep(1), 800);
-
         observer.disconnect();
       }
     }, { threshold: 0.3 });
     if (demoEl) observer.observe(demoEl);
 
-    return () => { clearInterval(interval); observer.disconnect(); };
+    return () => { clearInterval(interval); clearInterval(cardFlash); observer.disconnect(); };
   }, []);
 
   const TOUR_STEPS = [
@@ -1641,7 +1670,41 @@ function DemoScreen({ onSignUp }) {
       {/* Content */}
       <div style={{ width: "100%", padding: "24px 16px", boxSizing: "border-box" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        {tab === 0 && <Dashboard ingredients={DEMO_INGREDIENTS} menuItems={DEMO_MENU_ITEMS} onNavigate={setTab} />}
+        {tab === 0 && (
+          <div>
+            {/* Animated stat cards with flash effect */}
+            <style>{`
+              @keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: #1e2b1f; } }
+              @keyframes chartDraw { from { opacity: 0; transform: scaleX(0.6); } to { opacity: 1; transform: scaleX(1); } }
+              @keydef slideIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+              @keyframes slideIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+            `}</style>
+
+            {/* Live alert notification */}
+            {liveAlertVisible && (
+              <div style={{
+                background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10,
+                padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12,
+                animation: "slideIn 0.4s ease",
+              }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}` }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ Price Alert — Eggs Large Grade A increased 81%</div>
+                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>$38.40 → $69.60 · Affects: Bacon & Eggs, Three Egg Omelette, Egg & Cheese Sandwich</div>
+                </div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>just now</div>
+              </div>
+            )}
+
+            <Dashboard
+              ingredients={DEMO_INGREDIENTS}
+              menuItems={DEMO_MENU_ITEMS}
+              onNavigate={setTab}
+              flashCard={flashCard}
+              chartOpacity={chartOpacity}
+            />
+          </div>
+        )}
         {tab === 1 && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
@@ -1701,20 +1764,30 @@ function DemoScreen({ onSignUp }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {DEMO_MENU_ITEMS.map(m => {
                 const { cost, profit, margin } = calcMenuStats(m, DEMO_INGREDIENTS);
-                const color = margin > 60 ? T.accent : margin > 40 ? "#e8c84a" : T.warn;
+                const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
+                const isBad = margin < 50;
                 return (
-                  <div key={m.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 20px" }}>
+                  <div key={m.id} style={{
+                    background: T.card,
+                    border: `1px solid ${isBad ? T.warn + "66" : T.border}`,
+                    borderRadius: 10, padding: "16px 20px",
+                    boxShadow: isBad ? `0 0 16px ${T.warn}18` : "none",
+                  }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
+                      <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
                         <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{(m.ingredients || []).map(i => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}</div>
+                        {isBad && <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 6 }}>⚠ Below target — consider raising your price</div>}
                       </div>
-                      <div style={{ fontSize: 20, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
+                      <div style={{ textAlign: "right", marginLeft: 16 }}>
+                        <div style={{ fontSize: 22, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
+                        {isBad && <div style={{ fontSize: 10, color: T.warn, fontFamily: T.body }}>needs attention</div>}
+                      </div>
                     </div>
                     <div style={{ display: "flex", gap: 20, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.faint}` }}>
                       <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Sale: <strong style={{ color: T.text }}>{fmt$2(m.sale_price)}</strong></span>
-                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: T.text }}>{fmt$2(cost)}</strong></span>
-                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: T.accent }}>{fmt$2(profit)}</strong></span>
+                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: isBad ? T.warn : T.text }}>{fmt$2(cost)}</strong></span>
+                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: isBad ? T.warn : T.accent }}>{fmt$2(profit)}</strong></span>
                     </div>
                   </div>
                 );
