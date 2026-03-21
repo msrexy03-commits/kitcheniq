@@ -13,6 +13,17 @@ const supabase = createClient(
 );
 
 const today = () => new Date().toISOString().split("T")[0];
+
+// ─── Responsive Hook ──────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+}
 const fmt$ = (n) => `$${Number(n).toFixed(4)}`;
 const fmt$2 = (n) => `$${Number(n).toFixed(2)}`;
 const fmtPct = (n) => `${Number(n).toFixed(1)}%`;
@@ -177,7 +188,7 @@ const T = {
 
 function StatCard({ label, value, sub, accent }) {
   return (
-    <div style={{ background: T.card, border: `1px solid ${accent ? T.accentMid : T.border}`, borderRadius: 10, padding: "20px 24px", flex: 1, minWidth: 150 }}>
+    <div style={{ background: T.card, border: `1px solid ${accent ? T.accentMid : T.border}`, borderRadius: 10, padding: "16px 20px", flex: 1, minWidth: 140 }}>
       <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>{label}</div>
       <div style={{ fontSize: 32, color: accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: T.muted, marginTop: 6, fontFamily: T.body }}>{sub}</div>}
@@ -477,13 +488,13 @@ function Dashboard({ ingredients, menuItems, onNavigate }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <OnboardingBanner ingredients={ingredients} menuItems={menuItems} onNavigate={onNavigate} />
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
         <StatCard label="Ingredients Tracked" value={ingredients.length} accent />
         <StatCard label="Menu Items" value={menuItems.length} />
         <StatCard label="Avg Margin" value={fmtPct(avgMargin)} sub={avgMargin > 60 ? "Healthy ✓" : avgMargin > 40 ? "Watch closely" : "⚠ Low"} accent={avgMargin > 60} />
         <StatCard label="Price Alerts" value={alerts.length} sub={alerts.length ? alerts[0].name : "All stable"} accent={alerts.length === 0} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>Price History</div>
@@ -527,7 +538,7 @@ function Dashboard({ ingredients, menuItems, onNavigate }) {
           ) : <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13, fontFamily: T.body }}>Add menu items to see chart</div>}
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Margin Leaders</div>
           {best ? (<>
@@ -1219,7 +1230,7 @@ function PaywallScreen({ session }) {
         </div>
 
         {/* Plans */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
           {/* Monthly */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "28px 32px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -1340,13 +1351,13 @@ function DemoScreen({ onSignUp }) {
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.accent, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.accent}`, transition: "box-shadow 0.5s ease" }} />
           <span style={{ fontSize: 12, color: T.accent, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>LIVE DEMO — SAMPLE RESTAURANT DATA</span>
         </div>
-        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 36, color: T.text, marginBottom: 12, lineHeight: 1.1 }}>
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(22px, 5vw, 36px)", color: T.text, marginBottom: 12, lineHeight: 1.1 }}>
           See exactly what Kitchen<span style={{ color: T.accent }}>IQ</span> does
         </div>
         <div style={{ fontSize: 15, color: T.muted, fontFamily: T.body, marginBottom: 28, maxWidth: 480, margin: "0 auto 28px" }}>
           This is a fully interactive demo loaded with a sample restaurant. Click through every tab to see how it works — then connect your own restaurant.
         </div>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", padding: "0 16px" }}>
           <button onClick={onSignUp} style={{
             background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
             padding: "14px 32px", fontSize: 15, fontFamily: T.font, fontWeight: 800,
@@ -1416,7 +1427,7 @@ function DemoScreen({ onSignUp }) {
       </div>
 
       {/* Content */}
-      <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
+      <div style={{ width: "100%", padding: "24px 16px", boxSizing: "border-box" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         {tab === 0 && <Dashboard ingredients={DEMO_INGREDIENTS} menuItems={DEMO_MENU_ITEMS} onNavigate={setTab} />}
         {tab === 1 && (
@@ -1638,7 +1649,7 @@ export default function KitchenIQ() {
           })}
         </div>
       </div>
-      <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
+      <div style={{ width: "100%", padding: "24px 16px", boxSizing: "border-box" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         {loading
           ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
