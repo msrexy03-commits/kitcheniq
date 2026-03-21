@@ -1465,7 +1465,7 @@ function DemoScreen({ onSignUp }) {
   const [pulse, setPulse] = useState(false);
   const [showDemoScanner, setShowDemoScanner] = useState(false);
   const [tourStep, setTourStep] = useState(0); // 0=hidden, 1-4=steps
-  const [showStickyBar, setShowStickyBar] = useState(false);
+
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 100);
@@ -1476,7 +1476,7 @@ function DemoScreen({ onSignUp }) {
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
         setTimeout(() => setTourStep(1), 800);
-        setTimeout(() => setShowStickyBar(true), 20000);
+
         observer.disconnect();
       }
     }, { threshold: 0.3 });
@@ -1741,8 +1741,8 @@ function DemoScreen({ onSignUp }) {
       {/* Guided Tour Tooltip */}
       {tourStep > 0 && currentTour && (
         <>
-          {/* Dark overlay to focus attention */}
-          <div style={{ position: "fixed", inset: 0, background: "#000000aa", zIndex: 198, pointerEvents: "none" }} />
+          {/* Subtle vignette - only darkens bottom portion behind tooltip */}
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: 200, background: "linear-gradient(to top, #000000cc, transparent)", zIndex: 198, pointerEvents: "none" }} />
           <style>{`
             @keyframes tourPulse {
               0%, 100% { box-shadow: 0 0 0 0 #4eca6e66, 0 12px 48px #000000cc; }
@@ -1785,31 +1785,7 @@ function DemoScreen({ onSignUp }) {
         </>
       )}
 
-      {/* Sticky bottom CTA bar - appears after 15 seconds */}
-      {showStickyBar && (
-        <div style={{
-          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 300,
-          background: "#0f1a10", borderTop: `2px solid ${T.accentMid}`,
-          padding: "14px 24px", display: "flex", alignItems: "center",
-          justifyContent: "space-between", flexWrap: "wrap", gap: 12,
-          boxShadow: "0 -8px 32px #000000aa",
-        }}>
-          <div>
-            <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700 }}>
-              🔴 In this demo, <span style={{ color: T.warn }}>$340+</span> was lost to untracked price changes
-            </div>
-            <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>Your restaurant has the same problem. KitchenIQ catches it automatically.</div>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button onClick={() => setShowStickyBar(false)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer" }}>×</button>
-            <button onClick={onSignUp} style={{
-              background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
-              padding: "12px 24px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer",
-              boxShadow: `0 0 20px ${T.accent}44`, whiteSpace: "nowrap",
-            }}>Fix It For $89/mo →</button>
-          </div>
-        </div>
-      )}
+
 
       {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} />}
 
