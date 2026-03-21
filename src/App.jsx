@@ -504,7 +504,26 @@ Example output:
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-function Dashboard({ ingredients, menuItems, onNavigate, flashCard, chartOpacity }) {
+function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlash, chartOpacity: externalChartOpacity }) {
+  const [internalFlash, setInternalFlash] = useState(null);
+  const [chartOpacity, setChartOpacity] = useState(externalChartOpacity ?? 0);
+  const flashCard = externalFlash ?? internalFlash;
+
+  useEffect(() => {
+    // Fade chart in on mount
+    if (externalChartOpacity === undefined) setTimeout(() => setChartOpacity(1), 400);
+    // Flash cards periodically in real app
+    if (externalFlash === undefined) {
+      const cards = ["ingredients", "menu", "margin", "alerts"];
+      let idx = 0;
+      const interval = setInterval(() => {
+        setInternalFlash(cards[idx % cards.length]);
+        idx++;
+        setTimeout(() => setInternalFlash(null), 900);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, []);
   const alerts = getPriceAlerts(ingredients);
 
   // Price history chart state
@@ -620,7 +639,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard, chartOpacity
 }
 
 // ─── Ingredients ──────────────────────────────────────────────────────────────
-function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuItems }) {
+function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuItems, onPriceChange }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", supplier: "", date: today(), price: "", case_size: "", case_unit: "lb" });
   const [editId, setEditId] = useState(null);
@@ -689,13 +708,9 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
           }
         }
       });
-      console.log("Changes detected:", changes);
+      if (changes.length > 0 && onPriceChange) onPriceChange(changes);
       if (changes.some(c => Math.abs(c.pct) >= 8)) {
-        console.log("Sending alert email to", userEmail);
-        const result = await sendPriceAlertEmail(userEmail, changes, menuItems, newIngredients);
-        console.log("Email result:", result);
-      } else {
-        console.log("No changes over 8%, no email sent");
+        await sendPriceAlertEmail(userEmail, changes, menuItems, newIngredients);
       }
     }
     setSaving(false);
@@ -1023,20 +1038,27 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
         : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {menuItems.map((m) => {
             const { cost, profit, margin } = calcMenuStats(m, ingredients);
-            const color = margin > 60 ? T.accent : margin > 40 ? "#e8c84a" : T.warn;
+            const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
+            const isBad = margin < 50;
             return (
-              <div key={m.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 20px" }}>
+              <div key={m.id} style={{
+                background: T.card,
+                border: `1px solid ${isBad ? T.warn + "66" : T.border}`,
+                borderRadius: 10, padding: "16px 20px",
+                boxShadow: isBad ? `0 0 16px ${T.warn}18` : "none",
+              }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
                     <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>
                       {(m.ingredients || []).map((i) => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}
                     </div>
+                    {isBad && <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 6 }}>⚠ Below target — consider raising your price</div>}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 12 }}>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 18, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
-                      <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>margin</div>
+                      <div style={{ fontSize: 20, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
+                      <div style={{ fontSize: 11, color: isBad ? T.warn : T.muted, fontFamily: T.body }}>{isBad ? "needs attention" : "margin"}</div>
                     </div>
                     <Btn small variant="ghost" onClick={() => openEdit(m)}>Edit</Btn>
                     <Btn small variant="danger" onClick={() => del(m.id)}>Del</Btn>
@@ -1044,8 +1066,8 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
                 </div>
                 <div style={{ display: "flex", gap: 20, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.faint}` }}>
                   <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Sale: <strong style={{ color: T.text }}>{fmt$2(m.sale_price)}</strong></span>
-                  <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: T.text }}>{fmt$2(cost)}</strong></span>
-                  <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: T.accent }}>{fmt$2(profit)}</strong></span>
+                  <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: isBad ? T.warn : T.text }}>{fmt$2(cost)}</strong></span>
+                  <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: isBad ? T.warn : T.accent }}>{fmt$2(profit)}</strong></span>
                 </div>
               </div>
             );
@@ -1898,6 +1920,7 @@ export default function KitchenIQ() {
   const [ingredients, setIngredients] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [priceNotif, setPriceNotif] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -1906,7 +1929,19 @@ export default function KitchenIQ() {
   }, []);
 
   useEffect(() => {
-    if (!session) { setProfile(null); return; }
+    // Inject global animation styles once
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `
+      @keyframes cardFlash { 0% { border-color: inherit; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: inherit; } }
+      @keyframes slideInDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes fadeInChart { from { opacity: 0; } to { opacity: 1; } }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
+  if (!session) { setProfile(null); return; }
     const fetchProfile = async () => {
       setProfileLoading(true);
       const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
@@ -2004,13 +2039,42 @@ export default function KitchenIQ() {
           })}
         </div>
       </div>
+      {/* Price change notification */}
+      {priceNotif && priceNotif.length > 0 && (
+        <div style={{ padding: "0 16px", marginTop: 12 }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{
+              background: "#1a0a00", border: `1px solid ${T.warn}`,
+              borderRadius: 10, padding: "12px 18px",
+              display: "flex", alignItems: "center", gap: 12,
+              animation: "slideInDown 0.4s ease",
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}` }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>
+                  ⚠ {priceNotif.length} price {priceNotif.length === 1 ? "change" : "changes"} detected from this invoice
+                </div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>
+                  {priceNotif.slice(0, 2).map(c => `${c.name}: ${c.pct > 0 ? "+" : ""}${c.pct.toFixed(1)}%`).join(" · ")}
+                  {priceNotif.length > 2 ? ` · +${priceNotif.length - 2} more` : ""}
+                </div>
+              </div>
+              <button onClick={() => { setTab(3); setPriceNotif(null); }} style={{ background: T.warn, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                View Alerts →
+              </button>
+              <button onClick={() => setPriceNotif(null)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: "0 4px" }}>×</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ width: "100%", padding: "24px 16px", boxSizing: "border-box" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         {loading
           ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
           : <>
             {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} />}
-            {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} />}
+            {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 8000); }} />}
             {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
             {tab === 3 && <AlertsView ingredients={ingredients} />}
           </>}
