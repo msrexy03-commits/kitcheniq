@@ -1336,37 +1336,165 @@ function PaywallScreen({ session }) {
 
 // ─── Demo Data ────────────────────────────────────────────────────────────────
 const DEMO_INGREDIENTS = [
-  { id: "d1", name: "Bacon Sliced", supplier: "Sysco", date: "2026-02-10", price: 42.50, case_size: 15, case_unit: "lb", unit: "lb" },
-  { id: "d2", name: "Bacon Sliced", supplier: "Sysco", date: "2026-03-01", price: 48.75, case_size: 15, case_unit: "lb", unit: "lb" },
-  { id: "d3", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-02-10", price: 28.00, case_size: 4, case_unit: "lb", unit: "lb" },
-  { id: "d4", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-03-01", price: 31.50, case_size: 4, case_unit: "lb", unit: "lb" },
-  { id: "d5", name: "Eggs Large", supplier: "Local Farm", date: "2026-02-10", price: 3.20, case_size: 30, case_unit: "each", unit: "each" },
-  { id: "d6", name: "Eggs Large", supplier: "Local Farm", date: "2026-03-01", price: 5.80, case_size: 30, case_unit: "each", unit: "each" },
-  { id: "d7", name: "Chicken Breast", supplier: "US Foods", date: "2026-03-01", price: 54.00, case_size: 20, case_unit: "lb", unit: "lb" },
-  { id: "d8", name: "Butter Unsalted", supplier: "Sysco", date: "2026-03-01", price: 38.00, case_size: 36, case_unit: "each", unit: "each" },
-  { id: "d9", name: "Flour All Purpose", supplier: "Sysco", date: "2026-03-01", price: 22.00, case_size: 50, case_unit: "lb", unit: "lb" },
-  { id: "d10", name: "Ground Beef 80/20", supplier: "US Foods", date: "2026-03-01", price: 98.00, case_size: 30, case_unit: "lb", unit: "lb" },
+  // January invoice
+  { id: "d1", name: "Bacon Sliced 18/14-16ct", supplier: "Sysco", date: "2026-01-08", price: 41.20, case_size: 15, case_unit: "lb", unit: "lb" },
+  { id: "d2", name: "Eggs Large Grade A", supplier: "Mancini Foods", date: "2026-01-08", price: 38.40, case_size: 15, case_unit: "each", unit: "each" },
+  { id: "d3", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-01-08", price: 26.50, case_size: 4, case_unit: "lb", unit: "lb" },
+  { id: "d4", name: "Ground Beef 80/20", supplier: "US Foods", date: "2026-01-08", price: 92.00, case_size: 30, case_unit: "lb", unit: "lb" },
+  { id: "d5", name: "Chicken Breast Boneless", supplier: "US Foods", date: "2026-01-08", price: 51.00, case_size: 20, case_unit: "lb", unit: "lb" },
+  { id: "d6", name: "Butter Unsalted", supplier: "Sysco", date: "2026-01-08", price: 36.00, case_size: 36, case_unit: "each", unit: "each" },
+  // February invoice - prices changed, owner never noticed
+  { id: "d7", name: "Bacon Sliced 18/14-16ct", supplier: "Sysco", date: "2026-02-12", price: 47.80, case_size: 15, case_unit: "lb", unit: "lb" },
+  { id: "d8", name: "Eggs Large Grade A", supplier: "Mancini Foods", date: "2026-02-12", price: 69.60, case_size: 15, case_unit: "each", unit: "each" },
+  { id: "d9", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-02-12", price: 24.80, case_size: 4, case_unit: "lb", unit: "lb" },
+  { id: "d10", name: "Ground Beef 80/20", supplier: "US Foods", date: "2026-02-12", price: 98.50, case_size: 30, case_unit: "lb", unit: "lb" },
+  { id: "d11", name: "Chicken Breast Boneless", supplier: "US Foods", date: "2026-02-12", price: 51.00, case_size: 20, case_unit: "lb", unit: "lb" },
+  { id: "d12", name: "Butter Unsalted", supplier: "Sysco", date: "2026-02-12", price: 36.00, case_size: 36, case_unit: "each", unit: "each" },
 ];
 
 const DEMO_MENU_ITEMS = [
-  { id: "m1", name: "Bacon & Eggs", sale_price: 12.99, ingredients: [{ ingredient_name: "Bacon Sliced", qty: 4, qty_unit: "oz" }, { ingredient_name: "Eggs Large", qty: 2, qty_unit: "each" }] },
-  { id: "m2", name: "Classic Burger", sale_price: 14.99, ingredients: [{ ingredient_name: "Ground Beef 80/20", qty: 6, qty_unit: "oz" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1, qty_unit: "oz" }] },
-  { id: "m3", name: "Chicken Sandwich", sale_price: 13.99, ingredients: [{ ingredient_name: "Chicken Breast", qty: 5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
-  { id: "m4", name: "Buttermilk Pancakes", sale_price: 9.99, ingredients: [{ ingredient_name: "Flour All Purpose", qty: 4, qty_unit: "oz" }, { ingredient_name: "Eggs Large", qty: 1, qty_unit: "each" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
-  { id: "m5", name: "Cheese Omelette", sale_price: 11.99, ingredients: [{ ingredient_name: "Eggs Large", qty: 3, qty_unit: "each" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1.5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
+  { id: "m1", name: "Bacon & Eggs Breakfast", sale_price: 13.99, ingredients: [{ ingredient_name: "Bacon Sliced 18/14-16ct", qty: 4, qty_unit: "oz" }, { ingredient_name: "Eggs Large Grade A", qty: 2, qty_unit: "each" }] },
+  { id: "m2", name: "Classic Smash Burger", sale_price: 14.99, ingredients: [{ ingredient_name: "Ground Beef 80/20", qty: 6, qty_unit: "oz" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1.5, qty_unit: "oz" }] },
+  { id: "m3", name: "Grilled Chicken Sandwich", sale_price: 13.99, ingredients: [{ ingredient_name: "Chicken Breast Boneless", qty: 5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
+  { id: "m4", name: "Three Egg Omelette", sale_price: 12.99, ingredients: [{ ingredient_name: "Eggs Large Grade A", qty: 3, qty_unit: "each" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1.5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
+  { id: "m5", name: "Egg & Cheese Sandwich", sale_price: 7.99, ingredients: [{ ingredient_name: "Eggs Large Grade A", qty: 2, qty_unit: "each" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
 ];
+
+// Fake invoice scan items for demo
+const DEMO_SCAN_ITEMS = [
+  { name: "Bacon Sliced 18/14-16ct", price: 47.80, case_size: 15, case_unit: "lb" },
+  { name: "Eggs Large Grade A", price: 69.60, case_size: 15, case_unit: "each" },
+  { name: "Cheddar Cheese Shredded", price: 24.80, case_size: 4, case_unit: "lb" },
+  { name: "Ground Beef 80/20", price: 98.50, case_size: 30, case_unit: "lb" },
+  { name: "Chicken Breast Boneless", price: 51.00, case_size: 20, case_unit: "lb" },
+  { name: "Butter Unsalted", price: 36.00, case_size: 36, case_unit: "each" },
+];
+
+// ─── Fake Invoice Scanner (Demo) ─────────────────────────────────────────────
+function DemoInvoiceScanner({ onClose }) {
+  const [step, setStep] = useState("upload"); // upload | scanning | results
+  const [visibleItems, setVisibleItems] = useState([]);
+
+  const startScan = () => {
+    setStep("scanning");
+    setTimeout(() => {
+      setStep("results");
+      DEMO_SCAN_ITEMS.forEach((item, i) => {
+        setTimeout(() => {
+          setVisibleItems(prev => [...prev, item]);
+        }, i * 400);
+      });
+    }, 2200);
+  };
+
+  return (
+    <Modal title="📸 AI Invoice Scanner" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: T.accent, fontFamily: T.body }}>
+          ✨ AI reads your invoice and extracts ingredients, prices, and case sizes automatically
+        </div>
+
+        {step === "upload" && (
+          <>
+            <div style={{ border: `2px dashed ${T.accentMid}`, borderRadius: 10, padding: "28px 20px", textAlign: "center", background: T.accentDim, cursor: "pointer" }} onClick={startScan}>
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/240px-PNG_transparency_demonstration_1.png"
+                alt="Sample invoice" style={{ maxWidth: "100%", maxHeight: 140, borderRadius: 6, objectFit: "contain", opacity: 0.7 }} />
+              <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 600, marginTop: 8 }}>Sample Sysco Invoice Loaded</div>
+              <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 4 }}>Click Scan to extract ingredients</div>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+              <button onClick={startScan} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, color: T.accent, border: `1px solid ${T.accentMid}`, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>🔍 Scan Invoice</button>
+            </div>
+          </>
+        )}
+
+        {step === "scanning" && (
+          <div style={{ textAlign: "center", padding: "40px 20px" }}>
+            <div style={{ fontSize: 48, marginBottom: 16, animation: "spin 1s linear infinite" }}>⏳</div>
+            <div style={{ fontSize: 15, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 8 }}>AI is reading your invoice...</div>
+            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Identifying ingredients, prices, and case sizes</div>
+            <div style={{ marginTop: 20, height: 4, background: T.faint, borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ height: "100%", background: T.accent, borderRadius: 2, animation: "progress 2.2s ease-in-out forwards" }} />
+            </div>
+            <style>{`
+              @keyframes progress { from { width: 0% } to { width: 100% } }
+              @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+            `}</style>
+          </div>
+        )}
+
+        {step === "results" && (
+          <>
+            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>✓ Found {DEMO_SCAN_ITEMS.length} items — AI extracted everything automatically</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
+              {visibleItems.map((item, i) => (
+                <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
+                  opacity: 1, transform: "translateY(0)", animation: "fadeIn 0.3s ease" }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{item.name}</div>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{item.case_size} {item.case_unit} per case · unit cost: ${(item.price / item.case_size).toFixed(4)}/{item.case_unit}</div>
+                  </div>
+                  <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>${item.price.toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
+            <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }`}</style>
+            {visibleItems.length === DEMO_SCAN_ITEMS.length && (
+              <div style={{ background: "#1a2a0a", border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "12px 16px" }}>
+                <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>⚡ 2 price changes detected from your last invoice</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>🔴 Bacon Sliced: $41.20 → $47.80 (+16%) · 🔴 Eggs Large: $38.40 → $69.60 (+81%)</div>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={onClose} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+                ✓ This is what your real invoices would look like
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
 
 // ─── Demo Screen ──────────────────────────────────────────────────────────────
 function DemoScreen({ onSignUp }) {
   const [tab, setTab] = useState(0);
   const [visible, setVisible] = useState(false);
   const [pulse, setPulse] = useState(false);
+  const [showDemoScanner, setShowDemoScanner] = useState(false);
+  const [tourStep, setTourStep] = useState(0); // 0=hidden, 1-4=steps
+  const [showStickyBar, setShowStickyBar] = useState(false);
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 100);
+    setTimeout(() => setTourStep(1), 1200);
+    setTimeout(() => setShowStickyBar(true), 15000);
     const interval = setInterval(() => setPulse(p => !p), 2000);
     return () => clearInterval(interval);
   }, []);
+
+  const TOUR_STEPS = [
+    { tab: 0, text: "👋 Welcome! This is your Dashboard — see your avg margin and price alerts at a glance", x: "50%", y: 80 },
+    { tab: 1, text: "📸 Click 'Scan Invoice' to see how AI reads your supplier invoices automatically", x: "75%", y: 80 },
+    { tab: 3, text: "⚡ Price Alerts shows every ingredient that changed price — with exact dollar impact", x: "85%", y: 80 },
+    { tab: 2, text: "🍽 Menu Items shows your real food cost % per dish, updating automatically when prices change", x: "60%", y: 80 },
+  ];
+
+  const currentTour = TOUR_STEPS[tourStep - 1];
+
+  const nextTour = () => {
+    if (tourStep < TOUR_STEPS.length) {
+      const next = tourStep + 1;
+      setTourStep(next);
+      setTab(TOUR_STEPS[next - 1]?.tab ?? tab);
+    } else {
+      setTourStep(0);
+    }
+  };
+
+  const skipTour = () => setTourStep(0);
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
@@ -1509,7 +1637,7 @@ function DemoScreen({ onSignUp }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
               <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_INGREDIENTS.length} ingredients tracked</div>
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={onSignUp} style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📸 Scan Your Invoice</button>
+                <button onClick={() => setShowDemoScanner(true)} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📸 Scan Invoice</button>
               </div>
             </div>
             {(() => {
@@ -1584,9 +1712,74 @@ function DemoScreen({ onSignUp }) {
             </div>
           </div>
         )}
-        {tab === 3 && <AlertsView ingredients={DEMO_INGREDIENTS} />}
+        {tab === 3 && (
+          <div>
+            <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
+              <div style={{ fontSize: 14, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>⚠ These price changes happened between January and February</div>
+              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>The owner of this sample restaurant never noticed. Their margins dropped silently for weeks.</div>
+            </div>
+            <AlertsView ingredients={DEMO_INGREDIENTS} />
+            <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "16px 20px", marginTop: 16 }}>
+              <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>✓ KitchenIQ would have sent an email alert the moment you scanned that invoice</div>
+              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Subject: "⚠ KitchenIQ Alert — Eggs Large price increased 81%" — caught automatically, no manual work.</div>
+            </div>
+          </div>
+        )}
         </div>
       </div>
+
+      {/* Guided Tour Tooltip */}
+      {tourStep > 0 && currentTour && (
+        <div style={{
+          position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
+          background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 12,
+          padding: "16px 20px", zIndex: 200, maxWidth: 420, width: "calc(100% - 40px)",
+          boxShadow: `0 8px 32px #000000aa`,
+        }}>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.body, lineHeight: 1.5, marginBottom: 14 }}>{currentTour.text}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              {TOUR_STEPS.map((_, i) => (
+                <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: i === tourStep - 1 ? T.accent : T.faint }} />
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={skipTour} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer" }}>Skip tour</button>
+              <button onClick={nextTour} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+                {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sticky bottom CTA bar - appears after 15 seconds */}
+      {showStickyBar && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 300,
+          background: "#0f1a10", borderTop: `2px solid ${T.accentMid}`,
+          padding: "14px 24px", display: "flex", alignItems: "center",
+          justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+          boxShadow: "0 -8px 32px #000000aa",
+        }}>
+          <div>
+            <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700 }}>
+              🔴 In this demo, <span style={{ color: T.warn }}>$340+</span> was lost to untracked price changes
+            </div>
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>Your restaurant has the same problem. KitchenIQ catches it automatically.</div>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button onClick={() => setShowStickyBar(false)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer" }}>×</button>
+            <button onClick={onSignUp} style={{
+              background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
+              padding: "12px 24px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer",
+              boxShadow: `0 0 20px ${T.accent}44`, whiteSpace: "nowrap",
+            }}>Fix It For $89/mo →</button>
+          </div>
+        </div>
+      )}
+
+      {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} />}
 
       {/* Bottom CTA */}
       <div style={{ background: `linear-gradient(135deg, #0a0f0a, #0f1a10)`, borderTop: `1px solid ${T.accentMid}`, padding: "64px 24px", textAlign: "center" }}>
