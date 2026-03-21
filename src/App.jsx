@@ -1287,6 +1287,177 @@ function PaywallScreen({ session }) {
   );
 }
 
+
+// ─── Demo Data ────────────────────────────────────────────────────────────────
+const DEMO_INGREDIENTS = [
+  { id: "d1", name: "Bacon Sliced", supplier: "Sysco", date: "2026-02-10", price: 42.50, case_size: 15, case_unit: "lb", unit: "lb" },
+  { id: "d2", name: "Bacon Sliced", supplier: "Sysco", date: "2026-03-01", price: 48.75, case_size: 15, case_unit: "lb", unit: "lb" },
+  { id: "d3", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-02-10", price: 28.00, case_size: 4, case_unit: "lb", unit: "lb" },
+  { id: "d4", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-03-01", price: 31.50, case_size: 4, case_unit: "lb", unit: "lb" },
+  { id: "d5", name: "Eggs Large", supplier: "Local Farm", date: "2026-02-10", price: 3.20, case_size: 30, case_unit: "each", unit: "each" },
+  { id: "d6", name: "Eggs Large", supplier: "Local Farm", date: "2026-03-01", price: 5.80, case_size: 30, case_unit: "each", unit: "each" },
+  { id: "d7", name: "Chicken Breast", supplier: "US Foods", date: "2026-03-01", price: 54.00, case_size: 20, case_unit: "lb", unit: "lb" },
+  { id: "d8", name: "Butter Unsalted", supplier: "Sysco", date: "2026-03-01", price: 38.00, case_size: 36, case_unit: "each", unit: "each" },
+  { id: "d9", name: "Flour All Purpose", supplier: "Sysco", date: "2026-03-01", price: 22.00, case_size: 50, case_unit: "lb", unit: "lb" },
+  { id: "d10", name: "Ground Beef 80/20", supplier: "US Foods", date: "2026-03-01", price: 98.00, case_size: 30, case_unit: "lb", unit: "lb" },
+];
+
+const DEMO_MENU_ITEMS = [
+  { id: "m1", name: "Bacon & Eggs", sale_price: 12.99, ingredients: [{ ingredient_name: "Bacon Sliced", qty: 4, qty_unit: "oz" }, { ingredient_name: "Eggs Large", qty: 2, qty_unit: "each" }] },
+  { id: "m2", name: "Classic Burger", sale_price: 14.99, ingredients: [{ ingredient_name: "Ground Beef 80/20", qty: 6, qty_unit: "oz" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1, qty_unit: "oz" }] },
+  { id: "m3", name: "Chicken Sandwich", sale_price: 13.99, ingredients: [{ ingredient_name: "Chicken Breast", qty: 5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
+  { id: "m4", name: "Buttermilk Pancakes", sale_price: 9.99, ingredients: [{ ingredient_name: "Flour All Purpose", qty: 4, qty_unit: "oz" }, { ingredient_name: "Eggs Large", qty: 1, qty_unit: "each" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
+  { id: "m5", name: "Cheese Omelette", sale_price: 11.99, ingredients: [{ ingredient_name: "Eggs Large", qty: 3, qty_unit: "each" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1.5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
+];
+
+// ─── Demo Screen ──────────────────────────────────────────────────────────────
+function DemoScreen({ onSignUp }) {
+  const [tab, setTab] = useState(0);
+
+  return (
+    <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
+      {/* Demo Banner */}
+      <div style={{ background: T.accent, padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: "#0f1410" }}>
+          ✨ You're viewing a live demo with sample restaurant data
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "#0f1410", fontFamily: T.body }}>Ready to connect your restaurant?</span>
+          <button onClick={onSignUp} style={{ background: "#0f1410", color: T.accent, border: "none", borderRadius: 6, padding: "7px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+            Get Started →
+          </button>
+        </div>
+      </div>
+
+      {/* Header */}
+      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: T.card, height: 60 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
+          <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+        </div>
+        <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+          Sign Up Free Trial
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", background: T.card, overflowX: "auto" }}>
+        {TABS.map((t, i) => {
+          const alertCount = i === 3 ? getPriceAlerts(DEMO_INGREDIENTS).length : 0;
+          return (
+            <button key={i} onClick={() => setTab(i)} style={{
+              background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`,
+              color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font,
+              fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap",
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              {ICONS[i]} {t}
+              {alertCount > 0 && (
+                <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{alertCount}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content */}
+      <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
+        {tab === 0 && <Dashboard ingredients={DEMO_INGREDIENTS} menuItems={DEMO_MENU_ITEMS} onNavigate={setTab} />}
+        {tab === 1 && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+              <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_INGREDIENTS.length} ingredients tracked</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={onSignUp} style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📸 Scan Your Invoice</button>
+              </div>
+            </div>
+            {(() => {
+              const grouped = {};
+              DEMO_INGREDIENTS.forEach(ing => {
+                const key = ing.date || "Unknown Date";
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(ing);
+              });
+              const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                  {sortedDates.map(date => (
+                    <div key={date}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>📄 {date}</div>
+                        <div style={{ flex: 1, height: 1, background: T.border }} />
+                        <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{grouped[date].length} items · {grouped[date][0]?.supplier || ""}</div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {grouped[date].sort((a,b) => a.name.localeCompare(b.name)).map(ing => {
+                          const uc = getUnitCost(ing);
+                          return (
+                            <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <div>
+                                <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
+                                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>{ing.case_size} {ing.case_unit} per case</div>
+                                {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
+                                <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+        {tab === 2 && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_MENU_ITEMS.length} menu items</div>
+              <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📷 Scan Your Menu</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {DEMO_MENU_ITEMS.map(m => {
+                const { cost, profit, margin } = calcMenuStats(m, DEMO_INGREDIENTS);
+                const color = margin > 60 ? T.accent : margin > 40 ? "#e8c84a" : T.warn;
+                return (
+                  <div key={m.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 20px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
+                        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{(m.ingredients || []).map(i => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}</div>
+                      </div>
+                      <div style={{ fontSize: 20, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 20, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.faint}` }}>
+                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Sale: <strong style={{ color: T.text }}>{fmt$2(m.sale_price)}</strong></span>
+                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: T.text }}>{fmt$2(cost)}</strong></span>
+                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: T.accent }}>{fmt$2(profit)}</strong></span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {tab === 3 && <AlertsView ingredients={DEMO_INGREDIENTS} />}
+      </div>
+
+      {/* Bottom CTA */}
+      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, padding: "32px 24px", textAlign: "center" }}>
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 22, color: T.text, marginBottom: 8 }}>Ready to track your real margins?</div>
+        <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, marginBottom: 20 }}>Connect your invoices and menu in minutes. $89/month or $799/year.</div>
+        <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "14px 32px", fontSize: 15, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
+          Get Started →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡"];
@@ -1349,13 +1520,18 @@ export default function KitchenIQ() {
     }
   }, [session]);
 
+  const [showAuth, setShowAuth] = useState(false);
+
   if (session === undefined) return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ color: T.accent, fontFamily: T.font, fontSize: 18 }}>Loading...</div>
     </div>
   );
 
-  if (!session) return <AuthScreen />;
+  if (!session) {
+    if (showAuth) return <AuthScreen />;
+    return <DemoScreen onSignUp={() => setShowAuth(true)} />;
+  }
   if (profileLoading) return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ color: T.accent, fontFamily: T.font, fontSize: 18 }}>Loading...</div>
