@@ -179,7 +179,7 @@ function StatCard({ label, value, sub, accent }) {
   return (
     <div style={{ background: T.card, border: `1px solid ${accent ? T.accentMid : T.border}`, borderRadius: 10, padding: "20px 24px", flex: 1, minWidth: 150 }}>
       <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 26, color: accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 32, color: accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: T.muted, marginTop: 6, fontFamily: T.body }}>{sub}</div>}
     </div>
   );
@@ -1335,6 +1335,7 @@ function DemoScreen({ onSignUp }) {
         transform: visible ? "translateY(0)" : "translateY(-20px)",
         transition: "all 0.6s ease",
       }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 20, padding: "6px 16px", marginBottom: 20 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.accent, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.accent}`, transition: "box-shadow 0.5s ease" }} />
           <span style={{ fontSize: 12, color: T.accent, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>LIVE DEMO — SAMPLE RESTAURANT DATA</span>
@@ -1369,12 +1370,15 @@ function DemoScreen({ onSignUp }) {
             </div>
           ))}
         </div>
+        </div>
       </div>
 
       {/* Demo Label Bar */}
-      <div style={{ background: "#1a0a00", borderBottom: `1px solid ${T.warn}44`, padding: "8px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ DEMO MODE</span>
-        <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>— You are viewing sample data, not a real restaurant. Click "Connect My Restaurant" to get started.</span>
+      <div style={{ background: "#1a0a00", borderBottom: `1px solid ${T.warn}44`, padding: "8px 24px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ DEMO MODE</span>
+          <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>— You are viewing sample data, not a real restaurant. Click "Connect My Restaurant" to get started.</span>
+        </div>
       </div>
 
       {/* Header */}
