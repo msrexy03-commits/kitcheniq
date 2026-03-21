@@ -7,6 +7,18 @@ fontLink.rel = "stylesheet";
 fontLink.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap";
 document.head.appendChild(fontLink);
 
+// Global animation styles
+const animStyle = document.createElement("style");
+animStyle.textContent = `
+  @keyframes cardFlash { 0% { border-color: inherit; box-shadow: none; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: inherit; box-shadow: none; } }
+  @keyframes slideInDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes progress { from { width: 0% } to { width: 100% } }
+  @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+  @keyframes tourPulse { 0%, 100% { box-shadow: 0 0 0 0 #4eca6e66, 0 12px 48px #000000cc; } 50% { box-shadow: 0 0 0 8px #4eca6e22, 0 12px 48px #000000cc; } }
+`;
+document.head.appendChild(animStyle);
+
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -1929,19 +1941,7 @@ export default function KitchenIQ() {
   }, []);
 
   useEffect(() => {
-    // Inject global animation styles once
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.textContent = `
-      @keyframes cardFlash { 0% { border-color: inherit; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: inherit; } }
-      @keyframes slideInDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
-      @keyframes fadeInChart { from { opacity: 0; } to { opacity: 1; } }
-    `;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
-  }, []);
-
-  if (!session) { setProfile(null); return; }
+    if (!session) { setProfile(null); return; }
     const fetchProfile = async () => {
       setProfileLoading(true);
       const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
