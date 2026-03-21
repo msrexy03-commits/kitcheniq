@@ -266,6 +266,12 @@ function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [pulse, setPulse] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => setPulse(p => !p), 600);
+    return () => clearInterval(interval);
+  }, []);
 
   const submit = async () => {
     setLoading(true); setError(null); setMessage(null);
@@ -273,12 +279,42 @@ function AuthScreen() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) setError(error.message);
-      else setMessage("Check your email to confirm your account, then log in.");
+      else if (data?.user) setMessage("success");
     }
     setLoading(false);
   };
+
+  // Success screen after signup
+  if (message === "success") return (
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 400, textAlign: "center" }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: "50%", background: T.accentDim,
+          border: `2px solid ${T.accent}`, display: "flex", alignItems: "center",
+          justifyContent: "center", fontSize: 36, margin: "0 auto 24px",
+          boxShadow: `0 0 32px ${T.accent}44`
+        }}>✓</div>
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 26, color: T.text, marginBottom: 10 }}>You're in!</div>
+        <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, marginBottom: 8, lineHeight: 1.6 }}>
+          Account created successfully for <strong style={{ color: T.text }}>{email}</strong>
+        </div>
+        <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32 }}>
+          You'll be taken to your dashboard automatically...
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          {[0,1,2].map(i => (
+            <div key={i} style={{
+              width: 8, height: 8, borderRadius: "50%", background: T.accent,
+              opacity: pulse ? (i === 0 ? 1 : i === 1 ? 0.6 : 0.3) : (i === 0 ? 0.3 : i === 1 ? 0.6 : 1),
+              transition: "opacity 0.5s ease"
+            }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -303,12 +339,11 @@ function AuthScreen() {
             <Input label="Email" value={email} onChange={setEmail} type="email" placeholder="you@restaurant.com" />
             <Input label="Password" value={password} onChange={setPassword} type="password" placeholder="••••••••" />
             {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>{error}</div>}
-            {message && <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.accent, fontFamily: T.body }}>{message}</div>}
             <button onClick={submit} disabled={loading || !email || !password} style={{
               background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
               padding: "13px 20px", fontSize: 14, fontFamily: T.font, fontWeight: 700,
               cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, marginTop: 4,
-            }}>{loading ? "..." : mode === "login" ? "Log In" : "Create Account"}</button>
+            }}>{loading ? "Creating your account..." : mode === "login" ? "Log In" : "Create Account"}</button>
           </div>
         </div>
         <div style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: T.muted, fontFamily: T.body }}>Your data is encrypted and stored securely</div>
