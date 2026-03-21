@@ -1378,15 +1378,17 @@ function DemoScreen({ onSignUp }) {
       </div>
 
       {/* Header */}
-      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: T.card, height: 60 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
-          <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
-          <span style={{ fontSize: 11, background: T.warnDim, color: T.warn, border: `1px solid ${T.warn}44`, borderRadius: 4, padding: "2px 8px", fontFamily: T.font, fontWeight: 700, letterSpacing: "0.05em" }}>DEMO</span>
+      <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
+            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+            <span style={{ fontSize: 11, background: T.warnDim, color: T.warn, border: `1px solid ${T.warn}44`, borderRadius: 4, padding: "2px 8px", fontFamily: T.font, fontWeight: 700, letterSpacing: "0.05em" }}>DEMO</span>
+          </div>
+          <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+            Connect My Restaurant →
+          </button>
         </div>
-        <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
-          Connect My Restaurant →
-        </button>
       </div>
 
       {/* Tabs */}
@@ -1411,6 +1413,7 @@ function DemoScreen({ onSignUp }) {
 
       {/* Content */}
       <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         {tab === 0 && <Dashboard ingredients={DEMO_INGREDIENTS} menuItems={DEMO_MENU_ITEMS} onNavigate={setTab} />}
         {tab === 1 && (
           <div>
@@ -1493,6 +1496,7 @@ function DemoScreen({ onSignUp }) {
           </div>
         )}
         {tab === 3 && <AlertsView ingredients={DEMO_INGREDIENTS} />}
+        </div>
       </div>
 
       {/* Bottom CTA */}
@@ -1595,7 +1599,8 @@ export default function KitchenIQ() {
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
-      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: T.card, height: 60 }}>
+      <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
           <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
@@ -1607,8 +1612,10 @@ export default function KitchenIQ() {
           <button onClick={signOut}
             style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
         </div>
+        </div>
       </div>
-      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", background: T.card, overflowX: "auto" }}>
+      <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", overflowX: "auto" }}>
         {TABS.map((t, i) => {
             const alertCount = i === 3 ? getPriceAlerts(ingredients).length : 0;
             return (
@@ -1625,8 +1632,10 @@ export default function KitchenIQ() {
               </button>
             );
           })}
+        </div>
       </div>
       <div style={{ width: "100%", padding: "32px 24px", boxSizing: "border-box" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         {loading
           ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
           : <>
@@ -1635,6 +1644,7 @@ export default function KitchenIQ() {
             {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
             {tab === 3 && <AlertsView ingredients={ingredients} />}
           </>}
+        </div>
       </div>
     </div>
   );
