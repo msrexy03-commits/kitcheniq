@@ -1740,27 +1740,49 @@ function DemoScreen({ onSignUp }) {
 
       {/* Guided Tour Tooltip */}
       {tourStep > 0 && currentTour && (
-        <div style={{
-          position: "fixed", bottom: 24, right: 24,
-          background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 12,
-          padding: "16px 20px", zIndex: 200, maxWidth: 360, width: "calc(100% - 48px)",
-          boxShadow: `0 8px 32px #000000cc`,
-        }}>
-          <div style={{ fontSize: 14, color: T.text, fontFamily: T.body, lineHeight: 1.5, marginBottom: 14 }}>{currentTour.text}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", gap: 6 }}>
-              {TOUR_STEPS.map((_, i) => (
-                <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: i === tourStep - 1 ? T.accent : T.faint }} />
-              ))}
+        <>
+          {/* Dark overlay to focus attention */}
+          <div style={{ position: "fixed", inset: 0, background: "#000000aa", zIndex: 198, pointerEvents: "none" }} />
+          <style>{`
+            @keyframes tourPulse {
+              0%, 100% { box-shadow: 0 0 0 0 #4eca6e66, 0 12px 48px #000000cc; }
+              50% { box-shadow: 0 0 0 8px #4eca6e22, 0 12px 48px #000000cc; }
+            }
+          `}</style>
+          <div style={{
+            position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+            background: "#0f1a10", border: `2px solid ${T.accent}`,
+            borderRadius: 16, padding: "20px 24px", zIndex: 200,
+            maxWidth: 460, width: "calc(100% - 32px)",
+            animation: "tourPulse 2s ease-in-out infinite",
+          }}>
+            {/* Step indicator */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em" }}>
+                STEP {tourStep} OF {TOUR_STEPS.length}
+              </div>
+              <div style={{ flex: 1, height: 3, background: T.faint, borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={skipTour} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer" }}>Skip tour</button>
-              <button onClick={nextTour} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+            {/* Text */}
+            <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 16, fontWeight: 500 }}>
+              {currentTour.text}
+            </div>
+            {/* Buttons */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button onClick={skipTour} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>
+                Skip tour
+              </button>
+              <button onClick={nextTour} style={{
+                background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
+                padding: "10px 24px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer",
+              }}>
                 {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Sticky bottom CTA bar - appears after 15 seconds */}
