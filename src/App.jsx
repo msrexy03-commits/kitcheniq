@@ -1469,10 +1469,20 @@ function DemoScreen({ onSignUp }) {
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 100);
-    setTimeout(() => setTourStep(1), 1200);
-    setTimeout(() => setShowStickyBar(true), 15000);
     const interval = setInterval(() => setPulse(p => !p), 2000);
-    return () => clearInterval(interval);
+
+    // Only start tour when user scrolls to demo section
+    const demoEl = document.getElementById("demo-section");
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setTimeout(() => setTourStep(1), 800);
+        setTimeout(() => setShowStickyBar(true), 20000);
+        observer.disconnect();
+      }
+    }, { threshold: 0.3 });
+    if (demoEl) observer.observe(demoEl);
+
+    return () => { clearInterval(interval); observer.disconnect(); };
   }, []);
 
   const TOUR_STEPS = [
@@ -1731,10 +1741,10 @@ function DemoScreen({ onSignUp }) {
       {/* Guided Tour Tooltip */}
       {tourStep > 0 && currentTour && (
         <div style={{
-          position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
+          position: "fixed", bottom: 24, right: 24,
           background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 12,
-          padding: "16px 20px", zIndex: 200, maxWidth: 420, width: "calc(100% - 40px)",
-          boxShadow: `0 8px 32px #000000aa`,
+          padding: "16px 20px", zIndex: 200, maxWidth: 360, width: "calc(100% - 48px)",
+          boxShadow: `0 8px 32px #000000cc`,
         }}>
           <div style={{ fontSize: 14, color: T.text, fontFamily: T.body, lineHeight: 1.5, marginBottom: 14 }}>{currentTour.text}</div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
