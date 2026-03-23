@@ -1744,6 +1744,57 @@ function DemoScreen({ onSignUp }) {
   );
 }
 
+// ─── Set New Password Screen ──────────────────────────────────────────────────
+function SetNewPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (password.length < 6) return setError("Password must be at least 6 characters.");
+    if (password !== confirm) return setError("Passwords don't match.");
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) { setError(error.message); setLoading(false); return; }
+    setDone(true);
+    setTimeout(onDone, 2000);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>⬡</div>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Set your new password</div>
+        </div>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 32 }}>
+          {done ? (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
+              <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.accent, marginBottom: 8 }}>Password updated!</div>
+              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Taking you to your dashboard...</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <Input label="New Password" value={password} onChange={setPassword} type="password" placeholder="At least 6 characters" />
+              <Input label="Confirm Password" value={confirm} onChange={setConfirm} type="password" placeholder="Repeat your new password" />
+              {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>{error}</div>}
+              <button onClick={submit} disabled={loading || !password || !confirm} style={{
+                background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
+                padding: "13px 20px", fontSize: 14, fontFamily: T.font, fontWeight: 700,
+                cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, marginTop: 4,
+              }}>{loading ? "Updating..." : "Set New Password"}</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡"];
@@ -1757,10 +1808,15 @@ export default function KitchenIQ() {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [priceNotif, setPriceNotif] = useState(null);
+  const [isRecovery, setIsRecovery] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      // Supabase fires PASSWORD_RECOVERY event when user clicks the reset link
+      if (_event === "PASSWORD_RECOVERY") setIsRecovery(true);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -1790,7 +1846,7 @@ export default function KitchenIQ() {
     load();
   }, [session]);
 
-  const signOut = async () => { await supabase.auth.signOut(); setIngredients([]); setMenuItems([]); setProfile(null); };
+  const signOut = async () => { await supabase.auth.signOut(); setIngredients([]); setMenuItems([]); setProfile(null); setIsRecovery(false); };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1811,6 +1867,11 @@ export default function KitchenIQ() {
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ color: T.accent, fontFamily: T.font, fontSize: 18 }}>Loading...</div>
     </div>
+  );
+
+  // Recovery mode — intercept before anything else and show password reset
+  if (isRecovery && session) return (
+    <SetNewPasswordScreen onDone={() => { setIsRecovery(false); window.history.replaceState({}, "", "/"); }} />
   );
 
   if (!session) {
