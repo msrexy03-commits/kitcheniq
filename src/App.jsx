@@ -254,7 +254,7 @@ const UNIT_OPTIONS = [
 
 // ─── Auth Screen ──────────────────────────────────────────────────────────────
 function AuthScreen() {
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState("login"); // login | signup | reset
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -267,44 +267,59 @@ function AuthScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  const switchMode = (m) => { setMode(m); setError(null); setMessage(null); };
+
   const submit = async () => {
     setLoading(true); setError(null); setMessage(null);
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
-    } else {
+    } else if (mode === "signup") {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) setError(error.message);
       else if (data?.user) setMessage("success");
+    } else if (mode === "reset") {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: "https://trykitcheniq.com",
+      });
+      if (error) setError(error.message);
+      else setMessage("reset_sent");
     }
     setLoading(false);
   };
 
+  // Success screen after signup
   if (message === "success") return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: "100%", maxWidth: 400, textAlign: "center" }}>
-        <div style={{
-          width: 80, height: 80, borderRadius: "50%", background: T.accentDim,
-          border: `2px solid ${T.accent}`, display: "flex", alignItems: "center",
-          justifyContent: "center", fontSize: 36, margin: "0 auto 24px",
-          boxShadow: `0 0 32px ${T.accent}44`
-        }}>✓</div>
+        <div style={{ width: 80, height: 80, borderRadius: "50%", background: T.accentDim, border: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, margin: "0 auto 24px", boxShadow: `0 0 32px ${T.accent}44` }}>✓</div>
         <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 26, color: T.text, marginBottom: 10 }}>You're in!</div>
         <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, marginBottom: 8, lineHeight: 1.6 }}>
           Account created successfully for <strong style={{ color: T.text }}>{email}</strong>
         </div>
-        <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32 }}>
-          You'll be taken to your dashboard automatically...
-        </div>
+        <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32 }}>You'll be taken to your dashboard automatically...</div>
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
           {[0,1,2].map(i => (
-            <div key={i} style={{
-              width: 8, height: 8, borderRadius: "50%", background: T.accent,
-              opacity: pulse ? (i === 0 ? 1 : i === 1 ? 0.6 : 0.3) : (i === 0 ? 0.3 : i === 1 ? 0.6 : 1),
-              transition: "opacity 0.5s ease"
-            }} />
+            <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: T.accent, opacity: pulse ? (i === 0 ? 1 : i === 1 ? 0.6 : 0.3) : (i === 0 ? 0.3 : i === 1 ? 0.6 : 1), transition: "opacity 0.5s ease" }} />
           ))}
         </div>
+      </div>
+    </div>
+  );
+
+  // Reset email sent confirmation
+  if (message === "reset_sent") return (
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 400, textAlign: "center" }}>
+        <div style={{ width: 80, height: 80, borderRadius: "50%", background: T.accentDim, border: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, margin: "0 auto 24px", boxShadow: `0 0 32px ${T.accent}44` }}>📧</div>
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 26, color: T.text, marginBottom: 10 }}>Check your email</div>
+        <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, marginBottom: 8, lineHeight: 1.6 }}>
+          We sent a password reset link to <strong style={{ color: T.text }}>{email}</strong>
+        </div>
+        <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32 }}>Click the link in the email to set a new password. Check your spam folder if you don't see it.</div>
+        <button onClick={() => switchMode("login")} style={{ background: "none", border: "none", color: T.accent, fontSize: 13, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>
+          Back to log in
+        </button>
       </div>
     </div>
   );
@@ -318,25 +333,58 @@ function AuthScreen() {
           <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Restaurant cost intelligence</div>
         </div>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 32 }}>
-          <div style={{ display: "flex", gap: 4, background: T.faint, borderRadius: 8, padding: 4, marginBottom: 28 }}>
-            {["login", "signup"].map((m) => (
-              <button key={m} onClick={() => { setMode(m); setError(null); setMessage(null); }} style={{
-                flex: 1, padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 13,
-                fontFamily: T.font, fontWeight: 600, letterSpacing: "0.03em",
-                background: mode === m ? T.accent : "transparent",
-                color: mode === m ? "#0f1410" : T.muted, transition: "all 0.15s",
-              }}>{m === "login" ? "Log In" : "Sign Up"}</button>
-            ))}
-          </div>
+
+          {/* Mode tabs — hidden on reset screen */}
+          {mode !== "reset" && (
+            <div style={{ display: "flex", gap: 4, background: T.faint, borderRadius: 8, padding: 4, marginBottom: 28 }}>
+              {["login", "signup"].map((m) => (
+                <button key={m} onClick={() => switchMode(m)} style={{
+                  flex: 1, padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 13,
+                  fontFamily: T.font, fontWeight: 600, letterSpacing: "0.03em",
+                  background: mode === m ? T.accent : "transparent",
+                  color: mode === m ? "#0f1410" : T.muted, transition: "all 0.15s",
+                }}>{m === "login" ? "Log In" : "Sign Up"}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Reset header */}
+          {mode === "reset" && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text, marginBottom: 6 }}>Reset your password</div>
+              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Enter your email and we'll send you a reset link.</div>
+            </div>
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <Input label="Email" value={email} onChange={setEmail} type="email" placeholder="you@restaurant.com" />
-            <Input label="Password" value={password} onChange={setPassword} type="password" placeholder="••••••••" />
-            {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>{error}</div>}
-            <button onClick={submit} disabled={loading || !email || !password} style={{
+            {mode !== "reset" && (
+              <Input label="Password" value={password} onChange={setPassword} type="password" placeholder="••••••••" />
+            )}
+            {error && (
+              <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>{error}</div>
+            )}
+            <button onClick={submit} disabled={loading || !email || (mode !== "reset" && !password)} style={{
               background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
               padding: "13px 20px", fontSize: 14, fontFamily: T.font, fontWeight: 700,
               cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, marginTop: 4,
-            }}>{loading ? "Creating your account..." : mode === "login" ? "Log In" : "Create Account"}</button>
+            }}>
+              {loading ? "Please wait..." : mode === "login" ? "Log In" : mode === "signup" ? "Create Account" : "Send Reset Link"}
+            </button>
+
+            {/* Forgot password link — only on login */}
+            {mode === "login" && (
+              <button onClick={() => switchMode("reset")} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textAlign: "center", marginTop: -4 }}>
+                Forgot your password?
+              </button>
+            )}
+
+            {/* Back to login — only on reset */}
+            {mode === "reset" && (
+              <button onClick={() => switchMode("login")} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textAlign: "center", marginTop: -4 }}>
+                ← Back to log in
+              </button>
+            )}
           </div>
         </div>
         <div style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: T.muted, fontFamily: T.body }}>Your data is encrypted and stored securely</div>
