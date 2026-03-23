@@ -41,13 +41,10 @@ const fmt$2 = (n) => `$${Number(n).toFixed(2)}`;
 const fmtPct = (n) => `${Number(n).toFixed(1)}%`;
 
 // ─── Unit cost calculator ─────────────────────────────────────────────────────
-// Converts between units for cost calculation
 const UNIT_CONVERSIONS = {
-  // weight
   lb: { oz: 16, lb: 1, g: 453.592 },
   oz: { oz: 1, lb: 0.0625, g: 28.3495 },
   g: { g: 1, oz: 0.03527, lb: 0.002205 },
-  // count
   each: { each: 1 },
   pack: { pack: 1 },
   case: { case: 1 },
@@ -61,24 +58,20 @@ function convertUnits(value, fromUnit, toUnit) {
   if (UNIT_CONVERSIONS[from] && UNIT_CONVERSIONS[from][to] !== undefined) {
     return value * UNIT_CONVERSIONS[from][to];
   }
-  return value; // can't convert, return as-is
+  return value;
 }
 
-// Calculate cost per base unit from ingredient
 function getUnitCost(ingredient) {
   if (!ingredient.case_size || !ingredient.price) return null;
   return ingredient.price / ingredient.case_size;
 }
 
-// Calculate cost of a recipe row
 function calcRecipeCost(row, ingredients) {
-  // Get the latest entry for this ingredient by date
   const matches = ingredients.filter(i => i.name.toLowerCase() === row.ingredient_name?.toLowerCase());
   const ing = matches.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  if (!ing) return Number(row.cost) || 0; // fallback to manual cost
+  if (!ing) return Number(row.cost) || 0;
   const unitCost = getUnitCost(ing);
   if (!unitCost) return Number(row.cost) || 0;
-  // Convert recipe quantity to case units
   const qty = Number(row.qty) || 0;
   const converted = convertUnits(qty, row.qty_unit, ing.case_unit);
   return unitCost * converted;
@@ -131,17 +124,6 @@ function exportCSV(ingredients, menuItems) {
 async function sendPriceAlertEmail(userEmail, changes, menuItems, ingredients) {
   const bigChanges = changes.filter(c => Math.abs(c.pct) >= 8);
   if (!bigChanges.length) return;
-
-  const itemLines = bigChanges.map(c => {
-    const arrow = c.pct > 0 ? "🔴" : "🟢";
-    const sign = c.pct > 0 ? "+" : "";
-    // Find affected menu items
-    const affected = menuItems.filter(m =>
-      (m.ingredients || []).some(i => i.ingredient_name?.toLowerCase() === c.name.toLowerCase())
-    );
-    const affectedLine = affected.length ? `Affects: ${affected.map(m => m.name).join(", ")}` : "";
-    return `${arrow} ${c.name}: $${Number(c.oldPrice).toFixed(2)} → $${Number(c.newPrice).toFixed(2)} (${sign}${c.pct.toFixed(1)}%)${affectedLine ? "\n   " + affectedLine : ""}`;
-  }).join("\n\n");
 
   const subject = bigChanges.length === 1
     ? `⚠️ KitchenIQ Alert — ${bigChanges[0].name} price ${bigChanges[0].pct > 0 ? "increased" : "decreased"} ${Math.abs(bigChanges[0].pct).toFixed(0)}%`
@@ -298,7 +280,6 @@ function AuthScreen() {
     setLoading(false);
   };
 
-  // Success screen after signup
   if (message === "success") return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: "100%", maxWidth: 400, textAlign: "center" }}>
@@ -405,7 +386,7 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
 Return ONLY a raw JSON array. No markdown, no backticks, no explanation, no preamble.
 
 For each line item extract:
-- name: the product name, cleaned up but ONLY using words actually printed on the invoice. Remove item numbers, SKU codes, and quantity descriptors. NEVER guess, infer, or substitute words not on the invoice. If you cannot read a word clearly, skip it rather than guess. Examples: 'BACON SLICED 18/14-16CT' becomes 'Bacon Sliced'. 'SAUSAGE LINKS ITALIAN SWEET PORK' becomes 'Italian Sweet Sausage'. 'CHEDDAR JACK CHEESE SHREDDED CASAIMP' becomes 'Cheddar Jack Cheese Shredded' — drop the unreadable code, never replace it with a guess.
+- name: See NAME NORMALIZATION RULES below. This is the most important field.
 - price: the UNIT price — cost per single unit, NOT the extended/total line price. If invoice shows QTY 4 x $12.50 = $50.00 then price is 12.50 not 50.00
 - case_size: the quantity inside one case/unit. Look for formats like "4/5LB" (case_size=20 total lbs), "2/10LB" (case_size=20), "24CT" (case_size=24), "12/1LB" (case_size=12). If sold by weight per lb, case_size is the number of lbs in the case. If sold each, case_size is the count per case. If not visible, set to null.
 - case_unit: the unit that case_size is measured in. Use: "lb", "oz", "each", "case", "pack", "bag". This is what ONE unit inside the case is measured in. Example: for "4/5LB bags of flour", case_unit is "lb" and case_size is 20.
@@ -413,25 +394,51 @@ For each line item extract:
 - supplier: vendor/company name from invoice header (or "Unknown")
 - date: invoice date YYYY-MM-DD format (use ${today()} if not visible)
 
-Critical rules:
-- ONE JSON object per invoice line item. Never split one line into two, never combine two lines into one.
-- Never guess or infer product names. Only use words visibly printed on the invoice.
-- If a line item is unclear, include it with your best literal reading rather than skipping it.
+NAME NORMALIZATION RULES — follow exactly:
+1. FORMAT: Always write names as "Base Ingredient + Descriptor(s)" in that order. The ingredient type comes first, specific descriptors follow.
+   - "SLICED BACON 18/14-16CT" → "Bacon Sliced"
+   - "SWEET ITALIAN SAUSAGE LINKS" → "Sausage Sweet Italian"
+   - "HOT SAUSAGE LINKS PORK" → "Sausage Hot"
+   - "SAUSAGE PATTIES 2OZ" → "Sausage Patties"
+   - "SHREDDED CHEDDAR JACK CHEESE" → "Cheese Cheddar Jack Shredded"
+   - "GROUND BEEF 80/20" → "Beef Ground 80/20"
+   - "CHICKEN BREAST BNLS SKNLS FZN" → "Chicken Breast Boneless"
+
+2. STRIP completely — never include in name:
+   - Supplier item codes, SKUs, or number strings (e.g. "SYS", "CASAIMP", "10432")
+   - Pack/size specs that are already captured in case_size (e.g. "18/14-16CT", "4/5LB", "24CT")
+   - Cooking state abbreviations when obvious (FZN=Frozen, BNLS=Boneless, SKNLS=Skinless) — spell out or omit
+   - The word "PORK", "BEEF", "CHICKEN" only when it's already the base ingredient name
+
+3. KEEP descriptors that distinguish one product from another:
+   - Always keep: Sweet, Hot, Mild, Spicy, Italian, Smoked, Fresh, Ground, Sliced, Shredded, Whole, Diced, Patties, Links, Strips
+   - Always keep: size grades (Large, Extra Large, Jumbo for eggs)
+   - Always keep: fat ratios (80/20, 85/15 for ground beef)
+   - NEVER drop a descriptor that would make two different products look the same
+
+4. NEVER merge two separate line items into one, and NEVER split one line item into two.
+   - "Sausage Sweet", "Sausage Hot", and "Sausage Patties" are THREE different items — keep them separate
+   - Each invoice line = exactly one JSON object
+
+5. Title Case all names. Never ALL CAPS.
 
 Invoice layout hints:
 - Sysco/US Foods columns: Item# | Description | Pack/Size | QTY | Unit Price | Extended Price — always use Unit Price column, never Extended Price. Pack/Size column contains the case_size info.
 - For any invoice: find the per-unit cost, not the line total
 
 Example output:
-[{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Cheddar Jack Cheese Shredded","price":28.00,"case_size":4,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Eggs Large","price":3.20,"case_size":30,"case_unit":"each","unit":"each","supplier":"Local Farm","date":"${today()}"}]` }
+[{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Sweet Italian","price":38.00,"case_size":10,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Hot","price":36.50,"case_size":10,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Patties","price":32.00,"case_size":160,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Cheese Cheddar Jack Shredded","price":28.00,"case_size":4,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Eggs Large","price":3.20,"case_size":30,"case_unit":"each","unit":"each","supplier":"Local Farm","date":"${today()}"}]` }
             ]
           }]
         })
       });
       const data = await response.json();
       if (data.error) throw new Error(data.error.message);
-      const text = data.content[0].text.trim();
+      let text = data.content[0].text.trim();
+      // Strip markdown code fences if model accidentally includes them
+      text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No items found");
       setResults(parsed);
     } catch (e) {
       setError("Couldn't read the invoice. Try a clearer photo with good lighting.");
@@ -522,9 +529,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
   const flashCard = externalFlash ?? internalFlash;
 
   useEffect(() => {
-    // Fade chart in on mount
     if (externalChartOpacity === undefined) setTimeout(() => setChartOpacity(1), 400);
-    // Flash cards periodically in real app
     if (externalFlash === undefined) {
       const cards = ["ingredients", "menu", "margin", "alerts"];
       let idx = 0;
@@ -538,7 +543,6 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
   }, []);
   const alerts = getPriceAlerts(ingredients);
 
-  // Price history chart state
   const ingredientNames = [...new Set(ingredients.map(i => i.name))].sort();
   const [selectedIngredient, setSelectedIngredient] = useState(ingredientNames[0] || "");
   const priceHistory = ingredients
@@ -703,18 +707,13 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
     if (!error) {
       const newIngredients = [...ingredients, ...data];
       setIngredients(newIngredients);
-      // Detect price changes and send alerts
       const changes = [];
-      console.log("Scanning for price changes...", items.length, "items scanned");
-      console.log("Existing ingredients:", ingredients.map(i => i.name));
       items.forEach(item => {
         const existing = ingredients.filter(i => i.name.toLowerCase() === item.name.toLowerCase())
           .sort((a, b) => new Date(b.date) - new Date(a.date));
-        console.log(`Checking ${item.name}: found ${existing.length} existing matches`);
         if (existing.length > 0) {
           const prev = existing[0];
           const pct = ((item.price - prev.price) / prev.price) * 100;
-          console.log(`${item.name}: ${prev.price} -> ${item.price} = ${pct.toFixed(1)}% change`);
           if (Math.abs(pct) >= 5) {
             changes.push({ name: item.name, oldPrice: prev.price, newPrice: item.price, pct, unit: item.unit });
           }
@@ -748,7 +747,6 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
       )}
 
       {ingredients.length > 0 && (() => {
-        // Group by date, sorted newest first, alphabetical within each group
         const grouped = {};
         ingredients.forEach(ing => {
           const key = ing.date || "Unknown Date";
@@ -756,21 +754,15 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
           grouped[key].push(ing);
         });
         const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-        sortedDates.forEach(date => {
-          grouped[date].sort((a, b) => a.name.localeCompare(b.name));
-        });
+        sortedDates.forEach(date => { grouped[date].sort((a, b) => a.name.localeCompare(b.name)); });
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             {sortedDates.map(date => (
               <div key={date}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>
-                    📄 {date}
-                  </div>
+                  <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>📄 {date}</div>
                   <div style={{ flex: 1, height: 1, background: T.border }} />
-                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>
-                    {grouped[date].length} items · {grouped[date][0]?.supplier || ""}
-                  </div>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{grouped[date].length} items · {grouped[date][0]?.supplier || ""}</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {grouped[date].map(ing => {
@@ -779,9 +771,7 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
                       <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <div>
                           <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
-                          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>
-                            {ing.case_size ? `${ing.case_size} ${ing.case_unit} per case` : "No case size"}
-                          </div>
+                          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>{ing.case_size ? `${ing.case_size} ${ing.case_unit} per case` : "No case size"}</div>
                           {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -831,7 +821,7 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
   );
 }
 
-// ─── Menu Scanner ────────────────────────────────────────────────────────────
+// ─── Menu Scanner ─────────────────────────────────────────────────────────────
 function MenuScanner({ onMenuFound, onClose }) {
   const [image, setImage] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
@@ -890,8 +880,10 @@ Example output:
       });
       const data = await response.json();
       if (data.error) throw new Error(data.error.message);
-      const text = data.content[0].text.trim();
+      let text = data.content[0].text.trim();
+      text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No items found");
       setResults(parsed);
     } catch (e) {
       setError("Couldn't read the menu. Try a clearer photo with good lighting.");
@@ -899,12 +891,8 @@ Example output:
     setScanning(false);
   };
 
-  const updateResult = (i, field, val) => {
-    setResults(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
-  };
-
+  const updateResult = (i, field, val) => setResults(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
   const removeResult = (i) => setResults(prev => prev.filter((_, idx) => idx !== i));
-
   const confirmImport = () => {
     onMenuFound(results.map((r) => ({ name: r.name, sale_price: Number(r.price), category: r.category, ingredients: [] })));
     onClose();
@@ -931,10 +919,8 @@ Example output:
           <input id="menu-upload" type="file" accept="image/*" capture="environment"
             style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
         </div>
-
         {image && !results && <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, textAlign: "center" }}>✓ Image loaded — click Scan to extract menu items</div>}
         {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>⚠ {error}</div>}
-
         {results && (
           <div>
             <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 6 }}>✓ Found {results.length} items — review before importing</div>
@@ -958,7 +944,6 @@ Example output:
             <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 8 }}>Columns: Item Name · Price · Category (tap × to remove)</div>
           </div>
         )}
-
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           {!results
@@ -997,7 +982,6 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
   const addRow = () => setForm((f) => ({ ...f, ingredients: [...f.ingredients, { ingredient_name: "", qty: "", qty_unit: "oz" }] }));
   const updateRow = (i, field, val) => setForm((f) => ({ ...f, ingredients: f.ingredients.map((row, idx) => idx === i ? { ...row, [field]: val } : row) }));
 
-  // Live cost preview inside the form
   const previewCost = () => {
     return form.ingredients.reduce((total, row) => {
       const ing = ingredients.find(i => i.name.toLowerCase() === row.ingredient_name?.toLowerCase());
@@ -1053,18 +1037,11 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
             const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
             const isBad = margin < 50;
             return (
-              <div key={m.id} style={{
-                background: T.card,
-                border: `1px solid ${isBad ? T.warn + "66" : T.border}`,
-                borderRadius: 10, padding: "16px 20px",
-                boxShadow: isBad ? `0 0 16px ${T.warn}18` : "none",
-              }}>
+              <div key={m.id} style={{ background: T.card, border: `1px solid ${isBad ? T.warn + "66" : T.border}`, borderRadius: 10, padding: "16px 20px", boxShadow: isBad ? `0 0 16px ${T.warn}18` : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
-                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>
-                      {(m.ingredients || []).map((i) => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}
-                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{(m.ingredients || []).map((i) => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}</div>
                     {isBad && <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 6 }}>⚠ Below target — consider raising your price</div>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 12 }}>
@@ -1102,8 +1079,7 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
                     <option value="">Select ingredient...</option>
                     {ingredients.map(ing => <option key={ing.id} value={ing.name}>{ing.name}</option>)}
                   </select>
-                  <input value={row.qty} onChange={(e) => updateRow(i, "qty", e.target.value)}
-                    placeholder="Qty" type="number"
+                  <input value={row.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} placeholder="Qty" type="number"
                     style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 10px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }} />
                   <select value={row.qty_unit} onChange={(e) => updateRow(i, "qty_unit", e.target.value)}
                     style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 8px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }}>
@@ -1113,8 +1089,6 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
               ))}
               <button onClick={addRow} style={{ background: "none", border: `1px dashed ${T.border}`, borderRadius: 6, color: T.muted, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontFamily: T.body, width: "100%", marginTop: 4 }}>+ Add ingredient</button>
             </div>
-
-            {/* Live cost preview */}
             {form.salePrice && (
               <div style={{ background: T.faint, borderRadius: 8, padding: "12px 16px" }}>
                 {(() => {
@@ -1134,7 +1108,6 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
                 })()}
               </div>
             )}
-
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
               <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
               <Btn onClick={save} disabled={saving}>{saving ? "Saving..." : editId ? "Save Changes" : "Add Item"}</Btn>
@@ -1171,61 +1144,30 @@ function AlertsView({ ingredients }) {
   );
 }
 
-
 // ─── Onboarding Banner ────────────────────────────────────────────────────────
 function OnboardingBanner({ ingredients, menuItems, onNavigate }) {
   const hasIngredients = ingredients.length > 0;
   const hasMenuItems = menuItems.length > 0;
   const hasRecipes = menuItems.some(m => (m.ingredients || []).length > 0);
   const allDone = hasIngredients && hasMenuItems && hasRecipes;
-
   if (allDone) return null;
 
   const steps = [
-    {
-      num: 1,
-      done: hasIngredients,
-      title: "Scan your invoices",
-      desc: "Take a photo of any supplier invoice — AI reads every ingredient and price automatically",
-      action: "Scan Invoice →",
-      tab: 1,
-    },
-    {
-      num: 2,
-      done: hasMenuItems,
-      title: "Scan your menu",
-      desc: "Photo your printed menu and AI imports all your items and prices in seconds",
-      action: "Scan Menu →",
-      tab: 2,
-    },
-    {
-      num: 3,
-      done: hasRecipes,
-      title: "Add recipes to menu items",
-      desc: "Tell the app what ingredients go into each dish so margins calculate automatically",
-      action: "Add Recipes →",
-      tab: 2,
-    },
+    { num: 1, done: hasIngredients, title: "Scan your invoices", desc: "Take a photo of any supplier invoice — AI reads every ingredient and price automatically", action: "Scan Invoice →", tab: 1 },
+    { num: 2, done: hasMenuItems, title: "Scan your menu", desc: "Photo your printed menu and AI imports all your items and prices in seconds", action: "Scan Menu →", tab: 2 },
+    { num: 3, done: hasRecipes, title: "Add recipes to menu items", desc: "Tell the app what ingredients go into each dish so margins calculate automatically", action: "Add Recipes →", tab: 2 },
   ];
-
   const currentStep = steps.find(s => !s.done) || steps[2];
 
   return (
     <div style={{ background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "24px 28px", marginBottom: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 17, color: T.text, marginBottom: 4 }}>
-            👋 Welcome to KitchenIQ
-          </div>
-          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>
-            Complete these 3 steps to see your restaurant's real margins
-          </div>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 17, color: T.text, marginBottom: 4 }}>👋 Welcome to KitchenIQ</div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Complete these 3 steps to see your restaurant's real margins</div>
         </div>
-        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, background: T.faint, borderRadius: 20, padding: "4px 12px" }}>
-          {steps.filter(s => s.done).length}/3 done
-        </div>
+        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, background: T.faint, borderRadius: 20, padding: "4px 12px" }}>{steps.filter(s => s.done).length}/3 done</div>
       </div>
-
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {steps.map((step) => (
           <div key={step.num} style={{
@@ -1234,7 +1176,6 @@ function OnboardingBanner({ ingredients, menuItems, onNavigate }) {
             border: `1px solid ${step.done ? T.accentMid : step.num === currentStep.num ? T.border : "transparent"}`,
             borderRadius: 10, padding: "14px 18px", transition: "all 0.2s",
           }}>
-            {/* Check or number */}
             <div style={{
               width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
               background: step.done ? T.accent : step.num === currentStep.num ? T.accentDim : T.faint,
@@ -1245,24 +1186,12 @@ function OnboardingBanner({ ingredients, menuItems, onNavigate }) {
             }}>
               {step.done ? "✓" : step.num}
             </div>
-
-            {/* Text */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontFamily: T.font, fontWeight: 600, color: step.done ? T.muted : T.text, textDecoration: step.done ? "line-through" : "none" }}>
-                {step.title}
-              </div>
-              {!step.done && (
-                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>{step.desc}</div>
-              )}
+              <div style={{ fontSize: 14, fontFamily: T.font, fontWeight: 600, color: step.done ? T.muted : T.text, textDecoration: step.done ? "line-through" : "none" }}>{step.title}</div>
+              {!step.done && <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>{step.desc}</div>}
             </div>
-
-            {/* Action button */}
             {!step.done && step.num === currentStep.num && (
-              <button onClick={() => onNavigate(step.tab)} style={{
-                background: T.accent, color: "#0f1410", border: "none", borderRadius: 6,
-                padding: "8px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 700,
-                cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-              }}>{step.action}</button>
+              <button onClick={() => onNavigate(step.tab)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>{step.action}</button>
             )}
           </div>
         ))}
@@ -1270,7 +1199,6 @@ function OnboardingBanner({ ingredients, menuItems, onNavigate }) {
     </div>
   );
 }
-
 
 // ─── Paywall Screen ───────────────────────────────────────────────────────────
 function PaywallScreen({ session }) {
@@ -1284,12 +1212,7 @@ function PaywallScreen({ session }) {
       const res = await fetch("/api/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId,
-          userId: session.user.id,
-          userEmail: session.user.email,
-          couponCode: coupon.trim() || null,
-        }),
+        body: JSON.stringify({ priceId, userId: session.user.id, userEmail: session.user.email, couponCode: coupon.trim() || null }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -1305,16 +1228,12 @@ function PaywallScreen({ session }) {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: "100%", maxWidth: 520 }}>
-        {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>⬡</div>
           <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></div>
           <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Restaurant cost intelligence</div>
         </div>
-
-        {/* Plans */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-          {/* Monthly */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "28px 32px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
               <div>
@@ -1331,8 +1250,6 @@ function PaywallScreen({ session }) {
               {loading === import.meta.env.VITE_STRIPE_PRICE_MONTHLY ? "Redirecting..." : "Get Started Monthly"}
             </button>
           </div>
-
-          {/* Yearly */}
           <div style={{ background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 14, padding: "28px 32px", position: "relative" }}>
             <div style={{ position: "absolute", top: -12, left: 24, background: T.accent, color: "#0f1410", borderRadius: 20, padding: "4px 14px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em" }}>BEST VALUE</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -1351,8 +1268,6 @@ function PaywallScreen({ session }) {
             </button>
           </div>
         </div>
-
-        {/* Features */}
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px", marginBottom: 24 }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 14 }}>Everything included</div>
           {["AI invoice scanning", "AI menu scanning", "Automatic margin calculation", "Price spike email alerts", "Price history tracking", "Unlimited scans"].map(f => (
@@ -1362,17 +1277,13 @@ function PaywallScreen({ session }) {
             </div>
           ))}
         </div>
-
-        {/* Coupon */}
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px", marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 10 }}>Beta tester coupon code</div>
           <input value={coupon} onChange={e => setCoupon(e.target.value)} placeholder="Enter your code..."
             style={{ width: "100%", background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none", boxSizing: "border-box" }} />
           <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 8 }}>Beta testers enter your code above then select a plan — it will apply 100% off automatically</div>
         </div>
-
         {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "12px 16px", fontSize: 13, color: T.warn, fontFamily: T.body, marginBottom: 16 }}>⚠ {error}</div>}
-
         <div style={{ textAlign: "center" }}>
           <button onClick={signOut} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer" }}>Sign out</button>
         </div>
@@ -1381,17 +1292,14 @@ function PaywallScreen({ session }) {
   );
 }
 
-
 // ─── Demo Data ────────────────────────────────────────────────────────────────
 const DEMO_INGREDIENTS = [
-  // January invoice
   { id: "d1", name: "Bacon Sliced 18/14-16ct", supplier: "Sysco", date: "2026-01-08", price: 41.20, case_size: 15, case_unit: "lb", unit: "lb" },
   { id: "d2", name: "Eggs Large Grade A", supplier: "Mancini Foods", date: "2026-01-08", price: 38.40, case_size: 15, case_unit: "each", unit: "each" },
   { id: "d3", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-01-08", price: 26.50, case_size: 4, case_unit: "lb", unit: "lb" },
   { id: "d4", name: "Ground Beef 80/20", supplier: "US Foods", date: "2026-01-08", price: 92.00, case_size: 30, case_unit: "lb", unit: "lb" },
   { id: "d5", name: "Chicken Breast Boneless", supplier: "US Foods", date: "2026-01-08", price: 51.00, case_size: 20, case_unit: "lb", unit: "lb" },
   { id: "d6", name: "Butter Unsalted", supplier: "Sysco", date: "2026-01-08", price: 36.00, case_size: 36, case_unit: "each", unit: "each" },
-  // February invoice - prices changed, owner never noticed
   { id: "d7", name: "Bacon Sliced 18/14-16ct", supplier: "Sysco", date: "2026-02-12", price: 47.80, case_size: 15, case_unit: "lb", unit: "lb" },
   { id: "d8", name: "Eggs Large Grade A", supplier: "Mancini Foods", date: "2026-02-12", price: 69.60, case_size: 15, case_unit: "each", unit: "each" },
   { id: "d9", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-02-12", price: 24.80, case_size: 4, case_unit: "lb", unit: "lb" },
@@ -1408,7 +1316,6 @@ const DEMO_MENU_ITEMS = [
   { id: "m5", name: "Egg & Cheese Sandwich", sale_price: 7.99, ingredients: [{ ingredient_name: "Eggs Large Grade A", qty: 2, qty_unit: "each" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
 ];
 
-// Fake invoice scan items for demo
 const DEMO_SCAN_ITEMS = [
   { name: "Bacon Sliced 18/14-16ct", price: 47.80, case_size: 15, case_unit: "lb" },
   { name: "Eggs Large Grade A", price: 69.60, case_size: 15, case_unit: "each" },
@@ -1418,9 +1325,9 @@ const DEMO_SCAN_ITEMS = [
   { name: "Butter Unsalted", price: 36.00, case_size: 36, case_unit: "each" },
 ];
 
-// ─── Fake Invoice Scanner (Demo) ─────────────────────────────────────────────
+// ─── Demo Invoice Scanner ─────────────────────────────────────────────────────
 function DemoInvoiceScanner({ onClose }) {
-  const [step, setStep] = useState("upload"); // upload | scanning | results
+  const [step, setStep] = useState("upload");
   const [visibleItems, setVisibleItems] = useState([]);
 
   const startScan = () => {
@@ -1428,9 +1335,7 @@ function DemoInvoiceScanner({ onClose }) {
     setTimeout(() => {
       setStep("results");
       DEMO_SCAN_ITEMS.forEach((item, i) => {
-        setTimeout(() => {
-          setVisibleItems(prev => [...prev, item]);
-        }, i * 400);
+        setTimeout(() => { setVisibleItems(prev => [...prev, item]); }, i * 400);
       });
     }, 2200);
   };
@@ -1441,7 +1346,6 @@ function DemoInvoiceScanner({ onClose }) {
         <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: T.accent, fontFamily: T.body }}>
           ✨ AI reads your invoice and extracts ingredients, prices, and case sizes automatically
         </div>
-
         {step === "upload" && (
           <>
             <div style={{ border: `2px dashed ${T.accentMid}`, borderRadius: 10, padding: "28px 20px", textAlign: "center", background: T.accentDim, cursor: "pointer" }} onClick={startScan}>
@@ -1456,7 +1360,6 @@ function DemoInvoiceScanner({ onClose }) {
             </div>
           </>
         )}
-
         {step === "scanning" && (
           <div style={{ textAlign: "center", padding: "40px 20px" }}>
             <div style={{ fontSize: 48, marginBottom: 16, animation: "spin 1s linear infinite" }}>⏳</div>
@@ -1465,20 +1368,14 @@ function DemoInvoiceScanner({ onClose }) {
             <div style={{ marginTop: 20, height: 4, background: T.faint, borderRadius: 2, overflow: "hidden" }}>
               <div style={{ height: "100%", background: T.accent, borderRadius: 2, animation: "progress 2.2s ease-in-out forwards" }} />
             </div>
-            <style>{`
-              @keyframes progress { from { width: 0% } to { width: 100% } }
-              @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-            `}</style>
           </div>
         )}
-
         {step === "results" && (
           <>
             <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>✓ Found {DEMO_SCAN_ITEMS.length} items — AI extracted everything automatically</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
               {visibleItems.map((item, i) => (
-                <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
-                  opacity: 1, transform: "translateY(0)", animation: "fadeIn 0.3s ease" }}>
+                <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", animation: "fadeIn 0.3s ease" }}>
                   <div>
                     <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{item.name}</div>
                     <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{item.case_size} {item.case_unit} per case · unit cost: ${(item.price / item.case_size).toFixed(4)}/{item.case_unit}</div>
@@ -1487,7 +1384,6 @@ function DemoInvoiceScanner({ onClose }) {
                 </div>
               ))}
             </div>
-            <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }`}</style>
             {visibleItems.length === DEMO_SCAN_ITEMS.length && (
               <div style={{ background: "#1a2a0a", border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "12px 16px" }}>
                 <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>⚡ 2 price changes detected from your last invoice</div>
@@ -1520,8 +1416,6 @@ function DemoScreen({ onSignUp }) {
   useEffect(() => {
     setTimeout(() => setVisible(true), 100);
     setTimeout(() => setChartOpacity(1), 900);
-
-    // Flash stat cards to feel like live data
     const cards = ["ingredients", "menu", "margin", "alerts"];
     let cardIdx = 0;
     const cardFlash = setInterval(() => {
@@ -1529,32 +1423,23 @@ function DemoScreen({ onSignUp }) {
       cardIdx++;
       setTimeout(() => setFlashCard(null), 900);
     }, 3500);
-
-    // Live price alert notification
     setTimeout(() => setLiveAlertVisible(true), 5000);
     setTimeout(() => setLiveAlertVisible(false), 9500);
-
     const interval = setInterval(() => setPulse(p => !p), 2000);
-
     const demoEl = document.getElementById("demo-section");
     const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        setTimeout(() => setTourStep(1), 800);
-        observer.disconnect();
-      }
+      if (entries[0].isIntersecting) { setTimeout(() => setTourStep(1), 800); observer.disconnect(); }
     }, { threshold: 0.3 });
     if (demoEl) observer.observe(demoEl);
-
     return () => { clearInterval(interval); clearInterval(cardFlash); observer.disconnect(); };
   }, []);
 
   const TOUR_STEPS = [
-    { tab: 0, text: "👋 Welcome! This is your Dashboard — see your avg margin and price alerts at a glance", x: "50%", y: 80 },
-    { tab: 1, text: "📸 Click 'Scan Invoice' to see how AI reads your supplier invoices automatically", x: "75%", y: 80 },
-    { tab: 3, text: "⚡ Price Alerts shows every ingredient that changed price — with exact dollar impact", x: "85%", y: 80 },
-    { tab: 2, text: "🍽 Menu Items shows your real food cost % per dish, updating automatically when prices change", x: "60%", y: 80 },
+    { tab: 0, text: "👋 Welcome! This is your Dashboard — see your avg margin and price alerts at a glance" },
+    { tab: 1, text: "📸 Click 'Scan Invoice' to see how AI reads your supplier invoices automatically" },
+    { tab: 3, text: "⚡ Price Alerts shows every ingredient that changed price — with exact dollar impact" },
+    { tab: 2, text: "🍽 Menu Items shows your real food cost % per dish, updating automatically when prices change" },
   ];
-
   const currentTour = TOUR_STEPS[tourStep - 1];
 
   const nextTour = () => {
@@ -1562,51 +1447,28 @@ function DemoScreen({ onSignUp }) {
       const next = tourStep + 1;
       setTourStep(next);
       setTab(TOUR_STEPS[next - 1]?.tab ?? tab);
-    } else {
-      setTourStep(0);
-    }
+    } else { setTourStep(0); }
   };
-
-  const skipTour = () => setTourStep(0);
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
-
-      {/* Hero Section */}
-      <div style={{
-        background: `linear-gradient(135deg, #0a0f0a 0%, #0f1a10 50%, #0a0f0a 100%)`,
-        borderBottom: `1px solid ${T.accentMid}`,
-        padding: "64px 24px 56px",
-        textAlign: "center",
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(-20px)",
-        transition: "all 0.7s ease",
-      }}>
+      <div style={{ background: `linear-gradient(135deg, #0a0f0a 0%, #0f1a10 50%, #0a0f0a 100%)`, borderBottom: `1px solid ${T.accentMid}`, padding: "64px 24px 56px", textAlign: "center", opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-20px)", transition: "all 0.7s ease" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          {/* Badge */}
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 20, padding: "6px 16px", marginBottom: 28 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.warn}`, transition: "box-shadow 0.5s ease" }} />
             <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>RESTAURANT OWNERS ARE LEAVING MONEY ON THE TABLE</span>
           </div>
-
-          {/* Main headline */}
           <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(28px, 5vw, 52px)", color: T.text, marginBottom: 16, lineHeight: 1.05 }}>
             You're probably losing <span style={{ color: T.warn }}>$800–$2,400/year</span> to price changes you never noticed
           </div>
           <div style={{ fontSize: "clamp(14px, 2vw, 17px)", color: T.muted, fontFamily: T.body, marginBottom: 40, maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.6 }}>
             Every time a supplier raises prices, your margins silently drop. Most restaurant owners find out months later — if ever. KitchenIQ catches it the moment you scan your next invoice.
           </div>
-
-          {/* Animated loss counter */}
           <div style={{ background: T.card, border: `1px solid ${T.warn}44`, borderRadius: 14, padding: "24px 32px", marginBottom: 40, display: "inline-block", minWidth: 280 }}>
             <div style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.1em", marginBottom: 8 }}>ESTIMATED REVENUE LOST THIS MONTH FROM UNTRACKED PRICE CHANGES</div>
-            <div style={{ fontSize: "clamp(32px, 6vw, 48px)", fontFamily: T.font, fontWeight: 800, color: T.warn, lineHeight: 1 }}>
-              ${Math.floor(Date.now() / 1000 % 86400 / 86400 * 280 + 120).toLocaleString()}
-            </div>
+            <div style={{ fontSize: "clamp(32px, 6vw, 48px)", fontFamily: T.font, fontWeight: 800, color: T.warn, lineHeight: 1 }}>${Math.floor(Date.now() / 1000 % 86400 / 86400 * 280 + 120).toLocaleString()}</div>
             <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Based on avg. 50-seat independent restaurant</div>
           </div>
-
-          {/* Pain points */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 40, textAlign: "left" }}>
             {[
               { icon: "📈", title: "Supplier prices change constantly", desc: "Sysco, US Foods, local vendors — prices shift every delivery and you don't always notice" },
@@ -1620,26 +1482,14 @@ function DemoScreen({ onSignUp }) {
               </div>
             ))}
           </div>
-
-          {/* CTAs */}
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button onClick={onSignUp} style={{
-              background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
-              padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 800,
-              cursor: "pointer", boxShadow: `0 0 32px ${T.accent}44`,
-              transform: pulse ? "scale(1.02)" : "scale(1)", transition: "transform 0.5s ease",
-            }}>
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}44`, transform: pulse ? "scale(1.02)" : "scale(1)", transition: "transform 0.5s ease" }}>
               Start Catching Price Changes →
             </button>
-            <button onClick={() => document.getElementById("demo-section")?.scrollIntoView({ behavior: "smooth" })} style={{
-              background: "transparent", color: T.muted, border: `1px solid ${T.border}`,
-              borderRadius: 8, padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 600, cursor: "pointer",
-            }}>
+            <button onClick={() => document.getElementById("demo-section")?.scrollIntoView({ behavior: "smooth" })} style={{ background: "transparent", color: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>
               See It In Action ↓
             </button>
           </div>
-
-          {/* Social proof */}
           <div style={{ marginTop: 40, padding: "20px 24px", background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, maxWidth: 480, margin: "40px auto 0" }}>
             <div style={{ fontSize: 14, color: T.text, fontFamily: T.body, fontStyle: "italic", lineHeight: 1.6, marginBottom: 10 }}>
               "I had no idea my corned beef cost had changed. KitchenIQ caught it on the first scan — I would have never noticed otherwise."
@@ -1649,7 +1499,6 @@ function DemoScreen({ onSignUp }) {
         </div>
       </div>
 
-      {/* Demo intro */}
       <div id="demo-section" style={{ background: T.faint, borderBottom: `1px solid ${T.border}`, padding: "20px 24px", textAlign: "center" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 20, padding: "6px 16px" }}>
@@ -1659,7 +1508,6 @@ function DemoScreen({ onSignUp }) {
         </div>
       </div>
 
-      {/* Demo Label Bar */}
       <div style={{ background: "#1a0a00", borderBottom: `1px solid ${T.warn}44`, padding: "8px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ DEMO MODE</span>
@@ -1667,7 +1515,6 @@ function DemoScreen({ onSignUp }) {
         </div>
       </div>
 
-      {/* Header */}
       <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1675,216 +1522,156 @@ function DemoScreen({ onSignUp }) {
             <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
             <span style={{ fontSize: 11, background: T.warnDim, color: T.warn, border: `1px solid ${T.warn}44`, borderRadius: 4, padding: "2px 8px", fontFamily: T.font, fontWeight: 700, letterSpacing: "0.05em" }}>DEMO</span>
           </div>
-          <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
-            Connect My Restaurant →
-          </button>
+          <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>Connect My Restaurant →</button>
         </div>
       </div>
 
-      {/* Tabs */}
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", background: T.card, overflowX: "auto" }}>
         {TABS.map((t, i) => {
           const alertCount = i === 3 ? getPriceAlerts(DEMO_INGREDIENTS).length : 0;
           return (
-            <button key={i} onClick={() => setTab(i)} style={{
-              background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`,
-              color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font,
-              fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap",
-              display: "flex", alignItems: "center", gap: 6,
-            }}>
+            <button key={i} onClick={() => setTab(i)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`, color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
               {ICONS[i]} {t}
-              {alertCount > 0 && (
-                <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{alertCount}</span>
-              )}
+              {alertCount > 0 && <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{alertCount}</span>}
             </button>
           );
         })}
       </div>
 
-      {/* Content */}
       <div style={{ width: "100%", padding: "24px 16px", boxSizing: "border-box" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        {tab === 0 && (
-          <div>
-            {/* Animated stat cards with flash effect */}
-            <style>{`
-              @keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: #1e2b1f; } }
-              @keyframes chartDraw { from { opacity: 0; transform: scaleX(0.6); } to { opacity: 1; transform: scaleX(1); } }
-              @keydef slideIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
-              @keyframes slideIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
-            `}</style>
-
-            {/* Live alert notification */}
-            {liveAlertVisible && (
-              <div style={{
-                background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10,
-                padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12,
-                animation: "slideIn 0.4s ease",
-              }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}` }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ Price Alert — Eggs Large Grade A increased 81%</div>
-                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>$38.40 → $69.60 · Affects: Bacon & Eggs, Three Egg Omelette, Egg & Cheese Sandwich</div>
+          {tab === 0 && (
+            <div>
+              <style>{`
+                @keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: #1e2b1f; } }
+                @keyframes slideIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+              `}</style>
+              {liveAlertVisible && (
+                <div style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10, padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12, animation: "slideIn 0.4s ease" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}` }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ Price Alert — Eggs Large Grade A increased 81%</div>
+                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>$38.40 → $69.60 · Affects: Bacon & Eggs, Three Egg Omelette, Egg & Cheese Sandwich</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>just now</div>
                 </div>
-                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>just now</div>
-              </div>
-            )}
-
-            <Dashboard
-              ingredients={DEMO_INGREDIENTS}
-              menuItems={DEMO_MENU_ITEMS}
-              onNavigate={setTab}
-              flashCard={flashCard}
-              chartOpacity={chartOpacity}
-            />
-          </div>
-        )}
-        {tab === 1 && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-              <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_INGREDIENTS.length} ingredients tracked</div>
-              <div style={{ display: "flex", gap: 10 }}>
+              )}
+              <Dashboard ingredients={DEMO_INGREDIENTS} menuItems={DEMO_MENU_ITEMS} onNavigate={setTab} flashCard={flashCard} chartOpacity={chartOpacity} />
+            </div>
+          )}
+          {tab === 1 && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+                <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_INGREDIENTS.length} ingredients tracked</div>
                 <button onClick={() => setShowDemoScanner(true)} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📸 Scan Invoice</button>
               </div>
-            </div>
-            {(() => {
-              const grouped = {};
-              DEMO_INGREDIENTS.forEach(ing => {
-                const key = ing.date || "Unknown Date";
-                if (!grouped[key]) grouped[key] = [];
-                grouped[key].push(ing);
-              });
-              const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-              return (
-                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                  {sortedDates.map(date => (
-                    <div key={date}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>📄 {date}</div>
-                        <div style={{ flex: 1, height: 1, background: T.border }} />
-                        <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{grouped[date].length} items · {grouped[date][0]?.supplier || ""}</div>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        {grouped[date].sort((a,b) => a.name.localeCompare(b.name)).map(ing => {
-                          const uc = getUnitCost(ing);
-                          return (
-                            <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                              <div>
-                                <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
-                                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>{ing.case_size} {ing.case_unit} per case</div>
-                                {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
-                              </div>
-                              <div style={{ textAlign: "right" }}>
-                                <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
-                                <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
-        )}
-        {tab === 2 && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_MENU_ITEMS.length} menu items</div>
-              <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📷 Scan Your Menu</button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {DEMO_MENU_ITEMS.map(m => {
-                const { cost, profit, margin } = calcMenuStats(m, DEMO_INGREDIENTS);
-                const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
-                const isBad = margin < 50;
+              {(() => {
+                const grouped = {};
+                DEMO_INGREDIENTS.forEach(ing => {
+                  const key = ing.date || "Unknown Date";
+                  if (!grouped[key]) grouped[key] = [];
+                  grouped[key].push(ing);
+                });
+                const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
                 return (
-                  <div key={m.id} style={{
-                    background: T.card,
-                    border: `1px solid ${isBad ? T.warn + "66" : T.border}`,
-                    borderRadius: 10, padding: "16px 20px",
-                    boxShadow: isBad ? `0 0 16px ${T.warn}18` : "none",
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
-                        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{(m.ingredients || []).map(i => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}</div>
-                        {isBad && <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 6 }}>⚠ Below target — consider raising your price</div>}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                    {sortedDates.map(date => (
+                      <div key={date}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>📄 {date}</div>
+                          <div style={{ flex: 1, height: 1, background: T.border }} />
+                          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{grouped[date].length} items · {grouped[date][0]?.supplier || ""}</div>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {grouped[date].sort((a,b) => a.name.localeCompare(b.name)).map(ing => {
+                            const uc = getUnitCost(ing);
+                            return (
+                              <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div>
+                                  <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
+                                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>{ing.case_size} {ing.case_unit} per case</div>
+                                  {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
+                                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div style={{ textAlign: "right", marginLeft: 16 }}>
-                        <div style={{ fontSize: 22, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
-                        {isBad && <div style={{ fontSize: 10, color: T.warn, fontFamily: T.body }}>needs attention</div>}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 20, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.faint}` }}>
-                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Sale: <strong style={{ color: T.text }}>{fmt$2(m.sale_price)}</strong></span>
-                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: isBad ? T.warn : T.text }}>{fmt$2(cost)}</strong></span>
-                      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: isBad ? T.warn : T.accent }}>{fmt$2(profit)}</strong></span>
-                    </div>
+                    ))}
                   </div>
                 );
-              })}
+              })()}
             </div>
-          </div>
-        )}
-        {tab === 3 && (
-          <div>
-            <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
-              <div style={{ fontSize: 14, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>⚠ These price changes happened between January and February</div>
-              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>The owner of this sample restaurant never noticed. Their margins dropped silently for weeks.</div>
+          )}
+          {tab === 2 && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_MENU_ITEMS.length} menu items</div>
+                <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📷 Scan Your Menu</button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {DEMO_MENU_ITEMS.map(m => {
+                  const { cost, profit, margin } = calcMenuStats(m, DEMO_INGREDIENTS);
+                  const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
+                  const isBad = margin < 50;
+                  return (
+                    <div key={m.id} style={{ background: T.card, border: `1px solid ${isBad ? T.warn + "66" : T.border}`, borderRadius: 10, padding: "16px 20px", boxShadow: isBad ? `0 0 16px ${T.warn}18` : "none" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
+                          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{(m.ingredients || []).map(i => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}</div>
+                          {isBad && <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 6 }}>⚠ Below target — consider raising your price</div>}
+                        </div>
+                        <div style={{ textAlign: "right", marginLeft: 16 }}>
+                          <div style={{ fontSize: 22, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
+                          {isBad && <div style={{ fontSize: 10, color: T.warn, fontFamily: T.body }}>needs attention</div>}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 20, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.faint}` }}>
+                        <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Sale: <strong style={{ color: T.text }}>{fmt$2(m.sale_price)}</strong></span>
+                        <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: isBad ? T.warn : T.text }}>{fmt$2(cost)}</strong></span>
+                        <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: isBad ? T.warn : T.accent }}>{fmt$2(profit)}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <AlertsView ingredients={DEMO_INGREDIENTS} />
-            <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "16px 20px", marginTop: 16 }}>
-              <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>✓ KitchenIQ would have sent an email alert the moment you scanned that invoice</div>
-              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Subject: "⚠ KitchenIQ Alert — Eggs Large price increased 81%" — caught automatically, no manual work.</div>
+          )}
+          {tab === 3 && (
+            <div>
+              <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
+                <div style={{ fontSize: 14, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>⚠ These price changes happened between January and February</div>
+                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>The owner of this sample restaurant never noticed. Their margins dropped silently for weeks.</div>
+              </div>
+              <AlertsView ingredients={DEMO_INGREDIENTS} />
+              <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "16px 20px", marginTop: 16 }}>
+                <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>✓ KitchenIQ would have sent an email alert the moment you scanned that invoice</div>
+                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Subject: "⚠ KitchenIQ Alert — Eggs Large price increased 81%" — caught automatically, no manual work.</div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
 
-      {/* Guided Tour Tooltip */}
       {tourStep > 0 && currentTour && (
         <>
-          {/* Subtle vignette - only darkens bottom portion behind tooltip */}
           <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: 200, background: "linear-gradient(to top, #000000cc, transparent)", zIndex: 198, pointerEvents: "none" }} />
-          <style>{`
-            @keyframes tourPulse {
-              0%, 100% { box-shadow: 0 0 0 0 #4eca6e66, 0 12px 48px #000000cc; }
-              50% { box-shadow: 0 0 0 8px #4eca6e22, 0 12px 48px #000000cc; }
-            }
-          `}</style>
-          <div style={{
-            position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
-            background: "#0f1a10", border: `2px solid ${T.accent}`,
-            borderRadius: 16, padding: "20px 24px", zIndex: 200,
-            maxWidth: 460, width: "calc(100% - 32px)",
-            animation: "tourPulse 2s ease-in-out infinite",
-          }}>
-            {/* Step indicator */}
+          <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#0f1a10", border: `2px solid ${T.accent}`, borderRadius: 16, padding: "20px 24px", zIndex: 200, maxWidth: 460, width: "calc(100% - 32px)", animation: "tourPulse 2s ease-in-out infinite" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em" }}>
-                STEP {tourStep} OF {TOUR_STEPS.length}
-              </div>
+              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em" }}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
               <div style={{ flex: 1, height: 3, background: T.faint, borderRadius: 2, overflow: "hidden" }}>
                 <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
               </div>
             </div>
-            {/* Text */}
-            <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 16, fontWeight: 500 }}>
-              {currentTour.text}
-            </div>
-            {/* Buttons */}
+            <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 16, fontWeight: 500 }}>{currentTour.text}</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button onClick={skipTour} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>
-                Skip tour
-              </button>
-              <button onClick={nextTour} style={{
-                background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
-                padding: "10px 24px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer",
-              }}>
+              <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>Skip tour</button>
+              <button onClick={nextTour} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 24px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
                 {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
               </button>
             </div>
@@ -1892,25 +1679,14 @@ function DemoScreen({ onSignUp }) {
         </>
       )}
 
-
-
       {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} />}
 
-      {/* Bottom CTA */}
       <div style={{ background: `linear-gradient(135deg, #0a0f0a, #0f1a10)`, borderTop: `1px solid ${T.accentMid}`, padding: "64px 24px", textAlign: "center" }}>
         <div style={{ maxWidth: 600, margin: "0 auto" }}>
-          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(24px, 4vw, 36px)", color: T.text, marginBottom: 12, lineHeight: 1.1 }}>
-            $89/month pays for itself the first time it catches a price spike
-          </div>
-          <div style={{ fontSize: 15, color: T.muted, fontFamily: T.body, marginBottom: 12, lineHeight: 1.6 }}>
-            One missed price change on a high-volume ingredient can cost you hundreds of dollars a month. KitchenIQ catches it automatically every time you scan an invoice.
-          </div>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(24px, 4vw, 36px)", color: T.text, marginBottom: 12, lineHeight: 1.1 }}>$89/month pays for itself the first time it catches a price spike</div>
+          <div style={{ fontSize: 15, color: T.muted, fontFamily: T.body, marginBottom: 12, lineHeight: 1.6 }}>One missed price change on a high-volume ingredient can cost you hundreds of dollars a month. KitchenIQ catches it automatically every time you scan an invoice.</div>
           <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32 }}>$89/month · $799/year · Cancel anytime</div>
-          <button onClick={onSignUp} style={{
-            background: T.accent, color: "#0f1410", border: "none", borderRadius: 8,
-            padding: "18px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800,
-            cursor: "pointer", boxShadow: `0 0 40px ${T.accent}55`, display: "block", margin: "0 auto 16px",
-          }}>
+          <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "18px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 40px ${T.accent}55`, display: "block", margin: "0 auto 16px" }}>
             Start Catching Price Changes →
           </button>
           <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Set up in under 10 minutes. No spreadsheets. No manual entry.</div>
@@ -1968,12 +1744,10 @@ export default function KitchenIQ() {
 
   const signOut = async () => { await supabase.auth.signOut(); setIngredients([]); setMenuItems([]); setProfile(null); };
 
-  // Handle Stripe redirect back
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("success") === "true") {
       window.history.replaceState({}, "", "/");
-      // Refetch profile after successful payment
       if (session) {
         setTimeout(async () => {
           const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
@@ -2006,78 +1780,58 @@ export default function KitchenIQ() {
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
       <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
-          <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{session.user.email}</span>
-          <button onClick={() => exportCSV(ingredients, menuItems)}
-            style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>↓ CSV</button>
-          <button onClick={signOut}
-            style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
-        </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
+            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{session.user.email}</span>
+            <button onClick={() => exportCSV(ingredients, menuItems)} style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>↓ CSV</button>
+            <button onClick={signOut} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
+          </div>
         </div>
       </div>
       <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", overflowX: "auto" }}>
-        {TABS.map((t, i) => {
+          {TABS.map((t, i) => {
             const alertCount = i === 3 ? getPriceAlerts(ingredients).length : 0;
             return (
-              <button key={i} onClick={() => setTab(i)} style={{
-                background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`,
-                color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font,
-                fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap",
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
+              <button key={i} onClick={() => setTab(i)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`, color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
                 {ICONS[i]} {t}
-                {alertCount > 0 && (
-                  <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{alertCount}</span>
-                )}
+                {alertCount > 0 && <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{alertCount}</span>}
               </button>
             );
           })}
         </div>
       </div>
-      {/* Price change notification */}
       {priceNotif && priceNotif.length > 0 && (
         <div style={{ padding: "0 16px", marginTop: 12 }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            <div style={{
-              background: "#1a0a00", border: `1px solid ${T.warn}`,
-              borderRadius: 10, padding: "12px 18px",
-              display: "flex", alignItems: "center", gap: 12,
-              animation: "slideInDown 0.4s ease",
-            }}>
+            <div style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10, padding: "12px 18px", display: "flex", alignItems: "center", gap: 12, animation: "slideInDown 0.4s ease" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}` }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>
-                  ⚠ {priceNotif.length} price {priceNotif.length === 1 ? "change" : "changes"} detected from this invoice
-                </div>
+                <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ {priceNotif.length} price {priceNotif.length === 1 ? "change" : "changes"} detected from this invoice</div>
                 <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>
                   {priceNotif.slice(0, 2).map(c => `${c.name}: ${c.pct > 0 ? "+" : ""}${c.pct.toFixed(1)}%`).join(" · ")}
                   {priceNotif.length > 2 ? ` · +${priceNotif.length - 2} more` : ""}
                 </div>
               </div>
-              <button onClick={() => { setTab(3); setPriceNotif(null); }} style={{ background: T.warn, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                View Alerts →
-              </button>
+              <button onClick={() => { setTab(3); setPriceNotif(null); }} style={{ background: T.warn, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>View Alerts →</button>
               <button onClick={() => setPriceNotif(null)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: "0 4px" }}>×</button>
             </div>
           </div>
         </div>
       )}
-
       <div style={{ width: "100%", padding: "24px 16px", boxSizing: "border-box" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        {loading
-          ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
-          : <>
-            {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} />}
-            {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 8000); }} />}
-            {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
-            {tab === 3 && <AlertsView ingredients={ingredients} />}
-          </>}
+          {loading
+            ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
+            : <>
+              {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} />}
+              {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 8000); }} />}
+              {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
+              {tab === 3 && <AlertsView ingredients={ingredients} />}
+            </>}
         </div>
       </div>
     </div>
