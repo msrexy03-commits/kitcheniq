@@ -1705,7 +1705,7 @@ function DemoScreen({ onSignUp }) {
       </div>
 
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", background: T.card, overflowX: "auto" }}>
-        {TABS.map((t, i) => {
+        {TABS.filter(t => t !== "Account").map((t, i) => {
           const alertCount = i === 3 ? getPriceAlerts(DEMO_INGREDIENTS).length : 0;
           return (
             <button key={i} onClick={() => setTab(i)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`, color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
