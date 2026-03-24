@@ -253,7 +253,7 @@ const UNIT_OPTIONS = [
 ];
 
 // ─── Auth Screen ──────────────────────────────────────────────────────────────
-function AuthScreen() {
+function AuthScreen({ onBack }) {
   const [mode, setMode] = useState("login"); // login | signup | reset
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -327,6 +327,11 @@ function AuthScreen() {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
+        {onBack && (
+          <button onClick={onBack} style={{ background: "none", border: "none", color: T.muted, fontSize: 13, fontFamily: T.body, cursor: "pointer", marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
+            ← Back to demo
+          </button>
+        )}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>⬡</div>
           <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></div>
@@ -1442,6 +1447,9 @@ function PaywallScreen({ session }) {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: "100%", maxWidth: 520 }}>
+        <button onClick={signOut} style={{ background: "none", border: "none", color: T.muted, fontSize: 13, fontFamily: T.body, cursor: "pointer", marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
+          ← Back to demo
+        </button>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>⬡</div>
           <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></div>
@@ -1644,7 +1652,7 @@ function DemoScreen({ onSignUp }) {
     const demoEl = document.getElementById("demo-section");
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) { setTimeout(() => setTourStep(1), 800); observer.disconnect(); }
-    }, { threshold: 0.3 });
+    }, { threshold: 1.0 });
     if (demoEl) observer.observe(demoEl);
     return () => { clearInterval(interval); clearInterval(cardFlash); observer.disconnect(); };
   }, []);
@@ -2320,7 +2328,7 @@ export default function KitchenIQ() {
   );
 
   if (!session) {
-    if (showAuth) return <AuthScreen />;
+    if (showAuth) return <AuthScreen onBack={() => setShowAuth(false)} />;
     return <DemoScreen onSignUp={() => setShowAuth(true)} />;
   }
   if (profileLoading) return (
