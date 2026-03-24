@@ -2071,6 +2071,125 @@ function AccountView({ session, profile, onProfileUpdate, onSignOut }) {
     </div>
   );
 }
+
+// ─── Support View ─────────────────────────────────────────────────────────────
+function SupportView({ session }) {
+  const [type, setType] = useState("bug");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState(null);
+
+  const types = [
+    { key: "bug", label: "🐛 Report a Bug", desc: "Something not working right? Tell Jake directly." },
+    { key: "idea", label: "💡 Feature Idea", desc: "Got a suggestion that would make KitchenIQ better for your restaurant?" },
+    { key: "testimonial", label: "⭐ Leave a Testimonial", desc: "Loving KitchenIQ? Share your experience — it helps more restaurants find us." },
+  ];
+
+  const placeholders = {
+    bug: "Describe what happened, what you expected, and what device/browser you were using...",
+    idea: "Describe the feature and how it would help your restaurant...",
+    testimonial: "Tell us how KitchenIQ has helped your restaurant. We may feature your testimonial on our website!",
+  };
+
+  const subjects = {
+    bug: "🐛 Bug Report",
+    idea: "💡 Feature Idea",
+    testimonial: "⭐ Testimonial",
+  };
+
+  const submit = async () => {
+    if (!message.trim()) return setError("Please enter a message before sending.");
+    setSending(true); setError(null);
+    try {
+      const html = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #0f1410; color: #e8f0e9; padding: 32px; border-radius: 12px;">
+          <div style="margin-bottom: 24px;">
+            <span style="font-size: 22px; font-weight: 800;">Kitchen<span style="color: #4eca6e;">IQ</span></span>
+            <span style="margin-left: 12px; font-size: 12px; color: #6b8a6e;">${subjects[type]}</span>
+          </div>
+          <div style="background: #161d17; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+            <p style="color: #e8f0e9; font-size: 15px; line-height: 1.7; margin: 0;">${message.replace(/\n/g, "<br/>")}</p>
+          </div>
+          <div style="color: #6b8a6e; font-size: 12px;">
+            From: ${session.user.email} · Sent via KitchenIQ app
+          </div>
+        </div>
+      `;
+      const res = await fetch("/api/send-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: "jake@trykitcheniq.com",
+          subject: `${subjects[type]} from ${session.user.email}`,
+          html,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send");
+      setSent(true);
+      setMessage("");
+    } catch (e) {
+      setError("Couldn't send your message. Try emailing jake@trykitcheniq.com directly.");
+    }
+    setSending(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 600 }}>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "24px 28px" }}>
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text, marginBottom: 6 }}>👋 Talk to Jake directly</div>
+        <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>
+          KitchenIQ is built by one person who genuinely wants to make this the best tool for independent restaurants. Bug reports, feature ideas, and feedback go straight to his inbox — usually replied to same day.
+        </div>
+        <div style={{ marginTop: 12, fontSize: 13, color: T.accent, fontFamily: T.body }}>📧 jake@trykitcheniq.com</div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {types.map(t => (
+          <div key={t.key} onClick={() => { setType(t.key); setSent(false); setError(null); }} style={{
+            background: type === t.key ? T.accentDim : T.card,
+            border: `1px solid ${type === t.key ? T.accentMid : T.border}`,
+            borderRadius: 10, padding: "14px 18px", cursor: "pointer",
+            transition: "all 0.15s", display: "flex", alignItems: "center", gap: 14,
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, color: type === t.key ? T.accent : T.text, fontFamily: T.font, fontWeight: 700 }}>{t.label}</div>
+              <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>{t.desc}</div>
+            </div>
+            <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${type === t.key ? T.accent : T.border}`, background: type === t.key ? T.accent : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {type === t.key && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#0f1410" }} />}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {sent ? (
+        <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "28px", textAlign: "center" }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 17, color: T.accent, marginBottom: 6 }}>Message sent!</div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 16 }}>Jake will get back to you at {session.user.email}.</div>
+          <Btn variant="ghost" onClick={() => setSent(false)}>Send Another</Btn>
+        </div>
+      ) : (
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "24px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body }}>Your Message</div>
+          <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder={placeholders[type]} rows={5} style={{
+            background: T.faint, border: `1px solid ${T.border}`, borderRadius: 8,
+            padding: "12px 14px", color: T.text, fontSize: 13, fontFamily: T.body,
+            outline: "none", resize: "vertical", width: "100%", boxSizing: "border-box", lineHeight: 1.6,
+          }} />
+          {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>⚠ {error}</div>}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Btn onClick={submit} disabled={sending || !message.trim()}>{sending ? "Sending..." : "Send Message →"}</Btn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Set New Password Screen ──────────────────────────────────────────────────
 function SetNewPasswordScreen({ onDone }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -2122,8 +2241,8 @@ function SetNewPasswordScreen({ onDone }) {
 }
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
-const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts", "Account"];
-const ICONS = ["⬡", "🥬", "🍽", "⚡", "👤"];
+const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts", "Account", "Support"];
+const ICONS = ["⬡", "🥬", "🍽", "⚡", "👤", "💬"];
 
 export default function KitchenIQ() {
   const [session, setSession] = useState(undefined);
@@ -2267,6 +2386,7 @@ export default function KitchenIQ() {
               {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
               {tab === 3 && <AlertsView ingredients={ingredients} />}
               {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
+              {tab === 5 && <SupportView session={session} />}
             </>}
         </div>
       </div>
