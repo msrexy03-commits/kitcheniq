@@ -1874,7 +1874,166 @@ function DemoScreen({ onSignUp }) {
   );
 }
 
-// ─── Set New Password Screen ──────────────────────────────────────────────────
+// ─── Account View ─────────────────────────────────────────────────────────────
+function AccountView({ session, profile, onProfileUpdate, onSignOut }) {
+  const [restaurantName, setRestaurantName] = useState(profile?.restaurant_name || "");
+  const [phone, setPhone] = useState(profile?.phone || "");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(null); // null | "profile" | "email" | "password" | "cancel"
+  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const flash = (key) => { setSuccess(key); setTimeout(() => setSuccess(null), 3000); };
+
+  const saveProfile = async () => {
+    setSaving("profile"); setError(null);
+    const { error } = await supabase.from("profiles").update({ restaurant_name: restaurantName, phone }).eq("id", session.user.id);
+    setSaving(null);
+    if (error) return setError(error.message);
+    onProfileUpdate({ ...profile, restaurant_name: restaurantName, phone });
+    flash("profile");
+  };
+
+  const saveEmail = async () => {
+    if (!newEmail) return;
+    setSaving("email"); setError(null);
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    setSaving(null);
+    if (error) return setError(error.message);
+    setNewEmail("");
+    flash("email");
+  };
+
+  const savePassword = async () => {
+    if (newPassword.length < 6) return setError("Password must be at least 6 characters.");
+    if (newPassword !== confirmPassword) return setError("Passwords don't match.");
+    setSaving("password"); setError(null);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setSaving(null);
+    if (error) return setError(error.message);
+    setNewPassword(""); setConfirmPassword("");
+    flash("password");
+  };
+
+  const cancelSubscription = async () => {
+    setSaving("cancel"); setError(null);
+    try {
+      const res = await fetch("/api/cancel-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      flash("cancel");
+      setShowCancelConfirm(false);
+    } catch (e) {
+      setError(e.message);
+    }
+    setSaving(null);
+  };
+
+  const Section = ({ title, children }) => (
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>{title}</div>
+      {children}
+    </div>
+  );
+
+  const SaveBtn = ({ id, label, loadingLabel, disabled }) => (
+    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <Btn onClick={() => id === "profile" ? saveProfile() : id === "email" ? saveEmail() : savePassword()} disabled={saving === id || disabled}>
+        {saving === id ? loadingLabel : success === id ? "✓ Saved" : label}
+      </Btn>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 600 }}>
+
+      {error && (
+        <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "12px 16px", fontSize: 13, color: T.warn, fontFamily: T.body }}>⚠ {error}</div>
+      )}
+
+      {/* Restaurant Info */}
+      <Section title="Restaurant Info">
+        <Input label="Restaurant Name" value={restaurantName} onChange={setRestaurantName} placeholder="e.g. Jake's Restaurant" />
+        <Input label="Phone Number" value={phone} onChange={setPhone} placeholder="e.g. (860) 555-0123" />
+        <SaveBtn id="profile" label="Save Info" loadingLabel="Saving..." />
+      </Section>
+
+      {/* Account */}
+      <Section title="Account">
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body }}>Current Email</div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.body, background: T.faint, borderRadius: 6, padding: "10px 14px", border: `1px solid ${T.border}` }}>{session.user.email}</div>
+        </div>
+        <Input label="New Email Address" value={newEmail} onChange={setNewEmail} type="email" placeholder="new@restaurant.com" />
+        <SaveBtn id="email" label="Update Email" loadingLabel="Updating..." disabled={!newEmail} />
+        <div style={{ height: 1, background: T.border }} />
+        <Input label="New Password" value={newPassword} onChange={setNewPassword} type="password" placeholder="At least 6 characters" />
+        <Input label="Confirm New Password" value={confirmPassword} onChange={setConfirmPassword} type="password" placeholder="Repeat new password" />
+        <SaveBtn id="password" label="Update Password" loadingLabel="Updating..." disabled={!newPassword || !confirmPassword} />
+      </Section>
+
+      {/* Subscription */}
+      <Section title="Subscription">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700 }}>
+              {profile?.is_subscribed ? "Active" : "Inactive"}
+            </div>
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>
+              {profile?.is_subscribed ? "Your subscription is active and renewing automatically." : "No active subscription."}
+            </div>
+          </div>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: profile?.is_subscribed ? T.accent : T.warn, boxShadow: `0 0 8px ${profile?.is_subscribed ? T.accent : T.warn}` }} />
+        </div>
+
+        {profile?.is_subscribed && !showCancelConfirm && (
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Btn variant="danger" onClick={() => setShowCancelConfirm(true)}>Cancel Subscription</Btn>
+          </div>
+        )}
+
+        {showCancelConfirm && (
+          <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 10, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 14, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>Are you sure you want to cancel?</div>
+            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>You'll keep access until the end of your current billing period. This cannot be undone.</div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Btn variant="ghost" onClick={() => setShowCancelConfirm(false)}>Keep Subscription</Btn>
+              <Btn variant="danger" onClick={cancelSubscription} disabled={saving === "cancel"}>
+                {saving === "cancel" ? "Cancelling..." : "Yes, Cancel"}
+              </Btn>
+            </div>
+          </div>
+        )}
+
+        {success === "cancel" && (
+          <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "12px 16px", fontSize: 13, color: T.accent, fontFamily: T.body }}>
+            ✓ Subscription cancelled. You'll retain access until the end of your billing period.
+          </div>
+        )}
+
+        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, paddingTop: 4 }}>
+          For billing questions email <span style={{ color: T.accent }}>support@trykitcheniq.com</span>
+        </div>
+      </Section>
+
+      {/* Danger Zone */}
+      <Section title="Session">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Signed in as {session.user.email}</div>
+          <Btn variant="ghost" onClick={onSignOut}>Sign Out</Btn>
+        </div>
+      </Section>
+
+    </div>
+  );
+}
 function SetNewPasswordScreen({ onDone }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -1926,8 +2085,8 @@ function SetNewPasswordScreen({ onDone }) {
 }
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
-const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts"];
-const ICONS = ["⬡", "🥬", "🍽", "⚡"];
+const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts", "Account"];
+const ICONS = ["⬡", "🥬", "🍽", "⚡", "👤"];
 
 export default function KitchenIQ() {
   const [session, setSession] = useState(undefined);
@@ -2070,6 +2229,7 @@ export default function KitchenIQ() {
               {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 8000); }} />}
               {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
               {tab === 3 && <AlertsView ingredients={ingredients} />}
+              {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
             </>}
         </div>
       </div>
