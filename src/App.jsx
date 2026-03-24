@@ -1258,7 +1258,7 @@ function TermsModal({ onClose }) {
 
         <div>
           <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>1. Acceptance of Terms</div>
-          By creating an account or using KitchenIQ ("Service"), you agree to these Terms of Service. If you do not agree, do not use the Service. These terms are between you and Jake Stevenson, operating as KitchenIQ ("we", "us", "our").
+          By creating an account or using KitchenIQ ("Service"), you agree to these Terms of Service. If you do not agree, do not use the Service. These terms are between you and Jacob Stevenson, operating as KitchenIQ ("we", "us", "our").
         </div>
 
         <div>
@@ -1268,7 +1268,7 @@ function TermsModal({ onClose }) {
 
         <div>
           <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>3. Subscriptions and Billing</div>
-          Access to KitchenIQ requires a paid subscription at $89/month or $799/year. Subscriptions automatically renew until cancelled. You may cancel at any time through the billing portal. No refunds are issued for partial billing periods. Pricing is subject to change with 30 days notice.
+          Access to KitchenIQ requires a paid subscription at $89/month or $799/year. Subscriptions automatically renew until cancelled. You may cancel at any time by contacting us at support@trykitcheniq.com. No refunds are issued for partial billing periods. Pricing is subject to change with 30 days notice.
         </div>
 
         <div>
@@ -1278,7 +1278,7 @@ function TermsModal({ onClose }) {
 
         <div>
           <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>5. Acceptable Use</div>
-          You agree to use the Service only for lawful purposes. You may not attempt to reverse engineer, copy, resell, or misuse any part of the Service. You are responsible for maintaining the security of your account credentials.
+          You agree to use the Service only for lawful purposes. You must be at least 18 years of age to create an account and use the Service. You may not attempt to reverse engineer, copy, resell, or misuse any part of the Service. You are responsible for maintaining the security of your account credentials.
         </div>
 
         <div>
