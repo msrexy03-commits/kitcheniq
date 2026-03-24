@@ -388,6 +388,7 @@ function AuthScreen() {
           </div>
         </div>
         <div style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: T.muted, fontFamily: T.body }}>Your data is encrypted and stored securely</div>
+        <LegalLinks />
       </div>
     </div>
   );
@@ -1248,6 +1249,134 @@ function OnboardingBanner({ ingredients, menuItems, onNavigate }) {
   );
 }
 
+// ─── Legal Modals ─────────────────────────────────────────────────────────────
+function TermsModal({ onClose }) {
+  return (
+    <Modal title="Terms of Service" onClose={onClose}>
+      <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.7, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Last updated: March 2026 · Governing law: State of Connecticut</div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>1. Acceptance of Terms</div>
+          By creating an account or using KitchenIQ ("Service"), you agree to these Terms of Service. If you do not agree, do not use the Service. These terms are between you and Jake Stevenson, operating as KitchenIQ ("we", "us", "our").
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>2. Description of Service</div>
+          KitchenIQ is a SaaS platform that helps independent restaurant operators track ingredient costs, scan supplier invoices using AI, calculate menu margins, and receive price change alerts. The Service is provided on a subscription basis.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>3. Subscriptions and Billing</div>
+          Access to KitchenIQ requires a paid subscription at $89/month or $799/year. Subscriptions automatically renew until cancelled. You may cancel at any time through the billing portal. No refunds are issued for partial billing periods. Pricing is subject to change with 30 days notice.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>4. Your Data</div>
+          You retain full ownership of all data you enter into KitchenIQ, including ingredient data, menu items, and invoice information. We do not sell your data to third parties. Invoice images uploaded for scanning are processed by our AI and are not stored permanently.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>5. Acceptable Use</div>
+          You agree to use the Service only for lawful purposes. You may not attempt to reverse engineer, copy, resell, or misuse any part of the Service. You are responsible for maintaining the security of your account credentials.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>6. Disclaimer of Warranties</div>
+          The Service is provided "as is" without warranties of any kind. We do not guarantee that cost calculations, margin figures, or price alerts are error-free or suitable for any specific business decision. Always verify important financial decisions independently.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>7. Limitation of Liability</div>
+          To the maximum extent permitted by law, KitchenIQ shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service. Our total liability shall not exceed the amount you paid in the 3 months prior to the claim.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>8. Termination</div>
+          We reserve the right to suspend or terminate accounts that violate these terms. Upon termination, your access to the Service ends and your data may be deleted after 30 days.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>9. Contact</div>
+          For questions about these terms, contact us at support@trykitcheniq.com.
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function PrivacyModal({ onClose }) {
+  return (
+    <Modal title="Privacy Policy" onClose={onClose}>
+      <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.7, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Last updated: March 2026 · Governing law: State of Connecticut</div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>1. Information We Collect</div>
+          We collect only what is necessary to provide the Service. This includes your email address when you create an account, and payment information processed securely by Stripe (we never store your card details directly). We also store the ingredient and menu data you choose to enter into the platform.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>2. Invoice Images</div>
+          When you scan an invoice, the image is temporarily transmitted to Anthropic's API for AI processing to extract ingredient and pricing data. Images are not stored on our servers after processing. We do not use your invoice data to train AI models.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>3. How We Use Your Information</div>
+          We use your information solely to provide and improve the Service — to authenticate your account, process your subscription, send price alert emails you've opted into, and display your restaurant data back to you. We do not use your data for advertising.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>4. Third-Party Services</div>
+          We use the following trusted third-party services to operate KitchenIQ: Supabase (database and authentication), Stripe (payment processing), Anthropic (AI invoice scanning), Resend (transactional email), and Vercel (hosting). Each of these has their own privacy policies governing how they handle data.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>5. Data Security</div>
+          Your data is stored securely using Supabase with row-level security — meaning your restaurant's data is only accessible by your account. Passwords are hashed and never stored in plain text. All data is transmitted over HTTPS.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>6. Data Retention</div>
+          We retain your data for as long as your account is active. If you cancel your subscription and request deletion, we will delete your data within 30 days. You may request an export of your data at any time via the CSV export feature.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>7. Your Rights</div>
+          You have the right to access, correct, or delete your personal data at any time. To make a request, contact us at support@trykitcheniq.com. We will respond within 30 days.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>8. Changes to This Policy</div>
+          We may update this Privacy Policy from time to time. We will notify you of significant changes via email. Continued use of the Service after changes constitutes acceptance of the updated policy.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>9. Contact</div>
+          For privacy-related questions or requests, contact us at support@trykitcheniq.com.
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Legal Links Component ────────────────────────────────────────────────────
+function LegalLinks() {
+  const [show, setShow] = useState(null); // null | "terms" | "privacy"
+  return (
+    <>
+      <div style={{ textAlign: "center", marginTop: 16, fontSize: 12, color: T.muted, fontFamily: T.body }}>
+        By using KitchenIQ you agree to our{" "}
+        <button onClick={() => setShow("terms")} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", padding: 0 }}>Terms of Service</button>
+        {" "}and{" "}
+        <button onClick={() => setShow("privacy")} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", padding: 0 }}>Privacy Policy</button>
+      </div>
+      {show === "terms" && <TermsModal onClose={() => setShow(null)} />}
+      {show === "privacy" && <PrivacyModal onClose={() => setShow(null)} />}
+    </>
+  );
+}
+
 // ─── Paywall Screen ───────────────────────────────────────────────────────────
 function PaywallScreen({ session }) {
   const [coupon, setCoupon] = useState("");
@@ -1335,6 +1464,7 @@ function PaywallScreen({ session }) {
         <div style={{ textAlign: "center" }}>
           <button onClick={signOut} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer" }}>Sign out</button>
         </div>
+        <LegalLinks />
       </div>
     </div>
   );
