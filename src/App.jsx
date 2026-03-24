@@ -749,7 +749,25 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
     setIngredients((prev) => prev.filter((i) => i.id !== id));
   };
 
+  const [dupToast, setDupToast] = useState(false);
+
   const handleScanned = async (items) => {
+    // Duplicate detection — check if same supplier + same date already exists
+    if (items.length > 0) {
+      const supplier = items[0].supplier?.trim().toLowerCase();
+      const date = items[0].date;
+      if (supplier && date) {
+        const alreadyExists = ingredients.some(
+          i => i.supplier?.trim().toLowerCase() === supplier && i.date === date
+        );
+        if (alreadyExists) {
+          setDupToast(true);
+          setTimeout(() => setDupToast(false), 5000);
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     const rows = items.map((r) => ({ name: r.name, supplier: r.supplier, date: r.date, price: r.price, case_size: r.case_size || null, case_unit: r.case_unit || r.unit, unit: r.unit, user_id: userId }));
     const { data, error } = await supabase.from("ingredients").insert(rows).select();
@@ -840,6 +858,25 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
           </div>
         );
       })()}
+
+      {dupToast && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: T.card, border: `1px solid ${T.accentMid}`,
+          borderRadius: 12, padding: "16px 24px", zIndex: 200,
+          display: "flex", alignItems: "center", gap: 12,
+          boxShadow: "0 8px 32px #00000066",
+          animation: "slideInDown 0.3s ease",
+          maxWidth: 420, width: "calc(100% - 32px)",
+        }}>
+          <div style={{ fontSize: 24 }}>👀</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 3 }}>Looks like you already scanned this one!</div>
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>We found an existing invoice from the same supplier and date. Import skipped to avoid duplicates.</div>
+          </div>
+          <button onClick={() => setDupToast(false)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: "0 4px", flexShrink: 0 }}>×</button>
+        </div>
+      )}
 
       {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} />}
 
