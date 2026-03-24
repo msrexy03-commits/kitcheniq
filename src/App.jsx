@@ -748,10 +748,12 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
     setSaving(false); setModal(null);
   };
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
   const del = async (id) => {
-    if (!window.confirm("Delete this ingredient?")) return;
     await supabase.from("ingredients").delete().eq("id", id);
     setIngredients((prev) => prev.filter((i) => i.id !== id));
+    setConfirmDeleteId(null);
   };
 
   const [dupToast, setDupToast] = useState(false);
@@ -852,7 +854,15 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
                             <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
                           </div>
                           <Btn small variant="ghost" onClick={() => openEdit(ing)}>Edit</Btn>
-                          <Btn small variant="danger" onClick={() => del(ing.id)}>Del</Btn>
+                          {confirmDeleteId === ing.id ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 11, color: T.warn, fontFamily: T.body }}>Sure?</span>
+                              <Btn small variant="danger" onClick={() => del(ing.id)}>Yes</Btn>
+                              <Btn small variant="ghost" onClick={() => setConfirmDeleteId(null)}>No</Btn>
+                            </div>
+                          ) : (
+                            <Btn small variant="danger" onClick={() => setConfirmDeleteId(ing.id)}>Del</Btn>
+                          )}
                         </div>
                       </div>
                     );
@@ -1100,10 +1110,12 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
     setSaving(false); setModal(null);
   };
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
   const del = async (id) => {
-    if (!window.confirm("Delete this menu item?")) return;
     await supabase.from("menu_items").delete().eq("id", id);
     setMenuItems((prev) => prev.filter((m) => m.id !== id));
+    setConfirmDeleteId(null);
   };
 
   return (
@@ -1141,7 +1153,15 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
                       <div style={{ fontSize: 11, color: isBad ? T.warn : T.muted, fontFamily: T.body }}>{isBad ? "needs attention" : "margin"}</div>
                     </div>
                     <Btn small variant="ghost" onClick={() => openEdit(m)}>Edit</Btn>
-                    <Btn small variant="danger" onClick={() => del(m.id)}>Del</Btn>
+                    {confirmDeleteId === m.id ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 11, color: T.warn, fontFamily: T.body }}>Sure?</span>
+                        <Btn small variant="danger" onClick={() => del(m.id)}>Yes</Btn>
+                        <Btn small variant="ghost" onClick={() => setConfirmDeleteId(null)}>No</Btn>
+                      </div>
+                    ) : (
+                      <Btn small variant="danger" onClick={() => setConfirmDeleteId(m.id)}>Del</Btn>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 20, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.faint}` }}>
@@ -1626,7 +1646,7 @@ function DemoInvoiceScanner({ onClose }) {
 }
 
 // ─── Demo Screen ──────────────────────────────────────────────────────────────
-function DemoScreen({ onSignUp }) {
+function DemoScreen({ onSignUp, onLogin }) {
   const [tab, setTab] = useState(0);
   const [visible, setVisible] = useState(false);
   const [pulse, setPulse] = useState(false);
@@ -1681,10 +1701,10 @@ function DemoScreen({ onSignUp }) {
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.warn}`, transition: "box-shadow 0.5s ease" }} />
             <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>RESTAURANT OWNERS ARE LEAVING MONEY ON THE TABLE</span>
           </div>
-          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(28px, 5vw, 52px)", color: T.text, marginBottom: 16, lineHeight: 1.05 }}>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(28px, 4.5vw, 48px)", color: T.text, marginBottom: 24, lineHeight: 1.2, letterSpacing: "-0.01em" }}>
             You're probably losing <span style={{ color: T.warn }}>$2,000–$5,000/year</span> to price changes you never noticed
           </div>
-          <div style={{ fontSize: "clamp(14px, 2vw, 17px)", color: T.muted, fontFamily: T.body, marginBottom: 40, maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.6 }}>
+          <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: T.body, maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.75 }}>
             Every time a supplier raises prices, your margins silently drop. Most restaurant owners find out months later — if ever. KitchenIQ catches it the moment you scan your next invoice.
           </div>
           <div style={{ background: T.card, border: `1px solid ${T.warn}44`, borderRadius: 14, padding: "24px 32px", marginBottom: 40, display: "inline-block", minWidth: 280 }}>
@@ -1746,11 +1766,12 @@ function DemoScreen({ onSignUp }) {
             <span style={{ fontSize: 11, background: T.warnDim, color: T.warn, border: `1px solid ${T.warn}44`, borderRadius: 4, padding: "2px 8px", fontFamily: T.font, fontWeight: 700, letterSpacing: "0.05em" }}>DEMO</span>
           </div>
           <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>Connect My Restaurant →</button>
+          <button onClick={onLogin} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Log In</button>
         </div>
       </div>
 
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", background: T.card, overflowX: "auto" }}>
-        {TABS.filter(t => t !== "Account").map((t, i) => {
+        {TABS.filter(t => t !== "Account" && t !== "Support").map((t, i) => {
           const alertCount = i === 3 ? getPriceAlerts(DEMO_INGREDIENTS).length : 0;
           return (
             <button key={i} onClick={() => setTab(i)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`, color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
@@ -2329,7 +2350,7 @@ export default function KitchenIQ() {
 
   if (!session) {
     if (showAuth) return <AuthScreen onBack={() => setShowAuth(false)} />;
-    return <DemoScreen onSignUp={() => setShowAuth(true)} />;
+    return <DemoScreen onSignUp={() => setShowAuth(true)} onLogin={() => setShowAuth(true)} />;
   }
   if (profileLoading) return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
