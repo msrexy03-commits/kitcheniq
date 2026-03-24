@@ -1066,6 +1066,21 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showMenuScanner, setShowMenuScanner] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiQuestions, setAiQuestions] = useState([]); // [{question, type: "yesno"|"number"|"text", key}]
+  const [aiAnswers, setAiAnswers] = useState({});
+  const [aiPendingSuggestion, setAiPendingSuggestion] = useState(null);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+
+  // Deduplicated ingredient list — one entry per unique name, using most recent price
+  const uniqueIngredients = Object.values(
+    ingredients.reduce((acc, ing) => {
+      const key = ing.name.toLowerCase();
+      if (!acc[key] || new Date(ing.date) > new Date(acc[key].date)) acc[key] = ing;
+      return acc;
+    }, {})
+  ).sort((a, b) => a.name.localeCompare(b.name));
 
   const handleScannedMenu = async (items) => {
     setSaving(true);
@@ -1081,7 +1096,126 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
     setEditId(m.id); setModal("form");
   };
   const addRow = () => setForm((f) => ({ ...f, ingredients: [...f.ingredients, { ingredient_name: "", qty: "", qty_unit: "oz" }] }));
-  const updateRow = (i, field, val) => setForm((f) => ({ ...f, ingredients: f.ingredients.map((row, idx) => idx === i ? { ...row, [field]: val } : row) }));
+  const updateRow = (i, field, val) => setForm((f) => {
+    const updated = f.ingredients.map((row, idx) => {
+      if (idx !== i) return row;
+      const newRow = { ...row, [field]: val };
+      // Auto-set unit when ingredient is selected
+      if (field === "ingredient_name") {
+        const match = uniqueIngredients.find(ing => ing.name === val);
+        if (match) newRow.qty_unit = match.case_unit || match.unit || "oz";
+      }
+      return newRow;
+    });
+    return { ...f, ingredients: updated };
+  });
+  const removeRow = (i) => setForm((f) => ({ ...f, ingredients: f.ingredients.filter((_, idx) => idx !== i) }));
+
+  const suggestRecipe = async () => {
+    if (!form.name) return;
+    setAiLoading(true);
+    try {
+      const ingredientList = uniqueIngredients.map(i => `${i.name} (${i.case_unit || i.unit})`).join(", ");
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-opus-4-5",
+          max_tokens: 1024,
+          messages: [{
+            role: "user",
+            content: `You are helping a restaurant owner build a recipe cost calculator for their menu item.
+
+Menu item: "${form.name}"
+Available ingredients from their invoices: ${ingredientList}
+
+Your job:
+1. Suggest which ingredients from their list are likely in this dish with realistic quantities
+2. Identify anything you're genuinely unsure about that would meaningfully affect the recipe cost
+
+Return ONLY raw JSON, no markdown, no backticks:
+{
+  "recipe": [
+    {"ingredient_name": "exact name from list", "qty": 5, "qty_unit": "oz"}
+  ],
+  "questions": [
+    {"key": "toast", "question": "Does this dish come with toast?", "type": "yesno", "if_yes": [{"ingredient_name": "exact name", "qty": 2, "qty_unit": "each"}]},
+    {"key": "patty_size", "question": "How many oz is the burger patty?", "type": "number", "ingredient_name": "exact name", "qty_unit": "oz"}
+  ]
+}
+
+Rules:
+- ONLY use ingredient names EXACTLY as they appear in the available list
+- Skip an ingredient entirely if it's not in their list
+- Keep quantities realistic for a single serving (not a whole case)
+- Only ask questions if you're genuinely unsure AND it affects cost. Max 3 questions.
+- question types: "yesno" (adds ingredients if yes), "number" (updates qty of an ingredient)
+- Keep questions dead simple — the answer should be a yes/no or a single number like "8"
+- If nothing is unclear, return an empty questions array`
+          }]
+        })
+      });
+      const data = await response.json();
+      let text = data.content[0].text.trim();
+      text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(text);
+
+      // Apply base recipe to form
+      if (parsed.recipe && parsed.recipe.length > 0) {
+        setForm(f => ({ ...f, ingredients: parsed.recipe.map(r => ({ ingredient_name: r.ingredient_name, qty: String(r.qty), qty_unit: r.qty_unit })) }));
+      }
+
+      // If there are questions, show questionnaire
+      if (parsed.questions && parsed.questions.length > 0) {
+        setAiPendingSuggestion(parsed);
+        setAiQuestions(parsed.questions);
+        setAiAnswers({});
+        setCurrentQuestion(0);
+        setShowQuestionnaire(true);
+      }
+    } catch (e) {
+      // silently fail — form stays as is
+    }
+    setAiLoading(false);
+  };
+
+  const applyAnswer = (answer) => {
+    const q = aiQuestions[currentQuestion];
+    setAiAnswers(prev => ({ ...prev, [q.key]: answer }));
+
+    // Apply answer to form immediately
+    if (q.type === "yesno" && answer === "yes" && q.if_yes) {
+      setForm(f => ({
+        ...f,
+        ingredients: [
+          ...f.ingredients,
+          ...q.if_yes.map(r => ({ ingredient_name: r.ingredient_name, qty: String(r.qty), qty_unit: r.qty_unit }))
+        ]
+      }));
+    } else if (q.type === "number" && answer) {
+      setForm(f => ({
+        ...f,
+        ingredients: f.ingredients.map(row =>
+          row.ingredient_name === q.ingredient_name
+            ? { ...row, qty: String(answer) }
+            : row
+        )
+      }));
+    }
+
+    // Move to next question or close
+    if (currentQuestion < aiQuestions.length - 1) {
+      setCurrentQuestion(i => i + 1);
+    } else {
+      setShowQuestionnaire(false);
+      setAiQuestions([]);
+    }
+  };
 
   const previewCost = () => {
     return form.ingredients.reduce((total, row) => {
@@ -1181,14 +1315,27 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <Input label="Menu Item Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Input label="Sale Price ($)" value={form.salePrice} onChange={(v) => setForm({ ...form, salePrice: v })} type="number" />
+
+            {/* AI Suggest Button */}
+            {uniqueIngredients.length > 0 && (
+              <button onClick={suggestRecipe} disabled={aiLoading || !form.name} style={{
+                background: "linear-gradient(135deg, #4eca6e22, #6e4eca22)", border: `1px solid ${T.accentMid}`,
+                color: T.accent, borderRadius: 8, padding: "10px 16px", fontSize: 13,
+                fontFamily: T.font, fontWeight: 700, cursor: aiLoading || !form.name ? "not-allowed" : "pointer",
+                opacity: !form.name ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}>
+                {aiLoading ? "⏳ Thinking..." : "✨ AI Suggest Recipe"}
+              </button>
+            )}
+
             <div>
               <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 10 }}>Recipe (quantities per serving)</div>
               {form.ingredients.map((row, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px", gap: 8, marginBottom: 8 }}>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 28px", gap: 8, marginBottom: 8, alignItems: "center" }}>
                   <select value={row.ingredient_name} onChange={(e) => updateRow(i, "ingredient_name", e.target.value)}
                     style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 12px", color: row.ingredient_name ? T.text : T.muted, fontSize: 13, fontFamily: T.body, outline: "none" }}>
                     <option value="">Select ingredient...</option>
-                    {ingredients.map(ing => <option key={ing.id} value={ing.name}>{ing.name}</option>)}
+                    {uniqueIngredients.map(ing => <option key={ing.id} value={ing.name}>{ing.name}</option>)}
                   </select>
                   <input value={row.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} placeholder="Qty" type="number"
                     style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 10px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }} />
@@ -1196,6 +1343,7 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
                     style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 8px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }}>
                     {["oz","lb","g","each","pack","bag","case"].map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
+                  <button onClick={() => removeRow(i)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 16, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                 </div>
               ))}
               <button onClick={addRow} style={{ background: "none", border: `1px dashed ${T.border}`, borderRadius: 6, color: T.muted, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontFamily: T.body, width: "100%", marginTop: 4 }}>+ Add ingredient</button>
@@ -1225,6 +1373,73 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* AI Questionnaire Modal */}
+      {showQuestionnaire && aiQuestions[currentQuestion] && (
+        <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: T.card, border: `2px solid ${T.accent}`, borderRadius: 16, width: "100%", maxWidth: 420, padding: 32, animation: "fadeIn 0.2s ease" }}>
+            {/* Progress */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 800 }}>
+                {currentQuestion + 1} of {aiQuestions.length}
+              </div>
+              <div style={{ flex: 1, height: 3, background: T.faint, borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${((currentQuestion + 1) / aiQuestions.length) * 100}%`, transition: "width 0.3s ease" }} />
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, color: T.accent, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>✨ Quick Question</div>
+            <div style={{ fontSize: 17, color: T.text, fontFamily: T.body, fontWeight: 600, lineHeight: 1.5, marginBottom: 24 }}>
+              {aiQuestions[currentQuestion].question}
+            </div>
+
+            {aiQuestions[currentQuestion].type === "yesno" && (
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={() => applyAnswer("yes")} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 10, padding: "14px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Yes</button>
+                <button onClick={() => applyAnswer("no")} style={{ flex: 1, background: T.faint, color: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px", fontSize: 16, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>No</button>
+              </div>
+            )}
+
+            {aiQuestions[currentQuestion].type === "number" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <input
+                  type="number"
+                  placeholder="Enter a number e.g. 8"
+                  autoFocus
+                  id="ai-number-input"
+                  style={{ background: T.faint, border: `2px solid ${T.accentMid}`, borderRadius: 8, padding: "14px 16px", color: T.text, fontSize: 20, fontFamily: T.font, fontWeight: 700, outline: "none", textAlign: "center" }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { const v = e.target.value; if (v) applyAnswer(v); }}}
+                />
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => applyAnswer(null)} style={{ flex: 1, background: T.faint, color: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Skip</button>
+                  <button onClick={() => { const el = document.getElementById("ai-number-input"); if (el?.value) applyAnswer(el.value); }} style={{ flex: 2, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Confirm →</button>
+                </div>
+              </div>
+            )}
+
+            {aiQuestions[currentQuestion].type === "text" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <input
+                  type="text"
+                  placeholder="Type your answer..."
+                  autoFocus
+                  id="ai-text-input"
+                  style={{ background: T.faint, border: `2px solid ${T.accentMid}`, borderRadius: 8, padding: "14px 16px", color: T.text, fontSize: 15, fontFamily: T.body, outline: "none" }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { const v = e.target.value; if (v) applyAnswer(v); }}}
+                />
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => applyAnswer(null)} style={{ flex: 1, background: T.faint, color: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Skip</button>
+                  <button onClick={() => { const el = document.getElementById("ai-text-input"); if (el?.value) applyAnswer(el.value); }} style={{ flex: 2, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Confirm →</button>
+                </div>
+              </div>
+            )}
+
+            <button onClick={() => { setShowQuestionnaire(false); setAiQuestions([]); }} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", marginTop: 16, display: "block", textAlign: "center", width: "100%" }}>
+              Skip remaining questions
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
