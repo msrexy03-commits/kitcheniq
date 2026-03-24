@@ -1927,39 +1927,39 @@ function DemoScreen({ onSignUp, onLogin }) {
         <div style={{
           position: "fixed", top: "50%", right: 16, transform: "translateY(-50%)",
           background: "#0f1a10", border: `2px solid ${T.accent}`,
-          borderRadius: 16, padding: "20px 18px", zIndex: 200,
-          width: 220, boxShadow: "0 8px 40px #000000aa",
+          borderRadius: 16, padding: "28px 22px", zIndex: 200,
+          width: 240, boxShadow: "0 8px 40px #000000aa",
           animation: "tourPulse 2s ease-in-out infinite",
         }}>
           {/* Step indicator */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 10, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
           </div>
           {/* Progress bar */}
-          <div style={{ height: 3, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 12 }}>
+          <div style={{ height: 4, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
             <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
           </div>
           {/* Text */}
-          <div style={{ fontSize: 13, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 16, fontWeight: 500 }}>{currentTour.text}</div>
+          <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.7, marginBottom: 20, fontWeight: 500 }}>{currentTour.text}</div>
           {/* Action hint if step requires action */}
           {currentTour.action && !tourStepDone && (
-            <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginBottom: 12, background: T.accentDim, borderRadius: 6, padding: "6px 10px", border: `1px solid ${T.accentMid}` }}>
+            <div style={{ fontSize: 12, color: T.accent, fontFamily: T.body, marginBottom: 16, background: T.accentDim, borderRadius: 6, padding: "8px 12px", border: `1px solid ${T.accentMid}` }}>
               ☝️ Complete the action above to continue
             </div>
           )}
           {/* Buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <button onClick={nextTour} disabled={!tourStepDone} style={{
               background: tourStepDone ? T.accent : T.faint,
               color: tourStepDone ? "#0f1410" : T.muted,
               border: "none", borderRadius: 8,
-              padding: "10px 16px", fontSize: 13, fontFamily: T.font, fontWeight: 800,
+              padding: "12px 16px", fontSize: 14, fontFamily: T.font, fontWeight: 800,
               cursor: tourStepDone ? "pointer" : "not-allowed", width: "100%",
               transition: "all 0.2s",
             }}>
               {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
             </button>
-            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 11, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", textAlign: "center" }}>
+            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", textAlign: "center" }}>
               Skip tour
             </button>
           </div>
