@@ -1701,10 +1701,10 @@ function DemoScreen({ onSignUp, onLogin }) {
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.warn}`, transition: "box-shadow 0.5s ease" }} />
             <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>RESTAURANT OWNERS ARE LEAVING MONEY ON THE TABLE</span>
           </div>
-          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(28px, 4.5vw, 48px)", color: T.text, marginBottom: 24, lineHeight: 1.2, letterSpacing: "-0.01em" }}>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(28px, 4.5vw, 50px)", color: T.text, marginBottom: 24, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
             You're probably losing <span style={{ color: T.warn }}>$2,000–$5,000/year</span> to price changes you never noticed
           </div>
-          <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: T.body, maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.75 }}>
+          <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.75 }}>
             Every time a supplier raises prices, your margins silently drop. Most restaurant owners find out months later — if ever. KitchenIQ catches it the moment you scan your next invoice.
           </div>
           <div style={{ background: T.card, border: `1px solid ${T.warn}44`, borderRadius: 14, padding: "24px 32px", marginBottom: 40, display: "inline-block", minWidth: 280 }}>
@@ -1927,7 +1927,7 @@ function DemoScreen({ onSignUp, onLogin }) {
 
       <div style={{ background: `linear-gradient(135deg, #0a0f0a, #0f1a10)`, borderTop: `1px solid ${T.accentMid}`, padding: "64px 24px", textAlign: "center" }}>
         <div style={{ maxWidth: 600, margin: "0 auto" }}>
-          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(24px, 4vw, 36px)", color: T.text, marginBottom: 12, lineHeight: 1.1 }}>Most restaurants lose more in one month than KitchenIQ costs in a year</div>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 4vw, 38px)", color: T.text, marginBottom: 16, lineHeight: 1.25, letterSpacing: "-0.02em" }}>Most restaurants lose more in one month than KitchenIQ costs in a year</div>
           <div style={{ fontSize: 15, color: T.muted, fontFamily: T.body, marginBottom: 12, lineHeight: 1.6 }}>One unnoticed price spike on a high-volume ingredient can cost you $200–$400 in a single month. KitchenIQ catches it the moment you scan your next invoice — automatically, every time.</div>
           <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32 }}>$89/month · $799/year · Cancel anytime</div>
           <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "18px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 40px ${T.accent}55`, display: "block", margin: "0 auto 16px" }}>
