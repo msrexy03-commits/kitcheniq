@@ -2031,6 +2031,7 @@ function DemoInvoiceScanner({ onClose, onComplete }) {
 
 // ─── Demo Screen ──────────────────────────────────────────────────────────────
 function DemoScreen({ onSignUp, onLogin }) {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState(0);
   const [visible, setVisible] = useState(false);
   const [pulse, setPulse] = useState(false);
@@ -2309,46 +2310,79 @@ function DemoScreen({ onSignUp, onLogin }) {
       </div>
 
       {tourStep > 0 && currentTour && (
-        <div style={{
-          position: "fixed", top: "50%", right: 16, transform: "translateY(-50%)",
-          background: "#0f1a10", border: `2px solid ${T.accent}`,
-          borderRadius: 16, padding: "28px 22px", zIndex: 200,
-          width: 240, boxShadow: "0 8px 40px #000000aa",
-          animation: "tourPulse 2s ease-in-out infinite",
-        }}>
-          {/* Step indicator */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
-          </div>
-          {/* Progress bar */}
-          <div style={{ height: 4, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
-            <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
-          </div>
-          {/* Text */}
-          <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.7, marginBottom: 20, fontWeight: 500 }}>{currentTour.text}</div>
-          {/* Action hint if step requires action */}
-          {currentTour.action && !tourStepDone && (
-            <div style={{ fontSize: 12, color: T.accent, fontFamily: T.body, marginBottom: 16, background: T.accentDim, borderRadius: 6, padding: "8px 12px", border: `1px solid ${T.accentMid}` }}>
-              ☝️ Complete the action above to continue
+        isMobile ? (
+          // Mobile: compact bottom bar
+          <div style={{
+            position: "fixed", bottom: 0, left: 0, right: 0,
+            background: "#0f1a10", borderTop: `2px solid ${T.accent}`,
+            padding: "12px 16px", zIndex: 200,
+            boxShadow: "0 -4px 24px #000000aa",
+          }}>
+            {/* Progress bar */}
+            <div style={{ height: 3, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
+              <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
             </div>
-          )}
-          {/* Buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button onClick={nextTour} disabled={!tourStepDone} style={{
-              background: tourStepDone ? T.accent : T.faint,
-              color: tourStepDone ? "#0f1410" : T.muted,
-              border: "none", borderRadius: 8,
-              padding: "12px 16px", fontSize: 14, fontFamily: T.font, fontWeight: 800,
-              cursor: tourStepDone ? "pointer" : "not-allowed", width: "100%",
-              transition: "all 0.2s",
-            }}>
-              {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
-            </button>
-            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", textAlign: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 10, fontFamily: T.font, fontWeight: 800, whiteSpace: "nowrap" }}>{tourStep}/{TOUR_STEPS.length}</div>
+              <div style={{ flex: 1, fontSize: 12, color: T.text, fontFamily: T.body, lineHeight: 1.4, opacity: questionVisible ? 1 : 0, transition: "opacity 0.2s ease" }}>{currentTour.text}</div>
+              <button onClick={nextTour} disabled={!tourStepDone} style={{
+                background: tourStepDone ? T.accent : T.faint,
+                color: tourStepDone ? "#0f1410" : T.muted,
+                border: "none", borderRadius: 8, padding: "10px 16px",
+                fontSize: 13, fontFamily: T.font, fontWeight: 800,
+                cursor: tourStepDone ? "pointer" : "not-allowed", whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}>
+                {tourStep < TOUR_STEPS.length ? "Next →" : "Done ✓"}
+              </button>
+            </div>
+            {currentTour.action && !tourStepDone && (
+              <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 8, textAlign: "center" }}>☝️ Complete the action above to continue</div>
+            )}
+            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 11, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", display: "block", textAlign: "center", width: "100%", marginTop: 6 }}>
               Skip tour
             </button>
           </div>
-        </div>
+        ) : (
+          // Desktop: right side panel
+          <div style={{
+            position: "fixed", top: "50%", right: 16, transform: "translateY(-50%)",
+            background: "#0f1a10", border: `2px solid ${T.accent}`,
+            borderRadius: 16, padding: "28px 22px", zIndex: 200,
+            width: 240, boxShadow: "0 8px 40px #000000aa",
+            animation: "tourPulse 2s ease-in-out infinite",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
+            </div>
+            <div style={{ height: 4, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+              <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
+            </div>
+            <div style={{ opacity: questionVisible ? 1 : 0, transform: questionVisible ? "translateY(0)" : "translateY(8px)", transition: "opacity 0.2s ease, transform 0.2s ease" }}>
+              <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.7, marginBottom: 20, fontWeight: 500 }}>{currentTour.text}</div>
+              {currentTour.action && !tourStepDone && (
+                <div style={{ fontSize: 12, color: T.accent, fontFamily: T.body, marginBottom: 16, background: T.accentDim, borderRadius: 6, padding: "8px 12px", border: `1px solid ${T.accentMid}` }}>
+                  ☝️ Complete the action above to continue
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button onClick={nextTour} disabled={!tourStepDone} style={{
+                  background: tourStepDone ? T.accent : T.faint,
+                  color: tourStepDone ? "#0f1410" : T.muted,
+                  border: "none", borderRadius: 8,
+                  padding: "12px 16px", fontSize: 14, fontFamily: T.font, fontWeight: 800,
+                  cursor: tourStepDone ? "pointer" : "not-allowed", width: "100%",
+                  transition: "all 0.2s",
+                }}>
+                  {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
+                </button>
+                <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", textAlign: "center" }}>
+                  Skip tour
+                </button>
+              </div>
+            </div>
+          </div>
+        )
       )}
 
       {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} onComplete={() => setDemoScanCompleted(true)} />}
