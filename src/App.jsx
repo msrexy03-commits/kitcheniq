@@ -1702,7 +1702,9 @@ function DemoScreen({ onSignUp, onLogin }) {
             <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>RESTAURANT OWNERS ARE LEAVING MONEY ON THE TABLE</span>
           </div>
           <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(28px, 4.5vw, 50px)", color: T.text, marginBottom: 24, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
-            You're probably losing <span style={{ color: T.warn }}>$2,000–$5,000/year</span> to price changes you never noticed
+            You're probably losing{" "}
+            <span style={{ color: T.warn, whiteSpace: "nowrap" }}>$2,000–$5,000/year</span>
+            {" "}to price changes you never noticed
           </div>
           <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.75 }}>
             Every time a supplier raises prices, your margins silently drop. Most restaurant owners find out months later — if ever. KitchenIQ catches it the moment you scan your next invoice.
