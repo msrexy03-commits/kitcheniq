@@ -1111,11 +1111,18 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
   });
   const removeRow = (i) => setForm((f) => ({ ...f, ingredients: f.ingredients.filter((_, idx) => idx !== i) }));
 
+  const [questionVisible, setQuestionVisible] = useState(true);
+
   const suggestRecipe = async () => {
     if (!form.name) return;
     setAiLoading(true);
     try {
-      const ingredientList = uniqueIngredients.map(i => `${i.name} (${i.case_unit || i.unit})`).join(", ");
+      // Pass ingredient names with BOTH case unit and suggested serving unit
+      const ingredientList = uniqueIngredients.map(i => {
+        const servingUnit = (i.case_unit === "lb" || i.case_unit === "g") ? "oz" : i.case_unit || i.unit;
+        return `${i.name} (use "${servingUnit}" for per-serving quantities)`;
+      }).join("\n");
+
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -1132,31 +1139,38 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
             content: `You are helping a restaurant owner build a recipe cost calculator for their menu item.
 
 Menu item: "${form.name}"
-Available ingredients from their invoices: ${ingredientList}
+Available ingredients (use the exact unit shown for each):
+${ingredientList}
 
 Your job:
-1. Suggest which ingredients from their list are likely in this dish with realistic quantities
+1. Suggest which ingredients from their list are likely in this dish with realistic PER-SERVING quantities
 2. Identify anything you're genuinely unsure about that would meaningfully affect the recipe cost
+
+CRITICAL UNIT RULES:
+- Always use the unit shown next to each ingredient
+- Meat portions: typically 4-8 oz per serving, never "lb" for a single dish
+- Eggs: use "each" (2-3 per serving)
+- Cheese: 1-2 oz per serving
+- Butter: 1 each (pat) per serving
 
 Return ONLY raw JSON, no markdown, no backticks:
 {
   "recipe": [
-    {"ingredient_name": "exact name from list", "qty": 5, "qty_unit": "oz"}
+    {"ingredient_name": "EXACT name from list above", "qty": 6, "qty_unit": "oz"}
   ],
   "questions": [
-    {"key": "toast", "question": "Does this dish come with toast?", "type": "yesno", "if_yes": [{"ingredient_name": "exact name", "qty": 2, "qty_unit": "each"}]},
-    {"key": "patty_size", "question": "How many oz is the burger patty?", "type": "number", "ingredient_name": "exact name", "qty_unit": "oz"}
+    {"key": "toast", "question": "Does this dish come with toast?", "type": "yesno", "if_yes": [{"ingredient_name": "EXACT name", "qty": 2, "qty_unit": "each"}]},
+    {"key": "patty_size", "question": "How many oz is the patty?", "type": "number", "ingredient_name": "EXACT name", "qty_unit": "oz"}
   ]
 }
 
 Rules:
-- ONLY use ingredient names EXACTLY as they appear in the available list
-- Skip an ingredient entirely if it's not in their list
-- Keep quantities realistic for a single serving (not a whole case)
-- Only ask questions if you're genuinely unsure AND it affects cost. Max 3 questions.
-- question types: "yesno" (adds ingredients if yes), "number" (updates qty of an ingredient)
-- Keep questions dead simple — the answer should be a yes/no or a single number like "8"
-- If nothing is unclear, return an empty questions array`
+- ingredient_name must be EXACTLY as listed above, character for character
+- Only include ingredients actually in their list — skip anything not listed
+- Keep quantities realistic for a single serving
+- Only ask questions if genuinely unsure AND it affects cost. Max 3 questions.
+- Keep questions dead simple — yes/no or a single number like "6"
+- If nothing unclear, return empty questions array`
           }]
         })
       });
@@ -1165,17 +1179,42 @@ Rules:
       text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
 
-      // Apply base recipe to form
+      // Apply base recipe — match ingredient names case-insensitively to what's in the dropdown
       if (parsed.recipe && parsed.recipe.length > 0) {
-        setForm(f => ({ ...f, ingredients: parsed.recipe.map(r => ({ ingredient_name: r.ingredient_name, qty: String(r.qty), qty_unit: r.qty_unit })) }));
+        const matched = parsed.recipe.map(r => {
+          const match = uniqueIngredients.find(
+            ing => ing.name.toLowerCase() === r.ingredient_name.toLowerCase()
+          );
+          return {
+            ingredient_name: match ? match.name : r.ingredient_name,
+            qty: String(r.qty),
+            qty_unit: r.qty_unit,
+          };
+        }).filter(r => uniqueIngredients.some(ing => ing.name === r.ingredient_name));
+        if (matched.length > 0) {
+          setForm(f => ({ ...f, ingredients: matched }));
+        }
       }
 
       // If there are questions, show questionnaire
       if (parsed.questions && parsed.questions.length > 0) {
+        // Also case-insensitive match ingredient names in questions
+        const fixedQuestions = parsed.questions.map(q => {
+          const fix = (name) => {
+            const match = uniqueIngredients.find(i => i.name.toLowerCase() === name?.toLowerCase());
+            return match ? match.name : name;
+          };
+          return {
+            ...q,
+            ingredient_name: q.ingredient_name ? fix(q.ingredient_name) : undefined,
+            if_yes: q.if_yes ? q.if_yes.map(r => ({ ...r, ingredient_name: fix(r.ingredient_name) })) : undefined,
+          };
+        });
         setAiPendingSuggestion(parsed);
-        setAiQuestions(parsed.questions);
+        setAiQuestions(fixedQuestions);
         setAiAnswers({});
         setCurrentQuestion(0);
+        setQuestionVisible(true);
         setShowQuestionnaire(true);
       }
     } catch (e) {
@@ -1208,13 +1247,17 @@ Rules:
       }));
     }
 
-    // Move to next question or close
-    if (currentQuestion < aiQuestions.length - 1) {
-      setCurrentQuestion(i => i + 1);
-    } else {
-      setShowQuestionnaire(false);
-      setAiQuestions([]);
-    }
+    // Animate out, then move to next or close
+    setQuestionVisible(false);
+    setTimeout(() => {
+      if (currentQuestion < aiQuestions.length - 1) {
+        setCurrentQuestion(i => i + 1);
+        setQuestionVisible(true);
+      } else {
+        setShowQuestionnaire(false);
+        setAiQuestions([]);
+      }
+    }, 220);
   };
 
   const previewCost = () => {
@@ -1389,6 +1432,11 @@ Rules:
               </div>
             </div>
 
+          <div style={{
+            opacity: questionVisible ? 1 : 0,
+            transform: questionVisible ? "translateY(0)" : "translateY(10px)",
+            transition: "opacity 0.2s ease, transform 0.2s ease",
+          }}>
             <div style={{ fontSize: 11, color: T.accent, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>✨ Quick Question</div>
             <div style={{ fontSize: 17, color: T.text, fontFamily: T.body, fontWeight: 600, lineHeight: 1.5, marginBottom: 24 }}>
               {aiQuestions[currentQuestion].question}
@@ -1405,7 +1453,7 @@ Rules:
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <input
                   type="number"
-                  placeholder="Enter a number e.g. 8"
+                  placeholder="e.g. 8"
                   autoFocus
                   id="ai-number-input"
                   style={{ background: T.faint, border: `2px solid ${T.accentMid}`, borderRadius: 8, padding: "14px 16px", color: T.text, fontSize: 20, fontFamily: T.font, fontWeight: 700, outline: "none", textAlign: "center" }}
@@ -1438,6 +1486,7 @@ Rules:
             <button onClick={() => { setShowQuestionnaire(false); setAiQuestions([]); }} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", marginTop: 16, display: "block", textAlign: "center", width: "100%" }}>
               Skip remaining questions
             </button>
+          </div>
           </div>
         </div>
       )}
