@@ -743,7 +743,35 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
       if (!error) setIngredients((prev) => prev.map((i) => i.id === editId ? data[0] : i));
     } else {
       const { data, error } = await supabase.from("ingredients").insert(entry).select();
-      if (!error) setIngredients((prev) => [...prev, data[0]]);
+      if (!error) {
+        const newIngredients = [...ingredients, data[0]];
+        setIngredients(newIngredients);
+        // Check for price change on manual add too
+        const existing = ingredients.filter(i => i.name.toLowerCase() === entry.name.toLowerCase())
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (existing.length > 0) {
+          const prev = existing[0];
+          const pct = ((entry.price - prev.price) / prev.price) * 100;
+          if (Math.abs(pct) >= 8) {
+            const affectedDishes = menuItems.map(m => {
+              const row = (m.ingredients || []).find(r => r.ingredient_name?.toLowerCase() === entry.name.toLowerCase());
+              if (!row) return null;
+              const oldIng = { ...prev };
+              const newIng = { name: entry.name, price: entry.price, case_size: entry.case_size, case_unit: entry.case_unit };
+              const oldCost = calcRecipeCost(row, [oldIng]);
+              const newCost = calcRecipeCost(row, [newIng]);
+              const impact = newCost - oldCost;
+              if (Math.abs(impact) < 0.10) return null;
+              return { dish: m.name, impact };
+            }).filter(Boolean);
+            const change = { name: entry.name, oldPrice: prev.price, newPrice: entry.price, pct, unit: entry.case_unit, affectedDishes };
+            if (onPriceChange) onPriceChange([change]);
+            if (Math.abs(pct) >= 8) {
+              await sendPriceAlertEmail(userEmail, [change], menuItems, newIngredients);
+            }
+          }
+        }
+      }
     }
     setSaving(false); setModal(null);
   };
