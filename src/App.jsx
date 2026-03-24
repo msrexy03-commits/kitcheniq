@@ -1569,7 +1569,7 @@ const DEMO_SCAN_ITEMS = [
 ];
 
 // ─── Demo Invoice Scanner ─────────────────────────────────────────────────────
-function DemoInvoiceScanner({ onClose }) {
+function DemoInvoiceScanner({ onClose, onComplete }) {
   const [step, setStep] = useState("upload");
   const [visibleItems, setVisibleItems] = useState([]);
 
@@ -1634,7 +1634,7 @@ function DemoInvoiceScanner({ onClose }) {
               </div>
             )}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={onClose} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+              <button onClick={() => { onComplete && onComplete(); onClose(); }} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
                 ✓ This is what your real invoices would look like
               </button>
             </div>
@@ -1678,6 +1678,7 @@ function DemoScreen({ onSignUp, onLogin }) {
   }, []);
 
   const [tourStepDone, setTourStepDone] = useState(false);
+  const [demoScanCompleted, setDemoScanCompleted] = useState(false);
 
   const TOUR_STEPS = [
     { tab: 0, text: "👋 Welcome! This is your Dashboard — see your avg margin and price alerts at a glance.", action: null },
@@ -1695,10 +1696,10 @@ function DemoScreen({ onSignUp, onLogin }) {
     else setTourStepDone(false);
   }, [tourStep]);
 
-  // When demo scanner opens on step 2, mark it done
+  // When demo scan is fully completed on step 2, mark it done
   useEffect(() => {
-    if (tourStep === 2 && showDemoScanner) setTourStepDone(true);
-  }, [showDemoScanner, tourStep]);
+    if (tourStep === 2 && demoScanCompleted) setTourStepDone(true);
+  }, [demoScanCompleted, tourStep]);
 
   const nextTour = () => {
     if (!tourStepDone) return;
@@ -1966,7 +1967,7 @@ function DemoScreen({ onSignUp, onLogin }) {
         </div>
       )}
 
-      {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} />}
+      {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} onComplete={() => setDemoScanCompleted(true)} />}
 
       <div style={{ background: `linear-gradient(135deg, #0a0f0a, #0f1a10)`, borderTop: `1px solid ${T.accentMid}`, padding: "64px 24px", textAlign: "center" }}>
         <div style={{ maxWidth: 600, margin: "0 auto" }}>
