@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -25,6 +25,48 @@ const supabase = createClient(
 );
 
 const today = () => new Date().toISOString().split("T")[0];
+
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error("KitchenIQ error:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: "100vh", background: "#0f1410", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ width: "100%", maxWidth: 480, textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 22, color: "#e8f0e9", marginBottom: 10 }}>
+              Something went wrong
+            </div>
+            <div style={{ fontSize: 14, color: "#6b8a6e", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6, marginBottom: 28 }}>
+              KitchenIQ ran into an unexpected error. Your data is safe — try refreshing the page. If it keeps happening, contact jake@trykitcheniq.com.
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              style={{ background: "#4eca6e", color: "#0f1410", border: "none", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontFamily: "'Syne', sans-serif", fontWeight: 700, cursor: "pointer", marginRight: 12 }}>
+              Refresh Page
+            </button>
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              style={{ background: "transparent", color: "#6b8a6e", border: "1px solid #1e2b1f", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontFamily: "'Syne', sans-serif", fontWeight: 600, cursor: "pointer" }}>
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ─── Responsive Hook ──────────────────────────────────────────────────────────
 function useIsMobile() {
@@ -2659,7 +2701,7 @@ function SetNewPasswordScreen({ onDone }) {
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts", "Account", "Support"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡", "👤", "💬"];
 
-export default function KitchenIQ() {
+function KitchenIQApp() {
   const [session, setSession] = useState(undefined);
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -2819,5 +2861,13 @@ export default function KitchenIQ() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function KitchenIQ() {
+  return (
+    <ErrorBoundary>
+      <KitchenIQApp />
+    </ErrorBoundary>
   );
 }
