@@ -1677,20 +1677,39 @@ function DemoScreen({ onSignUp, onLogin }) {
     return () => { clearInterval(interval); clearInterval(cardFlash); observer.disconnect(); };
   }, []);
 
+  const [tourStepDone, setTourStepDone] = useState(false);
+
   const TOUR_STEPS = [
-    { tab: 0, text: "👋 Welcome! This is your Dashboard — see your avg margin and price alerts at a glance" },
-    { tab: 1, text: "📸 Click 'Scan Invoice' to see how AI reads your supplier invoices automatically" },
-    { tab: 3, text: "⚡ Price Alerts shows every ingredient that changed price — with exact dollar impact" },
-    { tab: 2, text: "🍽 Menu Items shows your real food cost % per dish, updating automatically when prices change" },
+    { tab: 0, text: "👋 Welcome! This is your Dashboard — see your avg margin and price alerts at a glance.", action: null },
+    { tab: 1, text: "📸 Click 'Scan Invoice' above to see how AI reads your supplier invoices automatically. Try it out!", action: "scan" },
+    { tab: 3, text: "⚡ This is the Price Alerts tab — every ingredient price change is tracked here automatically.", action: null },
+    { tab: 2, text: "🍽 Menu Items shows your real food cost % per dish, updating automatically when prices change.", action: null },
   ];
   const currentTour = TOUR_STEPS[tourStep - 1];
 
+  // Mark step done when user completes the required action
+  useEffect(() => {
+    if (!currentTour) return;
+    // Step 1 (dashboard) and steps without actions are auto-complete
+    if (!currentTour.action) setTourStepDone(true);
+    else setTourStepDone(false);
+  }, [tourStep]);
+
+  // When demo scanner opens on step 2, mark it done
+  useEffect(() => {
+    if (tourStep === 2 && showDemoScanner) setTourStepDone(true);
+  }, [showDemoScanner, tourStep]);
+
   const nextTour = () => {
+    if (!tourStepDone) return;
     if (tourStep < TOUR_STEPS.length) {
       const next = tourStep + 1;
       setTourStep(next);
       setTab(TOUR_STEPS[next - 1]?.tab ?? tab);
-    } else { setTourStep(0); }
+      setTourStepDone(false);
+    } else {
+      setTourStep(0);
+    }
   };
 
   return (
@@ -1905,24 +1924,46 @@ function DemoScreen({ onSignUp, onLogin }) {
       </div>
 
       {tourStep > 0 && currentTour && (
-        <>
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: 200, background: "linear-gradient(to top, #000000cc, transparent)", zIndex: 198, pointerEvents: "none" }} />
-          <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#0f1a10", border: `2px solid ${T.accent}`, borderRadius: 16, padding: "20px 24px", zIndex: 200, maxWidth: 460, width: "calc(100% - 32px)", animation: "tourPulse 2s ease-in-out infinite" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em" }}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
-              <div style={{ flex: 1, height: 3, background: T.faint, borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
-              </div>
-            </div>
-            <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 16, fontWeight: 500 }}>{currentTour.text}</div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>Skip tour</button>
-              <button onClick={nextTour} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 24px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
-                {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
-              </button>
-            </div>
+        <div style={{
+          position: "fixed", top: "50%", right: 16, transform: "translateY(-50%)",
+          background: "#0f1a10", border: `2px solid ${T.accent}`,
+          borderRadius: 16, padding: "20px 18px", zIndex: 200,
+          width: 220, boxShadow: "0 8px 40px #000000aa",
+          animation: "tourPulse 2s ease-in-out infinite",
+        }}>
+          {/* Step indicator */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 10, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
           </div>
-        </>
+          {/* Progress bar */}
+          <div style={{ height: 3, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 12 }}>
+            <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
+          </div>
+          {/* Text */}
+          <div style={{ fontSize: 13, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 16, fontWeight: 500 }}>{currentTour.text}</div>
+          {/* Action hint if step requires action */}
+          {currentTour.action && !tourStepDone && (
+            <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginBottom: 12, background: T.accentDim, borderRadius: 6, padding: "6px 10px", border: `1px solid ${T.accentMid}` }}>
+              ☝️ Complete the action above to continue
+            </div>
+          )}
+          {/* Buttons */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button onClick={nextTour} disabled={!tourStepDone} style={{
+              background: tourStepDone ? T.accent : T.faint,
+              color: tourStepDone ? "#0f1410" : T.muted,
+              border: "none", borderRadius: 8,
+              padding: "10px 16px", fontSize: 13, fontFamily: T.font, fontWeight: 800,
+              cursor: tourStepDone ? "pointer" : "not-allowed", width: "100%",
+              transition: "all 0.2s",
+            }}>
+              {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
+            </button>
+            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 11, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", textAlign: "center" }}>
+              Skip tour
+            </button>
+          </div>
+        </div>
       )}
 
       {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} />}
