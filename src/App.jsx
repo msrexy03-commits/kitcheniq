@@ -788,8 +788,21 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
         if (existing.length > 0) {
           const prev = existing[0];
           const pct = ((item.price - prev.price) / prev.price) * 100;
-          if (Math.abs(pct) >= 5) {
-            changes.push({ name: item.name, oldPrice: prev.price, newPrice: item.price, pct, unit: item.unit });
+          if (Math.abs(pct) >= 8) {
+            // Calculate per-dish dollar impact for each affected menu item
+            const affectedDishes = menuItems.map(m => {
+              const row = (m.ingredients || []).find(r => r.ingredient_name?.toLowerCase() === item.name.toLowerCase());
+              if (!row) return null;
+              // Cost with old price
+              const oldIng = { ...prev };
+              const newIng = { name: item.name, price: item.price, case_size: item.case_size || prev.case_size, case_unit: item.case_unit || prev.case_unit };
+              const oldCost = calcRecipeCost(row, [oldIng]);
+              const newCost = calcRecipeCost(row, [newIng]);
+              const impact = newCost - oldCost;
+              if (Math.abs(impact) < 0.10) return null; // ignore trivial impacts
+              return { dish: m.name, impact };
+            }).filter(Boolean);
+            changes.push({ name: item.name, oldPrice: prev.price, newPrice: item.price, pct, unit: item.unit, affectedDishes });
           }
         }
       });
@@ -2697,19 +2710,32 @@ export default function KitchenIQ() {
       </div>
       {priceNotif && priceNotif.length > 0 && (
         <div style={{ padding: "0 16px", marginTop: 12 }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            <div style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10, padding: "12px 18px", display: "flex", alignItems: "center", gap: 12, animation: "slideInDown 0.4s ease" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}` }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ {priceNotif.length} price {priceNotif.length === 1 ? "change" : "changes"} detected from this invoice</div>
-                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>
-                  {priceNotif.slice(0, 2).map(c => `${c.name}: ${c.pct > 0 ? "+" : ""}${c.pct.toFixed(1)}%`).join(" · ")}
-                  {priceNotif.length > 2 ? ` · +${priceNotif.length - 2} more` : ""}
+          <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", gap: 8 }}>
+            {priceNotif.map((c, idx) => (
+              <div key={idx} style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "flex-start", gap: 12, animation: "slideInDown 0.4s ease" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}`, marginTop: 5 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>
+                    ⚠ {c.name} {c.pct > 0 ? "increased" : "decreased"} {Math.abs(c.pct).toFixed(0)}% — ${Number(c.oldPrice).toFixed(2)} → ${Number(c.newPrice).toFixed(2)}
+                  </div>
+                  {c.affectedDishes && c.affectedDishes.length > 0 ? (
+                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+                      {c.affectedDishes.map((d, i) => (
+                        <div key={i} style={{ fontSize: 12, color: d.impact > 0 ? T.warn : T.accent, fontFamily: T.body }}>
+                          {d.impact > 0 ? "↑" : "↓"} {d.dish} costs {d.impact > 0 ? "+" : ""}{fmt$2(d.impact)} more per plate
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>No menu items affected</div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button onClick={() => { setTab(3); setPriceNotif(null); }} style={{ background: T.warn, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>View Alerts →</button>
+                  <button onClick={() => setPriceNotif(null)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: "0 4px" }}>×</button>
                 </div>
               </div>
-              <button onClick={() => { setTab(3); setPriceNotif(null); }} style={{ background: T.warn, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>View Alerts →</button>
-              <button onClick={() => setPriceNotif(null)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: "0 4px" }}>×</button>
-            </div>
+            ))}
           </div>
         </div>
       )}
@@ -2719,7 +2745,7 @@ export default function KitchenIQ() {
             ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
             : <>
               {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} />}
-              {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 8000); }} />}
+              {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} />}
               {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
               {tab === 3 && <AlertsView ingredients={ingredients} />}
               {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
