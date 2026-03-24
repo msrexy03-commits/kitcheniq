@@ -1357,13 +1357,20 @@ Rules:
             const { cost, profit, margin } = calcMenuStats(m, ingredients);
             const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
             const isBad = margin < 50;
+            // Calculate suggested price to hit 65% margin: price = cost / (1 - 0.65)
+            const suggestedPrice = cost > 0 ? cost / (1 - 0.65) : null;
+            const priceDiff = suggestedPrice ? suggestedPrice - m.sale_price : 0;
+            // Find the biggest cost contributor for supplier switch suggestion
+            const biggestIngredient = (m.ingredients || []).reduce((best, row) => {
+              const c = calcRecipeCost(row, ingredients);
+              return c > (best?.cost || 0) ? { ...row, cost: c } : best;
+            }, null);
             return (
               <div key={m.id} style={{ background: T.card, border: `1px solid ${isBad ? T.warn + "66" : T.border}`, borderRadius: 10, padding: "16px 20px", boxShadow: isBad ? `0 0 16px ${T.warn}18` : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
                     <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{(m.ingredients || []).map((i) => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}</div>
-                    {isBad && <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 6 }}>⚠ Below target — consider raising your price</div>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 12 }}>
                     <div style={{ textAlign: "right" }}>
@@ -1387,6 +1394,36 @@ Rules:
                   <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: isBad ? T.warn : T.text }}>{fmt$2(cost)}</strong></span>
                   <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: isBad ? T.warn : T.accent }}>{fmt$2(profit)}</strong></span>
                 </div>
+
+                {/* Pricing suggestion + supplier switch for low margin items */}
+                {isBad && cost > 0 && (
+                  <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {/* Price suggestion */}
+                    <div style={{ flex: 1, minWidth: 200, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 14px" }}>
+                      <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>💰 Suggested Price</div>
+                      <div style={{ fontSize: 13, color: T.text, fontFamily: T.body }}>
+                        Raise to <strong style={{ color: T.warn }}>{fmt$2(suggestedPrice)}</strong>
+                        <span style={{ color: T.muted }}> (+{fmt$2(priceDiff)})</span>
+                        {" "}to hit 65% margin
+                      </div>
+                    </div>
+
+                    {/* Switch supplier */}
+                    {biggestIngredient && (
+                      <div style={{ flex: 1, minWidth: 200, background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "10px 14px" }}>
+                        <div style={{ fontSize: 11, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>🔄 Switch Supplier?</div>
+                        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginBottom: 8 }}>
+                          {biggestIngredient.ingredient_name} is your biggest cost driver at {fmt$2(biggestIngredient.cost)}/serving
+                        </div>
+                        <button
+                          onClick={() => window.open(`mailto:jake@trykitcheniq.com?subject=Supplier%20Switch%20Request&body=Hi%20Jake%2C%0A%0AI'd%20like%20to%20find%20a%20better%20price%20for%20${encodeURIComponent(biggestIngredient.ingredient_name)}%20for%20my%20${encodeURIComponent(m.name)}.%0A%0ACurrent%20cost%3A%20${encodeURIComponent(fmt$2(biggestIngredient.cost))}%20per%20serving%0A%0AThanks`, '_blank')}
+                          style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+                          Find Better Price →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
