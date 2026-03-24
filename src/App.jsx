@@ -1599,7 +1599,7 @@ function DemoInvoiceScanner({ onClose, onComplete }) {
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-              <button onClick={startScan} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, color: T.accent, border: `1px solid ${T.accentMid}`, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>🔍 Scan Invoice</button>
+              <button onClick={startScan} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, color: T.accent, border: `2px solid ${T.accent}`, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", animation: "tourPulse 2s ease-in-out infinite" }}>🔍 Scan Invoice</button>
             </div>
           </>
         )}
@@ -1634,7 +1634,7 @@ function DemoInvoiceScanner({ onClose, onComplete }) {
               </div>
             )}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={() => { onComplete && onComplete(); onClose(); }} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+              <button onClick={() => { onComplete && onComplete(); onClose(); }} style={{ background: T.accent, color: "#0f1410", border: `2px solid ${T.accent}`, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", animation: "tourPulse 2s ease-in-out infinite" }}>
                 ✓ This is what your real invoices would look like
               </button>
             </div>
