@@ -674,6 +674,70 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
           </div>
         ))}
       </div>
+
+      {/* ── Menu Suggestions Panel ── */}
+      {menuStats.length > 0 && (() => {
+        const suggestions = menuStats.map(m => {
+          const issues = [];
+          if (m.margin < 50 && m.cost > 0) {
+            const suggestedPrice = m.cost / (1 - 0.65);
+            const diff = suggestedPrice - m.sale_price;
+            issues.push({ type: "price", label: "Low Margin", color: T.warn, bg: T.warnDim, border: `${T.warn}44`, icon: "💰", message: `Raise to ${fmt$2(suggestedPrice)} (+${fmt$2(diff)}) to hit 65% margin`, urgency: 2 });
+          }
+          // Check if any ingredient spiked recently (within last 30 days)
+          const recentSpikes = alerts.filter(a =>
+            (m.ingredients || []).some(r => r.ingredient_name?.toLowerCase() === a.name?.toLowerCase())
+          );
+          if (recentSpikes.length > 0) {
+            const spike = recentSpikes[0];
+            issues.push({ type: "spike", label: "Price Spike", color: "#e8c84a", bg: "#e8c84a11", border: "#e8c84a44", icon: "⚡", message: `${spike.name} changed — review your margin`, urgency: 1 });
+          }
+          return issues.length > 0 ? { ...m, issues } : null;
+        }).filter(Boolean).sort((a, b) => Math.max(...b.issues.map(i => i.urgency)) - Math.max(...a.issues.map(i => i.urgency)));
+
+        if (suggestions.length === 0) return (
+          <div style={{ background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "20px 24px" }}>
+            <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>Menu Suggestions</div>
+            <div style={{ fontSize: 14, color: T.accent, fontFamily: T.body }}>✓ All menu items are looking healthy — no action needed right now.</div>
+          </div>
+        );
+
+        return (
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>Menu Suggestions</div>
+              <div style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>{suggestions.length} item{suggestions.length > 1 ? "s" : ""} need attention</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {suggestions.map((m, idx) => (
+                <div key={idx} style={{ background: T.faint, borderRadius: 10, padding: "14px 18px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 16, color: m.margin < 50 ? T.warn : "#e8c84a", fontFamily: T.font, fontWeight: 800 }}>{fmtPct(m.margin)}</div>
+                      <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>margin</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {m.issues.map((issue, i) => (
+                      <div key={i} style={{ background: issue.bg, border: `1px solid ${issue.border}`, borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 16 }}>{issue.icon}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 11, color: issue.color, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>{issue.label}</div>
+                          <div style={{ fontSize: 13, color: T.text, fontFamily: T.body }}>{issue.message}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => onNavigate(2)} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, fontFamily: T.body, cursor: "pointer", marginTop: 12, textDecoration: "underline", padding: 0 }}>
+              View all menu items →
+            </button>
+          </div>
+        );
+      })()}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
