@@ -2818,6 +2818,7 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={onLogin} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Log In</button>
+            <button onClick={onDemo} style={{ background: T.accentDim, border: `1px solid ${T.accent}`, color: T.accent, borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>▶ Live Demo</button>
             <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>Get Started →</button>
           </div>
         </div>
@@ -2854,9 +2855,21 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
             <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}44`, transform: pulse ? "scale(1.02)" : "scale(1)", transition: "transform 0.5s ease" }}>
               Start Saving Money →
             </button>
-            <button onClick={onDemo} style={{ background: "transparent", color: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>
-              See It In Action ↓
+            <button onClick={onDemo} style={{ background: T.accentDim, color: T.accent, border: `2px solid ${T.accent}`, borderRadius: 8, padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 20px ${T.accent}22` }}>
+              ▶ Try Live Demo — Free
             </button>
+          </div>
+
+          {/* Demo callout */}
+          <div onClick={onDemo} style={{ marginTop: 32, maxWidth: 600, margin: "32px auto 0", background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 14, padding: "20px 24px", cursor: "pointer", transition: "border-color 0.2s", display: "flex", alignItems: "center", gap: 16 }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = T.accent}
+            onMouseLeave={e => e.currentTarget.style.borderColor = T.accentMid}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>▶</div>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>See KitchenIQ in action — no signup required</div>
+              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Walk through a real demo with sample restaurant data. Takes 2 minutes.</div>
+            </div>
+            <div style={{ fontSize: 20, color: T.accent, flexShrink: 0 }}>→</div>
           </div>
         </div>
       </div>
@@ -2883,6 +2896,34 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
               <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>{s.desc}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Demo Banner */}
+      <div style={{ padding: "0 24px 64px", maxWidth: 1100, margin: "0 auto" }}>
+        <div onClick={onDemo} style={{
+          background: `linear-gradient(135deg, #0f1a10, #162212)`,
+          border: `2px solid ${T.accent}`,
+          borderRadius: 16, padding: "32px 40px",
+          cursor: "pointer", display: "flex", alignItems: "center", gap: 24,
+          boxShadow: `0 0 40px ${T.accent}18`,
+          flexWrap: "wrap",
+        }}
+          onMouseEnter={e => e.currentTarget.style.boxShadow = `0 0 60px ${T.accent}33`}
+          onMouseLeave={e => e.currentTarget.style.boxShadow = `0 0 40px ${T.accent}18`}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600, marginBottom: 10 }}>✓ No signup required</div>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(18px, 2.5vw, 26px)", color: T.text, marginBottom: 8, lineHeight: 1.2 }}>See exactly what happens when you scan a real invoice</div>
+            <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>Try the full app with sample restaurant data — invoices, price alerts, margin calculations, all of it. Takes 2 minutes.</div>
+          </div>
+          <button onClick={onDemo} style={{
+            background: T.accent, color: "#0f1410", border: "none", borderRadius: 10,
+            padding: "16px 32px", fontSize: 16, fontFamily: T.font, fontWeight: 800,
+            cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+            boxShadow: `0 0 24px ${T.accent}55`,
+          }}>
+            ▶ Try Live Demo →
+          </button>
         </div>
       </div>
 
@@ -2932,8 +2973,8 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
             <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "18px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 40px ${T.accent}55` }}>
               Start Catching Price Changes →
             </button>
-            <button onClick={onDemo} style={{ background: "transparent", color: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: "18px 32px", fontSize: 16, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>
-              See Demo First
+            <button onClick={onDemo} style={{ background: T.accentDim, color: T.accent, border: `2px solid ${T.accent}`, borderRadius: 8, padding: "18px 32px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
+              ▶ Try Demo First
             </button>
           </div>
           <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 16 }}>Set up in under 10 minutes. No spreadsheets. No manual entry.</div>
