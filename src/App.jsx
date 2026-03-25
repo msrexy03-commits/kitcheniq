@@ -2063,14 +2063,16 @@ function PaywallScreen({ session }) {
 
 // ─── Demo Data ────────────────────────────────────────────────────────────────
 const DEMO_INGREDIENTS = [
+  // January invoice — baseline prices
   { id: "d1", name: "Bacon Sliced 18/14-16ct", supplier: "Sysco", date: "2026-01-08", price: 41.20, case_size: 15, case_unit: "lb", unit: "lb" },
-  { id: "d2", name: "Eggs Large Grade A", supplier: "Mancini Foods", date: "2026-01-08", price: 38.40, case_size: 15, case_unit: "each", unit: "each" },
+  { id: "d2", name: "Eggs Large Grade A", supplier: "Mancini Foods", date: "2026-01-08", price: 38.40, case_size: 180, case_unit: "each", unit: "each" },
   { id: "d3", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-01-08", price: 26.50, case_size: 4, case_unit: "lb", unit: "lb" },
   { id: "d4", name: "Ground Beef 80/20", supplier: "US Foods", date: "2026-01-08", price: 92.00, case_size: 30, case_unit: "lb", unit: "lb" },
   { id: "d5", name: "Chicken Breast Boneless", supplier: "US Foods", date: "2026-01-08", price: 51.00, case_size: 20, case_unit: "lb", unit: "lb" },
   { id: "d6", name: "Butter Unsalted", supplier: "Sysco", date: "2026-01-08", price: 36.00, case_size: 36, case_unit: "each", unit: "each" },
+  // February invoice — price changes (eggs and bacon up significantly)
   { id: "d7", name: "Bacon Sliced 18/14-16ct", supplier: "Sysco", date: "2026-02-12", price: 47.80, case_size: 15, case_unit: "lb", unit: "lb" },
-  { id: "d8", name: "Eggs Large Grade A", supplier: "Mancini Foods", date: "2026-02-12", price: 69.60, case_size: 15, case_unit: "each", unit: "each" },
+  { id: "d8", name: "Eggs Large Grade A", supplier: "Mancini Foods", date: "2026-02-12", price: 52.80, case_size: 180, case_unit: "each", unit: "each" },
   { id: "d9", name: "Cheddar Cheese Shredded", supplier: "Sysco", date: "2026-02-12", price: 24.80, case_size: 4, case_unit: "lb", unit: "lb" },
   { id: "d10", name: "Ground Beef 80/20", supplier: "US Foods", date: "2026-02-12", price: 98.50, case_size: 30, case_unit: "lb", unit: "lb" },
   { id: "d11", name: "Chicken Breast Boneless", supplier: "US Foods", date: "2026-02-12", price: 51.00, case_size: 20, case_unit: "lb", unit: "lb" },
@@ -2078,16 +2080,16 @@ const DEMO_INGREDIENTS = [
 ];
 
 const DEMO_MENU_ITEMS = [
-  { id: "m1", name: "Bacon & Eggs Breakfast", sale_price: 13.99, ingredients: [{ ingredient_name: "Bacon Sliced 18/14-16ct", qty: 4, qty_unit: "oz" }, { ingredient_name: "Eggs Large Grade A", qty: 2, qty_unit: "each" }] },
-  { id: "m2", name: "Classic Smash Burger", sale_price: 14.99, ingredients: [{ ingredient_name: "Ground Beef 80/20", qty: 6, qty_unit: "oz" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1.5, qty_unit: "oz" }] },
-  { id: "m3", name: "Grilled Chicken Sandwich", sale_price: 13.99, ingredients: [{ ingredient_name: "Chicken Breast Boneless", qty: 5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
-  { id: "m4", name: "Three Egg Omelette", sale_price: 12.99, ingredients: [{ ingredient_name: "Eggs Large Grade A", qty: 3, qty_unit: "each" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1.5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
+  { id: "m1", name: "Bacon & Eggs Breakfast", sale_price: 12.99, ingredients: [{ ingredient_name: "Bacon Sliced 18/14-16ct", qty: 4, qty_unit: "oz" }, { ingredient_name: "Eggs Large Grade A", qty: 2, qty_unit: "each" }] },
+  { id: "m2", name: "Classic Smash Burger", sale_price: 12.99, ingredients: [{ ingredient_name: "Ground Beef 80/20", qty: 6, qty_unit: "oz" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1.5, qty_unit: "oz" }] },
+  { id: "m3", name: "Grilled Chicken Sandwich", sale_price: 11.99, ingredients: [{ ingredient_name: "Chicken Breast Boneless", qty: 5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
+  { id: "m4", name: "Three Egg Omelette", sale_price: 10.99, ingredients: [{ ingredient_name: "Eggs Large Grade A", qty: 3, qty_unit: "each" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1.5, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
   { id: "m5", name: "Egg & Cheese Sandwich", sale_price: 7.99, ingredients: [{ ingredient_name: "Eggs Large Grade A", qty: 2, qty_unit: "each" }, { ingredient_name: "Cheddar Cheese Shredded", qty: 1, qty_unit: "oz" }, { ingredient_name: "Butter Unsalted", qty: 1, qty_unit: "each" }] },
 ];
 
 const DEMO_SCAN_ITEMS = [
   { name: "Bacon Sliced 18/14-16ct", price: 47.80, case_size: 15, case_unit: "lb" },
-  { name: "Eggs Large Grade A", price: 69.60, case_size: 15, case_unit: "each" },
+  { name: "Eggs Large Grade A", price: 52.80, case_size: 180, case_unit: "each" },
   { name: "Cheddar Cheese Shredded", price: 24.80, case_size: 4, case_unit: "lb" },
   { name: "Ground Beef 80/20", price: 98.50, case_size: 30, case_unit: "lb" },
   { name: "Chicken Breast Boneless", price: 51.00, case_size: 20, case_unit: "lb" },
@@ -2156,7 +2158,7 @@ function DemoInvoiceScanner({ onClose, onComplete }) {
             {visibleItems.length === DEMO_SCAN_ITEMS.length && (
               <div style={{ background: "#1a2a0a", border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "12px 16px" }}>
                 <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>⚡ 2 price changes detected from your last invoice</div>
-                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>🔴 Bacon Sliced: $41.20 → $47.80 (+16%) · 🔴 Eggs Large: $38.40 → $69.60 (+81%)</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>🔴 Bacon Sliced: $41.20 → $47.80 (+16%) · 🔴 Eggs Large Grade A: $38.40 → $52.80 (+38%)</div>
               </div>
             )}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -2289,8 +2291,8 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
                 <div style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10, padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12, animation: "slideIn 0.4s ease" }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}` }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ Price Alert — Eggs Large Grade A increased 81%</div>
-                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>$38.40 → $69.60 · Affects: Bacon & Eggs, Three Egg Omelette, Egg & Cheese Sandwich</div>
+                    <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ Price Alert — Eggs Large Grade A increased 38%</div>
+                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>$38.40 → $52.80 · Affects: Bacon & Eggs, Three Egg Omelette, Egg & Cheese Sandwich</div>
                   </div>
                   <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>just now</div>
                 </div>
