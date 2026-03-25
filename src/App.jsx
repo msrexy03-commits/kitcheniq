@@ -16,6 +16,13 @@ animStyle.textContent = `
   @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
   @keyframes tourPulse { 0%, 100% { box-shadow: 0 0 0 0 #4eca6e66, 0 12px 48px #000000cc; } 50% { box-shadow: 0 0 0 8px #4eca6e22, 0 12px 48px #000000cc; } }
+  @keyframes demoReveal { 0% { opacity: 0; transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes demoScanLine { 0% { transform: translateY(-100%); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(100vh); opacity: 0; } }
+  @keyframes demoRingPulse { 0% { transform: scale(0.6); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+  @keyframes demoFadeOut { 0% { opacity: 1; } 100% { opacity: 0; pointer-events: none; } }
+  @keyframes demoLogoIn { 0% { opacity: 0; transform: scale(0.7); } 60% { opacity: 1; transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes demoTextIn { 0% { opacity: 0; transform: translateY(12px); } 100% { opacity: 1; transform: translateY(0); } }
+  @keyframes demoGridIn { 0% { opacity: 0; transform: perspective(800px) rotateX(12deg) scale(0.95); } 100% { opacity: 1; transform: perspective(800px) rotateX(0deg) scale(1); } }
 `;
 document.head.appendChild(animStyle);
 
@@ -2780,6 +2787,107 @@ function SetNewPasswordScreen({ onDone }) {
   );
 }
 
+// ─── Demo Transition ──────────────────────────────────────────────────────────
+function DemoTransition({ onComplete }) {
+  const [phase, setPhase] = useState(0); // 0=scan 1=logo 2=text 3=fadeout
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 400);
+    const t2 = setTimeout(() => setPhase(2), 900);
+    const t3 = setTimeout(() => setPhase(3), 1500);
+    const t4 = setTimeout(() => onComplete(), 1900);
+    return () => [t1, t2, t3, t4].forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "#0a0f0a",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column",
+      animation: phase === 3 ? "demoFadeOut 0.4s ease forwards" : "none",
+      overflow: "hidden",
+    }}>
+      {/* Animated grid background */}
+      <div style={{
+        position: "absolute", inset: 0,
+        backgroundImage: `
+          linear-gradient(rgba(78,202,110,0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(78,202,110,0.04) 1px, transparent 1px)
+        `,
+        backgroundSize: "40px 40px",
+        animation: "demoGridIn 0.6s ease forwards",
+      }} />
+
+      {/* Radial glow */}
+      <div style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: 600, height: 600,
+        background: "radial-gradient(circle, #4eca6e18 0%, transparent 70%)",
+        pointerEvents: "none",
+      }} />
+
+      {/* Scan line */}
+      {phase < 1 && (
+        <div style={{
+          position: "absolute", left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, transparent, ${T.accent}, transparent)`,
+          boxShadow: `0 0 20px ${T.accent}88`,
+          animation: "demoScanLine 0.5s ease forwards",
+        }} />
+      )}
+
+      {/* Pulsing rings */}
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{
+          position: "absolute", top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 120, height: 120,
+          borderRadius: "50%",
+          border: `1px solid ${T.accent}44`,
+          animation: `demoRingPulse 1.2s ease ${i * 0.25}s infinite`,
+          pointerEvents: "none",
+        }} />
+      ))}
+
+      {/* Logo */}
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
+        position: "relative", zIndex: 2,
+        animation: phase >= 1 ? "demoLogoIn 0.5s ease forwards" : "none",
+        opacity: phase >= 1 ? 1 : 0,
+      }}>
+        <div style={{
+          width: 72, height: 72, borderRadius: 18,
+          background: T.accentDim, border: `2px solid ${T.accent}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 36,
+          boxShadow: `0 0 40px ${T.accent}55`,
+        }}>⬡</div>
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 32, color: T.text }}>
+          Kitchen<span style={{ color: T.accent }}>IQ</span>
+        </div>
+      </div>
+
+      {/* Text */}
+      <div style={{
+        marginTop: 20, position: "relative", zIndex: 2,
+        opacity: phase >= 2 ? 1 : 0,
+        animation: phase >= 2 ? "demoTextIn 0.4s ease forwards" : "none",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 14, color: T.accent, fontFamily: T.body, letterSpacing: "0.15em", textTransform: "uppercase" }}>
+          Loading live demo...
+        </div>
+        <div style={{ marginTop: 16, width: 200, height: 2, background: T.faint, borderRadius: 2, overflow: "hidden", margin: "16px auto 0" }}>
+          <div style={{ height: "100%", background: T.accent, borderRadius: 2, animation: "progress 1.4s ease forwards" }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Hash Router ─────────────────────────────────────────────────────────────
 function useRoute() {
   const getRoute = () => {
@@ -3000,6 +3108,11 @@ function KitchenIQApp() {
   const [loading, setLoading] = useState(false);
   const [priceNotif, setPriceNotif] = useState(null);
   const [isRecovery, setIsRecovery] = useState(false);
+  const [showDemoTransition, setShowDemoTransition] = useState(false);
+
+  const goToDemo = () => {
+    setShowDemoTransition(true);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -3077,11 +3190,16 @@ function KitchenIQApp() {
       <AuthScreen onBack={() => { setShowAuth(false); navigate("/#/"); }} />
     );
     return (
-      <LandingPage
-        onSignUp={() => navigate("/#/auth")}
-        onLogin={() => navigate("/#/auth")}
-        onDemo={() => navigate("/#/demo")}
-      />
+      <>
+        {showDemoTransition && (
+          <DemoTransition onComplete={() => { setShowDemoTransition(false); navigate("/#/demo"); }} />
+        )}
+        <LandingPage
+          onSignUp={() => navigate("/#/auth")}
+          onLogin={() => navigate("/#/auth")}
+          onDemo={goToDemo}
+        />
+      </>
     );
   }
   if (profileLoading) return (
