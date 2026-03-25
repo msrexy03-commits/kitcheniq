@@ -1291,7 +1291,7 @@ ${ingredientList}
 
 Your job:
 1. Suggest which ingredients from their list are likely in this dish with realistic PER-SERVING quantities
-2. Identify anything you're genuinely unsure about that would meaningfully affect the recipe cost
+2. Ask only questions where the answer would CHANGE which ingredient is used or meaningfully change the qty
 
 CRITICAL UNIT RULES:
 - Always use the unit shown next to each ingredient
@@ -1300,23 +1300,28 @@ CRITICAL UNIT RULES:
 - Cheese: 1-2 oz per serving
 - Butter: 1 each (pat) per serving
 
+QUESTION RULES — VERY IMPORTANT:
+- NEVER ask a yes/no when the real question is "which one" — use "choice" type instead
+- BAD: "Are your potatoes red or russet? yes/no" — this makes no sense
+- GOOD: {"type": "choice", "question": "What type of potato?", "options": [{"label": "Red Potato", "ingredient_name": "EXACT name"}, {"label": "Russet Potato", "ingredient_name": "EXACT name"}]}
+- Only ask if the answer changes cost meaningfully. Max 2 questions.
+- If you would need to ask something dumb or obvious, just pick the most common option and don't ask
+
 Return ONLY raw JSON, no markdown, no backticks:
 {
   "recipe": [
     {"ingredient_name": "EXACT name from list above", "qty": 6, "qty_unit": "oz"}
   ],
   "questions": [
-    {"key": "toast", "question": "Does this dish come with toast?", "type": "yesno", "if_yes": [{"ingredient_name": "EXACT name", "qty": 2, "qty_unit": "each"}]},
-    {"key": "patty_size", "question": "How many oz is the patty?", "type": "number", "ingredient_name": "EXACT name", "qty_unit": "oz"}
+    {"key": "bread", "question": "Does this come with toast or bread?", "type": "yesno", "if_yes": [{"ingredient_name": "EXACT name", "qty": 2, "qty_unit": "each"}]},
+    {"key": "patty_size", "question": "How many oz is the patty?", "type": "number", "ingredient_name": "EXACT name", "qty_unit": "oz"},
+    {"key": "potato_type", "question": "What type of potato?", "type": "choice", "options": [{"label": "Red Potato", "ingredient_name": "EXACT name", "qty": 6, "qty_unit": "oz"}, {"label": "Russet Potato", "ingredient_name": "EXACT name", "qty": 6, "qty_unit": "oz"}]}
   ]
 }
 
-Rules:
 - ingredient_name must be EXACTLY as listed above, character for character
 - Only include ingredients actually in their list — skip anything not listed
 - Keep quantities realistic for a single serving
-- Only ask questions if genuinely unsure AND it affects cost. Max 3 questions.
-- Keep questions dead simple — yes/no or a single number like "6"
 - If nothing unclear, return empty questions array`
           }]
         })
@@ -1391,6 +1396,17 @@ Rules:
             ? { ...row, qty: String(answer) }
             : row
         )
+      }));
+    } else if (q.type === "choice" && answer) {
+      // answer is the chosen option object {label, ingredient_name, qty, qty_unit}
+      setForm(f => ({
+        ...f,
+        ingredients: [
+          ...f.ingredients.filter(row =>
+            !q.options.some(opt => opt.ingredient_name === row.ingredient_name)
+          ),
+          { ingredient_name: answer.ingredient_name, qty: String(answer.qty), qty_unit: answer.qty_unit }
+        ]
       }));
     }
 
@@ -1546,12 +1562,20 @@ Rules:
             {/* AI Suggest Button */}
             {uniqueIngredients.length > 0 && (
               <button onClick={suggestRecipe} disabled={aiLoading || !form.name} style={{
-                background: "linear-gradient(135deg, #4eca6e22, #6e4eca22)", border: `1px solid ${T.accentMid}`,
-                color: T.accent, borderRadius: 8, padding: "10px 16px", fontSize: 13,
-                fontFamily: T.font, fontWeight: 700, cursor: aiLoading || !form.name ? "not-allowed" : "pointer",
-                opacity: !form.name ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: aiLoading || !form.name ? T.faint : "linear-gradient(135deg, #4eca6e33, #4eca6e11)",
+                border: `2px solid ${!form.name ? T.border : T.accent}`,
+                color: !form.name ? T.muted : T.accent,
+                borderRadius: 10, padding: "14px 16px", fontSize: 14,
+                fontFamily: T.font, fontWeight: 800,
+                cursor: aiLoading || !form.name ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                width: "100%", transition: "all 0.2s",
+                boxShadow: form.name && !aiLoading ? `0 0 20px #4eca6e22` : "none",
+                animation: form.name && !aiLoading ? "tourPulse 2s ease-in-out infinite" : "none",
               }}>
-                {aiLoading ? "⏳ Thinking..." : "✨ AI Suggest Recipe"}
+                <span style={{ fontSize: 18 }}>✨</span>
+                <span>{aiLoading ? "AI is thinking..." : "Auto-Fill Recipe with AI"}</span>
+                {!aiLoading && !form.name && <span style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 400 }}>— enter dish name first</span>}
               </button>
             )}
 
@@ -1630,6 +1654,23 @@ Rules:
               <div style={{ display: "flex", gap: 12 }}>
                 <button onClick={() => applyAnswer("yes")} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 10, padding: "14px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Yes</button>
                 <button onClick={() => applyAnswer("no")} style={{ flex: 1, background: T.faint, color: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px", fontSize: 16, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>No</button>
+              </div>
+            )}
+
+            {aiQuestions[currentQuestion].type === "choice" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {aiQuestions[currentQuestion].options.map((opt, i) => (
+                  <button key={i} onClick={() => applyAnswer(opt)} style={{
+                    background: T.faint, color: T.text, border: `1px solid ${T.border}`,
+                    borderRadius: 10, padding: "14px 18px", fontSize: 15, fontFamily: T.body,
+                    fontWeight: 600, cursor: "pointer", textAlign: "left",
+                    transition: "border-color 0.15s",
+                  }}
+                  onMouseEnter={e => e.target.style.borderColor = T.accent}
+                  onMouseLeave={e => e.target.style.borderColor = T.border}>
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             )}
 
@@ -2131,10 +2172,10 @@ function DemoScreen({ onSignUp, onLogin }) {
   const [questionVisible, setQuestionVisible] = useState(true);
 
   const TOUR_STEPS = [
-    { tab: 0, text: "👋 Welcome! This is your Dashboard — see your avg margin and price alerts at a glance.", action: null },
-    { tab: 1, text: "📸 Click 'Scan Invoice' above to see how AI reads your supplier invoices automatically. Try it out!", action: "scan" },
-    { tab: 3, text: "⚡ This is the Price Alerts tab — every ingredient price change is tracked here automatically.", action: null },
-    { tab: 2, text: "🍽 Menu Items shows your real food cost % per dish, updating automatically when prices change.", action: null },
+    { tab: 0, text: "👋 Welcome to KitchenIQ! This dashboard shows your food costs at a glance. See your margins, price alerts, and what needs attention — all in one place.", action: null },
+    { tab: 1, text: "📸 This is where you scan your supplier invoices. Instead of typing everything in manually, just take a photo and AI pulls out every ingredient and price automatically. Try it — click 'Scan Invoice' above!", action: "scan" },
+    { tab: 3, text: "⚡ Every time a price changes on your invoices, it shows up here automatically. You'll also get an email alert so you never miss a cost increase.", action: null },
+    { tab: 2, text: "🍽 This is where the magic happens — KitchenIQ calculates the real food cost % for every dish on your menu. If your margins drop because of a price change, you'll see it here instantly.", action: null },
   ];
   const currentTour = TOUR_STEPS[tourStep - 1];
 
