@@ -2279,7 +2279,7 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
         })}
       </div>
 
-      <div style={{ width: "100%", padding: "24px 16px", boxSizing: "border-box" }}>
+      <div style={{ width: "100%", padding: "24px 16px", paddingBottom: isMobile && tourStep > 0 ? 160 : 24, boxSizing: "border-box" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           {tab === 0 && (
             <div>
@@ -2405,21 +2405,20 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
           <div style={{
             position: "fixed", bottom: 0, left: 0, right: 0,
             background: "#0f1a10", borderTop: `2px solid ${T.accent}`,
-            padding: "14px 16px 20px", zIndex: 200,
+            padding: "10px 14px 16px", zIndex: 200,
             boxShadow: "0 -4px 24px #000000aa",
           }}>
-            {/* Progress bar */}
-            <div style={{ height: 4, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 12 }}>
+            <div style={{ height: 3, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 8 }}>
               <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontFamily: T.font, fontWeight: 800, whiteSpace: "nowrap" }}>{tourStep}/{TOUR_STEPS.length}</div>
-              <div style={{ flex: 1, fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.5, fontWeight: 500, opacity: questionVisible ? 1 : 0, transition: "opacity 0.2s ease" }}>{currentTour.text}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontFamily: T.font, fontWeight: 800, whiteSpace: "nowrap" }}>{tourStep}/{TOUR_STEPS.length}</div>
+              <div style={{ flex: 1, fontSize: 13, color: T.text, fontFamily: T.body, lineHeight: 1.4, fontWeight: 500, opacity: questionVisible ? 1 : 0, transition: "opacity 0.2s ease" }}>{currentTour.text}</div>
               <button onClick={nextTour} disabled={!tourStepDone} style={{
                 background: tourStepDone ? T.accent : T.faint,
                 color: tourStepDone ? "#0f1410" : T.muted,
-                border: "none", borderRadius: 8, padding: "12px 18px",
-                fontSize: 15, fontFamily: T.font, fontWeight: 800,
+                border: "none", borderRadius: 8, padding: "10px 14px",
+                fontSize: 13, fontFamily: T.font, fontWeight: 800,
                 cursor: tourStepDone ? "pointer" : "not-allowed", whiteSpace: "nowrap",
                 flexShrink: 0,
               }}>
@@ -2427,10 +2426,10 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
               </button>
             </div>
             {currentTour.action && !tourStepDone && (
-              <div style={{ fontSize: 13, color: T.accent, fontFamily: T.body, marginTop: 10, textAlign: "center" }}>☝️ Complete the action above to continue</div>
+              <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 6, textAlign: "center" }}>☝️ Complete the action above first</div>
             )}
-            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 13, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", display: "block", textAlign: "center", width: "100%", marginTop: 8 }}>
-              Skip tour
+            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 11, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", display: "block", textAlign: "center", width: "100%", marginTop: 4 }}>
+              Skip
             </button>
           </div>
         ) : (
