@@ -3063,29 +3063,21 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
       {/* Hero */}
       <div style={{ background: `linear-gradient(135deg, #0a0f0a 0%, #0f1a10 50%, #0a0f0a 100%)`, borderBottom: `1px solid ${T.accentMid}`, padding: "80px 24px 72px", textAlign: "center", opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-20px)", transition: "all 0.7s ease" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
-
-          {/* Save time and money badge — first thing they see */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 20, padding: "6px 18px", marginBottom: 16 }}>
-            <span style={{ fontSize: 14 }}>💰</span>
-            <span style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.06em" }}>SAVE TIME AND MONEY — STARTING WITH YOUR NEXT INVOICE</span>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 20, padding: "6px 16px", marginBottom: 28 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.warn}`, transition: "box-shadow 0.5s ease" }} />
+            <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>RESTAURANT OWNERS ARE LEAVING MONEY ON THE TABLE</span>
           </div>
 
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(28px, 4.5vw, 50px)", color: T.text, marginBottom: 20, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
-            You're probably losing{" "}
-            <span style={{ color: T.warn, whiteSpace: "nowrap" }}>$2,000–$5,000/year</span>
-            {" "}to price changes you never noticed
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(28px, 4.5vw, 50px)", color: T.text, marginBottom: 24, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
+            Stop guessing your food costs.{" "}
+            <span style={{ color: T.accent }}>Save time and money</span>
+            {" "}with smart price tracking.
           </div>
 
-          {/* Intelligent price management — second thing they read */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.faint, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 16px", marginBottom: 20 }}>
-            <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>KitchenIQ is an</span>
-            <span style={{ fontSize: 12, color: T.accent, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.04em" }}>INTELLIGENT PRICE MANAGEMENT SYSTEM</span>
-            <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>built for independent restaurants</span>
+          <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 620, margin: "0 auto 20px", lineHeight: 1.75 }}>
+            KitchenIQ is an intelligent price management system for independent restaurants. Scan your supplier invoice and it automatically tracks every price change, calculates your real food cost on every dish, and tells you exactly what to charge — in seconds, not hours.
           </div>
 
-          <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 600, margin: "0 auto 16px", lineHeight: 1.75 }}>
-            Scan your supplier invoice, and KitchenIQ automatically tracks every price change, calculates your real food cost on every dish, and tells you exactly what to do about it — in seconds, not hours.
-          </div>
           <div style={{ fontSize: 15, color: T.accent, fontFamily: T.body, marginBottom: 40, fontWeight: 500 }}>
             📸 Scan invoice → ⚡ Instant price alerts → 💰 Know exactly what to charge
           </div>
