@@ -2223,10 +2223,10 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
   const [questionVisible, setQuestionVisible] = useState(true);
 
   const TOUR_STEPS = [
-    { tab: 0, text: "👋 Welcome to KitchenIQ! This dashboard shows your food costs at a glance. See your margins, price alerts, and what needs attention — all in one place.", action: null },
-    { tab: 1, text: "📸 This is where you scan your supplier invoices. Instead of typing everything in manually, just take a photo and AI pulls out every ingredient and price automatically. Try it — click 'Scan Invoice' above!", action: "scan" },
-    { tab: 3, text: "⚡ Every time a price changes on your invoices, it shows up here automatically. You'll also get an email alert so you never miss a cost increase.", action: null },
-    { tab: 2, text: "🍽 This is where the magic happens — KitchenIQ calculates the real food cost % for every dish on your menu. If your margins drop because of a price change, you'll see it here instantly.", action: null },
+    { tab: 0, text: "👋 This is your Dashboard — margins and price alerts at a glance.", action: null },
+    { tab: 1, text: "📸 Tap 'Scan Invoice' above — AI reads your invoice automatically. Try it!", action: "scan" },
+    { tab: 3, text: "⚡ Every price change shows up here with exact dollar impact per dish.", action: null },
+    { tab: 2, text: "🍽 Your real food cost % on every dish — updates automatically.", action: null },
   ];
   const currentTour = TOUR_STEPS[tourStep - 1];
 
