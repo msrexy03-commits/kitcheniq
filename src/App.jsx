@@ -319,17 +319,18 @@ function AuthScreen({ onBack }) {
   const switchMode = (m) => { setMode(m); setError(null); setMessage(null); };
 
   const [showTransition, setShowTransition] = useState(false);
+  const [transitionMessage, setTransitionMessage] = useState("Signing you in...");
 
   const submit = async () => {
     setLoading(true); setError(null); setMessage(null);
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { setError(error.message); setLoading(false); }
-      else setShowTransition(true);
+      else { setTransitionMessage("Signing you in..."); setShowTransition(true); }
     } else if (mode === "signup") {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) { setError(error.message); setLoading(false); }
-      else if (data?.user) setShowTransition(true);
+      else if (data?.user) { setTransitionMessage("Creating your account..."); setShowTransition(true); }
     } else if (mode === "reset") {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: "https://trykitcheniq.com",
@@ -340,11 +341,13 @@ function AuthScreen({ onBack }) {
     }
   };
 
+  // Transition is a pure visual overlay — Supabase session change will naturally
+  // unmount AuthScreen once auth propagates. No onComplete needed.
   if (showTransition) return (
     <AppTransition
-      message={mode === "signup" ? "Creating your account..." : "Signing you in..."}
+      message={transitionMessage}
       submessage="Getting your restaurant ready"
-      duration={2000}
+      duration={2500}
     />
   );
 
@@ -3216,16 +3219,24 @@ function KitchenIQApp() {
   const [priceNotif, setPriceNotif] = useState(null);
   const [isRecovery, setIsRecovery] = useState(false);
   const [showDemoTransition, setShowDemoTransition] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [showCheckoutTransition, setShowCheckoutTransition] = useState(false);
 
-  const goToDemo = () => {
-    setShowDemoTransition(true);
+  const goToDemo = () => setShowDemoTransition(true);
+
+  const signOut = async () => {
+    setSigningOut(true);
+    setTimeout(async () => {
+      await supabase.auth.signOut();
+      setIngredients([]); setMenuItems([]); setProfile(null); setIsRecovery(false);
+      setSigningOut(false);
+    }, 1600);
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      // Supabase fires PASSWORD_RECOVERY event when user clicks the reset link
       if (_event === "PASSWORD_RECOVERY") setIsRecovery(true);
     });
     return () => subscription.unsubscribe();
@@ -3257,24 +3268,6 @@ function KitchenIQApp() {
     load();
   }, [session]);
 
-  if (loading) return (
-    <AppTransition message="Loading your restaurant..." submessage="Fetching ingredients and menu data" />
-  );
-
-  const [signingOut, setSigningOut] = useState(false);
-  const signOut = async () => {
-    setSigningOut(true);
-    setTimeout(async () => {
-      await supabase.auth.signOut();
-      setIngredients([]); setMenuItems([]); setProfile(null); setIsRecovery(false);
-      setSigningOut(false);
-    }, 1600);
-  };
-
-  if (signingOut) return <AppTransition message="Signing out..." submessage="See you next time" duration={1600} />;
-
-  const [showCheckoutTransition, setShowCheckoutTransition] = useState(false);
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("success") === "true") {
@@ -3290,48 +3283,31 @@ function KitchenIQApp() {
     }
   }, [session]);
 
-  if (showCheckoutTransition) return (
-    <AppTransition message="Payment confirmed!" submessage="Setting up your KitchenIQ account" duration={2200} />
-  );
+  // ── All hooks above. All conditional returns below. ──
 
-  const [showAuth, setShowAuth] = useState(false);
-
-  if (session === undefined) return (
-    <AppTransition message="Loading KitchenIQ..." submessage="Just a moment" />
-  );
-
-  // Recovery mode
-  if (isRecovery && session) return (
-    <SetNewPasswordScreen onDone={() => { setIsRecovery(false); window.history.replaceState({}, "", "/"); }} />
-  );
+  if (signingOut) return <AppTransition message="Signing out..." submessage="See you next time" duration={1600} />;
+  if (showCheckoutTransition) return <AppTransition message="Payment confirmed!" submessage="Setting up your KitchenIQ account" duration={2200} />;
+  if (session === undefined) return <AppTransition message="Loading KitchenIQ..." submessage="Just a moment" />;
+  if (isRecovery && session) return <SetNewPasswordScreen onDone={() => { setIsRecovery(false); window.history.replaceState({}, "", "/"); }} />;
 
   if (!session) {
     if (route === "/#/demo" || route === "/demo") return (
-      <DemoScreen
-        onSignUp={() => navigate("/#/auth")}
-        onLogin={() => navigate("/#/auth")}
-        onBack={() => navigate("/#/")}
-      />
+      <DemoScreen onSignUp={() => navigate("/#/auth")} onLogin={() => navigate("/#/auth")} onBack={() => navigate("/#/")} />
     );
-    if (route === "/#/auth" || route === "/auth" || showAuth) return (
-      <AuthScreen onBack={() => { setShowAuth(false); navigate("/#/"); }} />
+    if (route === "/#/auth" || route === "/auth") return (
+      <AuthScreen onBack={() => navigate("/#/")} />
     );
     return (
       <>
         {showDemoTransition && (
           <DemoTransition onComplete={() => { setShowDemoTransition(false); navigate("/#/demo"); }} />
         )}
-        <LandingPage
-          onSignUp={() => navigate("/#/auth")}
-          onLogin={() => navigate("/#/auth")}
-          onDemo={goToDemo}
-        />
+        <LandingPage onSignUp={() => navigate("/#/auth")} onLogin={() => navigate("/#/auth")} onDemo={goToDemo} />
       </>
     );
   }
-  if (profileLoading) return (
-    <AppTransition message="Loading your restaurant..." submessage="Fetching your ingredients and menu" />
-  );
+
+  if (profileLoading || loading) return <AppTransition message="Loading your restaurant..." submessage="Fetching your ingredients and menu" />;
   if (!profile?.is_subscribed) return <PaywallScreen session={session} />;
 
   return (
