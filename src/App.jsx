@@ -1851,12 +1851,12 @@ function TermsModal({ onClose }) {
 
         <div>
           <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>2. Description of Service</div>
-          KitchenIQ is a SaaS platform that helps independent restaurant operators track ingredient costs, scan supplier invoices using AI, calculate menu margins, and receive price change alerts. The Service is provided on a subscription basis.
+          KitchenIQ is a SaaS platform that helps independent restaurant operators track ingredient costs, scan supplier invoices using AI, calculate menu margins, receive price change alerts, and get AI-powered recipe cost suggestions. The Service is provided on a subscription basis.
         </div>
 
         <div>
           <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>3. Subscriptions and Billing</div>
-          Access to KitchenIQ requires a paid subscription at $89/month or $799/year. Subscriptions automatically renew until cancelled. You may cancel at any time by contacting us at support@trykitcheniq.com. No refunds are issued for partial billing periods. Pricing is subject to change with 30 days notice.
+          Access to KitchenIQ requires a paid subscription at $89/month or $799/year. Subscriptions automatically renew until cancelled. You may cancel at any time from the Account tab inside the app or by contacting us at support@trykitcheniq.com. Cancellation takes effect at the end of your current billing period. No refunds are issued for partial billing periods. Pricing is subject to change with 30 days notice.
         </div>
 
         <div>
@@ -1906,7 +1906,7 @@ function PrivacyModal({ onClose }) {
 
         <div>
           <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>2. Invoice Images</div>
-          When you scan an invoice, the image is temporarily transmitted to Anthropic's API for AI processing to extract ingredient and pricing data. Images are not stored on our servers after processing. We do not use your invoice data to train AI models.
+          When you scan an invoice, the image is temporarily transmitted to Anthropic's API for AI processing to extract ingredient and pricing data. Images are not stored on our servers after processing. When you use the AI recipe suggestion feature, your dish name and ingredient list are also transmitted to Anthropic's API to generate recipe recommendations. We do not use your invoice or recipe data to train AI models.
         </div>
 
         <div>
