@@ -2064,6 +2064,7 @@ function DemoScreen({ onSignUp, onLogin }) {
 
   const [tourStepDone, setTourStepDone] = useState(false);
   const [demoScanCompleted, setDemoScanCompleted] = useState(false);
+  const [questionVisible, setQuestionVisible] = useState(true);
 
   const TOUR_STEPS = [
     { tab: 0, text: "👋 Welcome! This is your Dashboard — see your avg margin and price alerts at a glance.", action: null },
