@@ -318,24 +318,35 @@ function AuthScreen({ onBack }) {
 
   const switchMode = (m) => { setMode(m); setError(null); setMessage(null); };
 
+  const [showTransition, setShowTransition] = useState(false);
+
   const submit = async () => {
     setLoading(true); setError(null); setMessage(null);
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
+      if (error) { setError(error.message); setLoading(false); }
+      else setShowTransition(true);
     } else if (mode === "signup") {
       const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) setError(error.message);
-      else if (data?.user) setMessage("success");
+      if (error) { setError(error.message); setLoading(false); }
+      else if (data?.user) setShowTransition(true);
     } else if (mode === "reset") {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: "https://trykitcheniq.com",
       });
       if (error) setError(error.message);
       else setMessage("reset_sent");
+      setLoading(false);
     }
-    setLoading(false);
   };
+
+  if (showTransition) return (
+    <AppTransition
+      message={mode === "signup" ? "Creating your account..." : "Signing you in..."}
+      submessage="Getting your restaurant ready"
+      duration={2000}
+    />
+  );
 
   // Success screen after signup
   if (message === "success") return (
@@ -2888,7 +2899,103 @@ function DemoTransition({ onComplete }) {
   );
 }
 
-// ─── Hash Router ─────────────────────────────────────────────────────────────
+// ─── App Transition (reusable loading screen for major env changes) ───────────
+function AppTransition({ message = "Loading...", submessage = "", onComplete, duration = 1800 }) {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 300);
+    const t2 = setTimeout(() => setPhase(2), 700);
+    const t3 = setTimeout(() => setPhase(3), duration - 300);
+    const t4 = onComplete ? setTimeout(onComplete, duration) : null;
+    return () => [t1, t2, t3, t4].filter(Boolean).forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "#0a0f0a",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column",
+      animation: phase === 3 ? "demoFadeOut 0.3s ease forwards" : "none",
+      overflow: "hidden",
+    }}>
+      {/* Grid */}
+      <div style={{
+        position: "absolute", inset: 0,
+        backgroundImage: `
+          linear-gradient(rgba(78,202,110,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(78,202,110,0.03) 1px, transparent 1px)
+        `,
+        backgroundSize: "40px 40px",
+        opacity: phase >= 1 ? 1 : 0,
+        transition: "opacity 0.4s ease",
+      }} />
+
+      {/* Radial glow */}
+      <div style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: 500, height: 500,
+        background: "radial-gradient(circle, #4eca6e14 0%, transparent 70%)",
+        pointerEvents: "none",
+        opacity: phase >= 1 ? 1 : 0,
+        transition: "opacity 0.6s ease",
+      }} />
+
+      {/* Rings */}
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{
+          position: "absolute", top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 100, height: 100, borderRadius: "50%",
+          border: `1px solid ${T.accent}33`,
+          animation: phase >= 1 ? `demoRingPulse 1.4s ease ${i * 0.3}s infinite` : "none",
+          pointerEvents: "none",
+        }} />
+      ))}
+
+      {/* Logo */}
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+        position: "relative", zIndex: 2,
+        opacity: phase >= 1 ? 1 : 0,
+        transform: phase >= 1 ? "scale(1)" : "scale(0.85)",
+        transition: "opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1)",
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: 16,
+          background: T.accentDim, border: `2px solid ${T.accent}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 30, boxShadow: `0 0 32px ${T.accent}44`,
+        }}>⬡</div>
+        <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 26, color: T.text }}>
+          Kitchen<span style={{ color: T.accent }}>IQ</span>
+        </div>
+      </div>
+
+      {/* Message */}
+      <div style={{
+        marginTop: 28, position: "relative", zIndex: 2, textAlign: "center",
+        opacity: phase >= 2 ? 1 : 0,
+        transform: phase >= 2 ? "translateY(0)" : "translateY(10px)",
+        transition: "opacity 0.35s ease, transform 0.35s ease",
+      }}>
+        <div style={{ fontSize: 15, color: T.accent, fontFamily: T.body, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          {message}
+        </div>
+        {submessage && (
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 6 }}>{submessage}</div>
+        )}
+        <div style={{ marginTop: 20, width: 180, height: 2, background: T.faint, borderRadius: 2, overflow: "hidden", margin: "20px auto 0" }}>
+          <div style={{ height: "100%", background: T.accent, borderRadius: 2, animation: `progress ${duration / 1000}s ease forwards` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function useRoute() {
   const getRoute = () => {
     const hash = window.location.hash.replace("#", "") || "/";
@@ -3150,27 +3257,47 @@ function KitchenIQApp() {
     load();
   }, [session]);
 
-  const signOut = async () => { await supabase.auth.signOut(); setIngredients([]); setMenuItems([]); setProfile(null); setIsRecovery(false); };
+  if (loading) return (
+    <AppTransition message="Loading your restaurant..." submessage="Fetching ingredients and menu data" />
+  );
+
+  const [signingOut, setSigningOut] = useState(false);
+  const signOut = async () => {
+    setSigningOut(true);
+    setTimeout(async () => {
+      await supabase.auth.signOut();
+      setIngredients([]); setMenuItems([]); setProfile(null); setIsRecovery(false);
+      setSigningOut(false);
+    }, 1600);
+  };
+
+  if (signingOut) return <AppTransition message="Signing out..." submessage="See you next time" duration={1600} />;
+
+  const [showCheckoutTransition, setShowCheckoutTransition] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("success") === "true") {
       window.history.replaceState({}, "", "/");
+      setShowCheckoutTransition(true);
       if (session) {
         setTimeout(async () => {
           const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
           setProfile(data);
-        }, 2000);
+          setShowCheckoutTransition(false);
+        }, 2200);
       }
     }
   }, [session]);
 
+  if (showCheckoutTransition) return (
+    <AppTransition message="Payment confirmed!" submessage="Setting up your KitchenIQ account" duration={2200} />
+  );
+
   const [showAuth, setShowAuth] = useState(false);
 
   if (session === undefined) return (
-    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ color: T.accent, fontFamily: T.font, fontSize: 18 }}>Loading...</div>
-    </div>
+    <AppTransition message="Loading KitchenIQ..." submessage="Just a moment" />
   );
 
   // Recovery mode
@@ -3203,9 +3330,7 @@ function KitchenIQApp() {
     );
   }
   if (profileLoading) return (
-    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ color: T.accent, fontFamily: T.font, fontSize: 18 }}>Loading...</div>
-    </div>
+    <AppTransition message="Loading your restaurant..." submessage="Fetching your ingredients and menu" />
   );
   if (!profile?.is_subscribed) return <PaywallScreen session={session} />;
 
