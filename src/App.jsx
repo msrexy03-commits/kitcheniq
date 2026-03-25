@@ -1279,13 +1279,14 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
   });
   const removeRow = (i) => setForm((f) => ({ ...f, ingredients: f.ingredients.filter((_, idx) => idx !== i) }));
 
+  const [aiError, setAiError] = useState(null);
   const [questionVisible, setQuestionVisible] = useState(true);
 
   const suggestRecipe = async () => {
     if (!form.name) return;
     setAiLoading(true);
+    setAiError(null);
     try {
-      // Pass ingredient names with BOTH case unit and suggested serving unit
       const ingredientList = uniqueIngredients.map(i => {
         const servingUnit = (i.case_unit === "lb" || i.case_unit === "g") ? "oz" : i.case_unit || i.unit;
         return `${i.name} (use "${servingUnit}" for per-serving quantities)`;
@@ -1310,9 +1311,11 @@ Menu item: "${form.name}"
 Available ingredients (use the exact unit shown for each):
 ${ingredientList}
 
-Your job:
-1. Suggest which ingredients from their list are likely in this dish with realistic PER-SERVING quantities
-2. Ask only questions where the answer would CHANGE which ingredient is used or meaningfully change the qty
+FIRST — check if this is a real food item that would appear on a restaurant menu.
+If it is NOT real food (e.g. nonsense words, celebrity names, memes, gibberish), return:
+{"not_food": true, "recipe": [], "questions": []}
+
+If it IS real food, suggest which ingredients from their list are likely in this dish with realistic PER-SERVING quantities.
 
 CRITICAL UNIT RULES:
 - Always use the unit shown next to each ingredient
@@ -1323,13 +1326,13 @@ CRITICAL UNIT RULES:
 
 QUESTION RULES — VERY IMPORTANT:
 - NEVER ask a yes/no when the real question is "which one" — use "choice" type instead
-- BAD: "Are your potatoes red or russet? yes/no" — this makes no sense
-- GOOD: {"type": "choice", "question": "What type of potato?", "options": [{"label": "Red Potato", "ingredient_name": "EXACT name"}, {"label": "Russet Potato", "ingredient_name": "EXACT name"}]}
-- Only ask if the answer changes cost meaningfully. Max 2 questions.
+- Only ask if the answer changes cost meaningfully AND you genuinely cannot guess. Max 2 questions.
 - If you would need to ask something dumb or obvious, just pick the most common option and don't ask
+- Do NOT ask about ingredients not in the available list above
 
 Return ONLY raw JSON, no markdown, no backticks:
 {
+  "not_food": false,
   "recipe": [
     {"ingredient_name": "EXACT name from list above", "qty": 6, "qty_unit": "oz"}
   ],
@@ -1351,6 +1354,12 @@ Return ONLY raw JSON, no markdown, no backticks:
       let text = data.content[0].text.trim();
       text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
+
+      if (parsed.not_food) {
+        setAiError(`"${form.name}" doesn't look like a menu item. Try a real dish name like "Cheeseburger" or "Grilled Chicken Sandwich".`);
+        setAiLoading(false);
+        return;
+      }
 
       // Apply base recipe — match ingredient names case-insensitively to what's in the dropdown
       if (parsed.recipe && parsed.recipe.length > 0) {
@@ -1577,27 +1586,34 @@ Return ONLY raw JSON, no markdown, no backticks:
       {modal === "form" && (
         <Modal title={editId ? "Edit Menu Item" : "Add Menu Item"} onClose={() => setModal(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <Input label="Menu Item Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Input label="Menu Item Name" value={form.name} onChange={(v) => { setForm({ ...form, name: v }); setAiError(null); }} />
             <Input label="Sale Price ($)" value={form.salePrice} onChange={(v) => setForm({ ...form, salePrice: v })} type="number" />
 
             {/* AI Suggest Button */}
             {uniqueIngredients.length > 0 && (
-              <button onClick={suggestRecipe} disabled={aiLoading || !form.name} style={{
-                background: aiLoading || !form.name ? T.faint : "linear-gradient(135deg, #4eca6e33, #4eca6e11)",
-                border: `2px solid ${!form.name ? T.border : T.accent}`,
-                color: !form.name ? T.muted : T.accent,
-                borderRadius: 10, padding: "14px 16px", fontSize: 14,
-                fontFamily: T.font, fontWeight: 800,
-                cursor: aiLoading || !form.name ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                width: "100%", transition: "all 0.2s",
-                boxShadow: form.name && !aiLoading ? `0 0 20px #4eca6e22` : "none",
-                animation: form.name && !aiLoading ? "tourPulse 2s ease-in-out infinite" : "none",
-              }}>
-                <span style={{ fontSize: 18 }}>✨</span>
-                <span>{aiLoading ? "AI is thinking..." : "Auto-Fill Recipe with AI"}</span>
-                {!aiLoading && !form.name && <span style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 400 }}>— enter dish name first</span>}
-              </button>
+              <>
+                <button onClick={suggestRecipe} disabled={aiLoading || !form.name} style={{
+                  background: aiLoading || !form.name ? T.faint : "linear-gradient(135deg, #4eca6e33, #4eca6e11)",
+                  border: `2px solid ${!form.name ? T.border : T.accent}`,
+                  color: !form.name ? T.muted : T.accent,
+                  borderRadius: 10, padding: "14px 16px", fontSize: 14,
+                  fontFamily: T.font, fontWeight: 800,
+                  cursor: aiLoading || !form.name ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                  width: "100%", transition: "all 0.2s",
+                  boxShadow: form.name && !aiLoading ? `0 0 20px #4eca6e22` : "none",
+                  animation: form.name && !aiLoading ? "tourPulse 2s ease-in-out infinite" : "none",
+                }}>
+                  <span style={{ fontSize: 18 }}>✨</span>
+                  <span>{aiLoading ? "AI is thinking..." : "Auto-Fill Recipe with AI"}</span>
+                  {!aiLoading && !form.name && <span style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 400 }}>— enter dish name first</span>}
+                </button>
+                {aiError && (
+                  <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>
+                    🤔 {aiError}
+                  </div>
+                )}
+              </>
             )}
 
             <div>
