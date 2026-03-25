@@ -3239,6 +3239,277 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
     </div>
   );
 }
+// ─── Onboarding Wizard ────────────────────────────────────────────────────────
+function OnboardingWizard({ session, ingredients, menuItems, setMenuItems, onComplete }) {
+  const [step, setStep] = useState(0); // 0=welcome 1-3=dish entry 4=holy shit
+  const [dishes, setDishes] = useState([
+    { name: "", salePrice: "", ingredients: [], aiLoading: false },
+    { name: "", salePrice: "", ingredients: [], aiLoading: false },
+    { name: "", salePrice: "", ingredients: [], aiLoading: false },
+  ]);
+  const [saving, setSaving] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => { setTimeout(() => setVisible(true), 100); }, []);
+
+  const uniqueIngredients = Object.values(
+    ingredients.reduce((acc, ing) => {
+      const key = ing.name.toLowerCase();
+      if (!acc[key] || new Date(ing.date) > new Date(acc[key].date)) acc[key] = ing;
+      return acc;
+    }, {})
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
+  const updateDish = (i, field, val) => setDishes(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: val } : d));
+
+  const aiSuggest = async (dishIdx) => {
+    const dish = dishes[dishIdx];
+    if (!dish.name || uniqueIngredients.length === 0) return;
+    setDishes(prev => prev.map((d, i) => i === dishIdx ? { ...d, aiLoading: true } : d));
+    try {
+      const ingredientList = uniqueIngredients.map(i => {
+        const servingUnit = (i.case_unit === "lb" || i.case_unit === "g") ? "oz" : i.case_unit || i.unit;
+        return `${i.name} (use "${servingUnit}" for per-serving quantities)`;
+      }).join("\n");
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({
+          model: "claude-opus-4-5", max_tokens: 512,
+          messages: [{ role: "user", content: `Menu item: "${dish.name}"\nIngredients:\n${ingredientList}\n\nReturn ONLY raw JSON array of ingredients for this dish, no explanation:\n[{"ingredient_name":"EXACT name","qty":6,"qty_unit":"oz"}]\n\nRules: ONLY use exact names from list, realistic per-serving quantities, max 5 ingredients, return [] if dish name is not real food.` }]
+        })
+      });
+      const data = await response.json();
+      let text = data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(text);
+      const matched = parsed.map(r => {
+        const match = uniqueIngredients.find(ing => ing.name.toLowerCase() === r.ingredient_name.toLowerCase());
+        return match ? { ingredient_name: match.name, qty: String(r.qty), qty_unit: r.qty_unit } : null;
+      }).filter(Boolean);
+      setDishes(prev => prev.map((d, i) => i === dishIdx ? { ...d, ingredients: matched, aiLoading: false } : d));
+    } catch (e) {
+      setDishes(prev => prev.map((d, i) => i === dishIdx ? { ...d, aiLoading: false } : d));
+    }
+  };
+
+  const currentDish = dishes[step - 1];
+  const dishCost = (dish) => dish.ingredients.reduce((total, row) => {
+    const ing = ingredients.find(i => i.name.toLowerCase() === row.ingredient_name?.toLowerCase());
+    if (!ing) return total;
+    const uc = getUnitCost(ing);
+    if (!uc) return total;
+    return total + uc * convertUnits(Number(row.qty), row.qty_unit, ing.case_unit);
+  }, 0);
+
+  const saveAndFinish = async () => {
+    setSaving(true);
+    const validDishes = dishes.filter(d => d.name && d.salePrice && d.ingredients.length > 0);
+    if (validDishes.length > 0) {
+      const rows = validDishes.map(d => ({
+        name: d.name, sale_price: parseFloat(d.salePrice),
+        ingredients: d.ingredients.map(r => ({ ingredient_name: r.ingredient_name, qty: parseFloat(r.qty), qty_unit: r.qty_unit })),
+        user_id: session.user.id
+      }));
+      const { data } = await supabase.from("menu_items").insert(rows).select();
+      if (data) setMenuItems(prev => [...prev, ...data]);
+    }
+    await supabase.from("profiles").update({ onboarding_completed: true }).eq("id", session.user.id);
+    setSaving(false);
+    setStep(4);
+  };
+
+  const noIngredients = uniqueIngredients.length === 0;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "#0a0f0a", zIndex: 500,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20, overflowY: "auto",
+      opacity: visible ? 1 : 0, transition: "opacity 0.5s ease",
+    }}>
+      {/* Grid background */}
+      <div style={{ position: "fixed", inset: 0, backgroundImage: `linear-gradient(rgba(78,202,110,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(78,202,110,0.03) 1px, transparent 1px)`, backgroundSize: "40px 40px", pointerEvents: "none" }} />
+      <div style={{ position: "fixed", top: "30%", left: "50%", transform: "translate(-50%, -50%)", width: 600, height: 600, background: "radial-gradient(circle, #4eca6e0a 0%, transparent 70%)", pointerEvents: "none" }} />
+
+      <div style={{ width: "100%", maxWidth: 560, position: "relative", zIndex: 1 }}>
+
+        {/* Welcome step */}
+        {step === 0 && (
+          <div style={{ textAlign: "center", animation: "fadeIn 0.5s ease" }}>
+            <div style={{ width: 80, height: 80, borderRadius: 20, background: T.accentDim, border: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, margin: "0 auto 24px", boxShadow: `0 0 40px ${T.accent}44` }}>⬡</div>
+            <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 32, color: T.text, marginBottom: 12 }}>Welcome to KitchenIQ!</div>
+            <div style={{ fontSize: 16, color: T.muted, fontFamily: T.body, lineHeight: 1.7, marginBottom: 8 }}>
+              Let's get you your first real insight in under 5 minutes.
+            </div>
+            <div style={{ fontSize: 15, color: T.accent, fontFamily: T.body, marginBottom: 40, fontWeight: 500 }}>
+              We'll set up 3 of your dishes and show you your real food costs right now.
+            </div>
+            {noIngredients && (
+              <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 10, padding: "14px 18px", marginBottom: 24, fontSize: 13, color: T.warn, fontFamily: T.body, textAlign: "left" }}>
+                💡 <strong>Pro tip:</strong> Scan an invoice first from the Ingredients tab and we'll auto-fill your recipes with AI. You can still enter dishes manually.
+              </div>
+            )}
+            <button onClick={() => setStep(1)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 10, padding: "16px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}55` }}>
+              Let's Go →
+            </button>
+            <button onClick={onComplete} style={{ display: "block", margin: "16px auto 0", background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>
+              Skip setup — take me to the dashboard
+            </button>
+          </div>
+        )}
+
+        {/* Dish entry steps 1-3 */}
+        {step >= 1 && step <= 3 && (
+          <div style={{ animation: "fadeIn 0.35s ease" }}>
+            {/* Progress */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
+              {[1,2,3].map(i => (
+                <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? T.accent : T.faint, transition: "background 0.3s ease" }} />
+              ))}
+              <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, whiteSpace: "nowrap" }}>Dish {step} of 3</div>
+            </div>
+
+            <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.text, marginBottom: 6 }}>
+              {step === 1 ? "What's your most popular dish?" : step === 2 ? "What's your second best seller?" : "One more dish to complete your setup"}
+            </div>
+            <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, marginBottom: 28 }}>
+              {step === 1 ? "Start with the one you sell the most — we'll calculate your real profit margin." : "The more dishes you add, the clearer your picture."}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Dish name */}
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <Input label="Dish Name" value={currentDish.name} onChange={v => updateDish(step - 1, "name", v)} placeholder="e.g. Classic Burger" />
+                </div>
+                <div style={{ width: 120 }}>
+                  <Input label="Sale Price ($)" value={currentDish.salePrice} onChange={v => updateDish(step - 1, "salePrice", v)} type="number" placeholder="12.99" />
+                </div>
+              </div>
+
+              {/* AI suggest button */}
+              {uniqueIngredients.length > 0 && currentDish.name && (
+                <button onClick={() => aiSuggest(step - 1)} disabled={currentDish.aiLoading} style={{
+                  background: "linear-gradient(135deg, #4eca6e33, #4eca6e11)", border: `2px solid ${T.accent}`,
+                  color: T.accent, borderRadius: 10, padding: "12px 16px", fontSize: 14,
+                  fontFamily: T.font, fontWeight: 800, cursor: "pointer", width: "100%",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  animation: !currentDish.aiLoading ? "tourPulse 2s ease-in-out infinite" : "none",
+                }}>
+                  <span>✨</span>
+                  <span>{currentDish.aiLoading ? "AI is thinking..." : "Auto-Fill Recipe with AI"}</span>
+                </button>
+              )}
+
+              {/* Ingredients filled by AI */}
+              {currentDish.ingredients.length > 0 && (
+                <div style={{ background: T.faint, borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 10 }}>✓ Recipe filled by AI</div>
+                  {currentDish.ingredients.map((r, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.text, fontFamily: T.body, marginBottom: 4 }}>
+                      <span>{r.ingredient_name}</span>
+                      <span style={{ color: T.muted }}>{r.qty} {r.qty_unit}</span>
+                    </div>
+                  ))}
+                  {currentDish.salePrice && (() => {
+                    const cost = dishCost(currentDish);
+                    const sale = parseFloat(currentDish.salePrice) || 0;
+                    const margin = sale > 0 ? ((sale - cost) / sale * 100) : 0;
+                    const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
+                    return (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food cost: {fmt$2(cost)} · Profit: {fmt$2(sale - cost)}</div>
+                        <div style={{ fontSize: 20, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {noIngredients && (
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, background: T.faint, borderRadius: 8, padding: "10px 14px" }}>
+                  📋 No ingredients scanned yet — AI recipe fill will be available after you scan your first invoice. You can still complete setup and we'll calculate margins once you scan.
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginTop: 28 }}>
+              {step > 1 && <button onClick={() => setStep(s => s - 1)} style={{ background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>← Back</button>}
+              <button
+                onClick={() => step < 3 ? setStep(s => s + 1) : saveAndFinish()}
+                disabled={saving}
+                style={{ flex: 1, background: currentDish.name && currentDish.salePrice ? T.accent : T.faint, color: currentDish.name && currentDish.salePrice ? "#0f1410" : T.muted, border: "none", borderRadius: 8, padding: "14px 20px", fontSize: 15, fontFamily: T.font, fontWeight: 800, cursor: "pointer", transition: "all 0.2s" }}>
+                {saving ? "Saving..." : step < 3 ? "Next Dish →" : "See My Results →"}
+              </button>
+            </div>
+            <button onClick={() => step < 3 ? setStep(s => s + 1) : saveAndFinish()} style={{ display: "block", margin: "12px auto 0", background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>
+              Skip this dish
+            </button>
+          </div>
+        )}
+
+        {/* Holy shit moment — step 4 */}
+        {step === 4 && (
+          <div style={{ animation: "fadeIn 0.5s ease" }}>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+              <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text, marginBottom: 8 }}>Here are your real numbers</div>
+              <div style={{ fontSize: 15, color: T.muted, fontFamily: T.body }}>This is what KitchenIQ will update automatically every time you scan an invoice.</div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+              {dishes.filter(d => d.name && d.salePrice).map((dish, i) => {
+                const cost = dishCost(dish);
+                const sale = parseFloat(dish.salePrice) || 0;
+                const margin = sale > 0 ? ((sale - cost) / sale * 100) : 0;
+                const profit = sale - cost;
+                const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
+                const isBad = margin < 50 && cost > 0;
+                const suggestedPrice = cost > 0 && isBad ? cost / (1 - 0.65) : null;
+                return (
+                  <div key={i} style={{ background: T.card, border: `2px solid ${isBad ? T.warn + "88" : T.accentMid}`, borderRadius: 12, padding: "20px 24px", boxShadow: isBad ? `0 0 24px ${T.warn}18` : `0 0 16px ${T.accent}11` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 16, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{dish.name}</div>
+                        <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 3 }}>Selling at {fmt$2(sale)}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 28, color, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{cost > 0 ? fmtPct(margin) : "—"}</div>
+                        <div style={{ fontSize: 11, color: isBad ? T.warn : T.muted, fontFamily: T.body }}>{cost > 0 ? (isBad ? "⚠ needs attention" : "margin") : "scan invoice to calculate"}</div>
+                      </div>
+                    </div>
+                    {cost > 0 && (
+                      <div style={{ display: "flex", gap: 16, fontSize: 12, color: T.muted, fontFamily: T.body, paddingTop: 10, borderTop: `1px solid ${T.faint}` }}>
+                        <span>Food cost: <strong style={{ color: T.text }}>{fmt$2(cost)}</strong></span>
+                        <span>Profit per plate: <strong style={{ color: profit > 0 ? T.accent : T.warn }}>{fmt$2(profit)}</strong></span>
+                      </div>
+                    )}
+                    {isBad && suggestedPrice && (
+                      <div style={{ marginTop: 10, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: T.warn, fontFamily: T.body }}>
+                        💰 Raise to <strong>{fmt$2(suggestedPrice)}</strong> (+{fmt$2(suggestedPrice - sale)}) to hit 65% margin
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {dishes.filter(d => d.name && d.salePrice && dishCost(d) > 0).length === 0 && (
+              <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "16px 20px", marginBottom: 24, fontSize: 14, color: T.accent, fontFamily: T.body, textAlign: "center" }}>
+                📸 Scan your first invoice to see real food costs and margins on these dishes instantly.
+              </div>
+            )}
+
+            <button onClick={onComplete} style={{ width: "100%", background: T.accent, color: "#0f1410", border: "none", borderRadius: 10, padding: "16px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}55` }}>
+              Take Me to My Dashboard →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts", "Account", "Support"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡", "👤", "💬"];
 
@@ -3344,6 +3615,18 @@ function KitchenIQApp() {
 
   if (profileLoading || loading) return <AppTransition message="Loading your restaurant..." submessage="Fetching your ingredients and menu" />;
   if (!profile?.is_subscribed) return <PaywallScreen session={session} />;
+  if (!profile?.onboarding_completed) return (
+    <OnboardingWizard
+      session={session}
+      ingredients={ingredients}
+      menuItems={menuItems}
+      setMenuItems={setMenuItems}
+      onComplete={async () => {
+        await supabase.from("profiles").update({ onboarding_completed: true }).eq("id", session.user.id);
+        setProfile(p => ({ ...p, onboarding_completed: true }));
+      }}
+    />
+  );
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
