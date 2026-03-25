@@ -2097,7 +2097,7 @@ const DEMO_SCAN_ITEMS = [
 ];
 
 // ─── Demo Invoice Scanner ─────────────────────────────────────────────────────
-function DemoInvoiceScanner({ onClose, onComplete }) {
+function DemoInvoiceScanner({ onClose, onComplete, isMobile }) {
   const [step, setStep] = useState("upload");
   const [visibleItems, setVisibleItems] = useState([]);
 
@@ -2106,7 +2106,18 @@ function DemoInvoiceScanner({ onClose, onComplete }) {
     setTimeout(() => {
       setStep("results");
       DEMO_SCAN_ITEMS.forEach((item, i) => {
-        setTimeout(() => { setVisibleItems(prev => [...prev, item]); }, i * 400);
+        setTimeout(() => {
+          setVisibleItems(prev => {
+            const next = [...prev, item];
+            // When all items loaded, fire onComplete automatically
+            if (next.length === DEMO_SCAN_ITEMS.length) {
+              onComplete && onComplete();
+              // On mobile auto-close after a beat so they can see results
+              if (isMobile) setTimeout(onClose, 1800);
+            }
+            return next;
+          });
+        }, i * 400);
       });
     }, 2200);
   };
@@ -2162,9 +2173,15 @@ function DemoInvoiceScanner({ onClose, onComplete }) {
               </div>
             )}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={() => { onComplete && onComplete(); onClose(); }} style={{ background: T.accent, color: "#0f1410", border: `2px solid ${T.accent}`, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", animation: "tourPulse 2s ease-in-out infinite" }}>
-                ✓ This is what your real invoices would look like
-              </button>
+              {isMobile ? (
+                <button onClick={() => { onComplete && onComplete(); onClose(); }} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "12px 24px", fontSize: 14, fontFamily: T.font, fontWeight: 700, cursor: "pointer", width: "100%" }}>
+                  ✓ Got it — close
+                </button>
+              ) : (
+                <button onClick={() => { onComplete && onComplete(); onClose(); }} style={{ background: T.accent, color: "#0f1410", border: `2px solid ${T.accent}`, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", animation: "tourPulse 2s ease-in-out infinite" }}>
+                  ✓ This is what your real invoices would look like
+                </button>
+              )}
             </div>
           </>
         )}
@@ -2474,7 +2491,7 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
         )
       )}
 
-      {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} onComplete={() => setDemoScanCompleted(true)} />}
+      {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} onComplete={() => setDemoScanCompleted(true)} isMobile={isMobile} />}
 
       <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, padding: "24px", textAlign: "center" }}>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", alignItems: "center" }}>
