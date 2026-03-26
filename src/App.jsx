@@ -3234,9 +3234,9 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
           </div>
 
           <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(28px, 4.5vw, 50px)", color: T.text, marginBottom: 24, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
-            Stop guessing your food costs.{" "}
-            <span style={{ color: T.accent }}>Save time and money</span>
-            {" "}with smart price tracking.
+            Your supplier raised prices last month.{" "}
+            <span style={{ color: T.warn }}>Every invoice you didn't scan</span>
+            {" "}is money walking out your back door.
           </div>
 
           <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 620, margin: "0 auto 20px", lineHeight: 1.75 }}>
