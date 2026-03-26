@@ -1250,11 +1250,20 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
     }, {})
   ).sort((a, b) => a.name.localeCompare(b.name));
 
+  const [skippedDupes, setSkippedDupes] = useState(0);
+
   const handleScannedMenu = async (items) => {
     setSaving(true);
-    const rows = items.map((r) => ({ name: r.name, sale_price: r.sale_price, ingredients: [], user_id: userId }));
-    const { data, error } = await supabase.from("menu_items").insert(rows).select();
-    if (!error) setMenuItems((prev) => [...prev, ...data]);
+    // Filter out dishes that already exist by name (case-insensitive)
+    const existingNames = new Set(menuItems.map(m => m.name.toLowerCase().trim()));
+    const newItems = items.filter(r => !existingNames.has(r.name.toLowerCase().trim()));
+    const dupes = items.length - newItems.length;
+    if (dupes > 0) setSkippedDupes(dupes);
+    if (newItems.length > 0) {
+      const rows = newItems.map((r) => ({ name: r.name, sale_price: r.sale_price, ingredients: [], user_id: userId }));
+      const { data, error } = await supabase.from("menu_items").insert(rows).select();
+      if (!error) setMenuItems((prev) => [...prev, ...data]);
+    }
     setSaving(false);
   };
 
@@ -1581,6 +1590,13 @@ Return ONLY raw JSON, no markdown, no backticks:
           })}
         </div>}
 
+      {skippedDupes > 0 && (
+        <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "14px 20px", zIndex: 200, display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px #00000066", maxWidth: 400, width: "calc(100% - 32px)", animation: "slideInDown 0.3s ease" }}>
+          <div style={{ fontSize: 20 }}>✓</div>
+          <div style={{ flex: 1, fontSize: 13, color: T.text, fontFamily: T.body }}>{skippedDupes} dish{skippedDupes > 1 ? "es" : ""} already exist and were skipped.</div>
+          <button onClick={() => setSkippedDupes(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer" }}>×</button>
+        </div>
+      )}
       {showMenuScanner && <MenuScanner onMenuFound={handleScannedMenu} onClose={() => setShowMenuScanner(false)} />}
 
       {modal === "form" && (
@@ -3275,6 +3291,8 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
     reader.readAsDataURL(file);
   };
 
+  const removeFromScanResults = (i) => setScanResults(prev => prev.filter((_, idx) => idx !== i));
+
   const runScan = async () => {
     if (!scanImageBase64) return;
     setScanning(true); setScanError(null);
@@ -3286,7 +3304,21 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
           model: "claude-opus-4-5", max_tokens: 2048,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: "image/jpeg", data: scanImageBase64 } },
-            { type: "text", text: `You are a restaurant invoice parser. Extract every product line item. Return ONLY a raw JSON array. For each item: name (noun-first format), price (unit price NOT extended), case_size, case_unit (lb/oz/each/pack/bag), unit (same as case_unit), supplier (from header), date (YYYY-MM-DD, use ${today()} if missing). Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"}]` }
+            { type: "text", text: `You are a restaurant food cost calculator. Extract only FOOD and BEVERAGE ingredients from this supplier invoice.
+
+STRICT RULES — skip these entirely, do not include them:
+- Fuel surcharges, delivery fees, service charges, environmental fees
+- Cleaning supplies (soap, bleach, sanitizer, disinfectant)  
+- Paper products (napkins, towels, bags, boxes, containers)
+- Janitorial supplies (mops, brooms, dispensers, gloves)
+- Any non-food, non-beverage item
+- Line items with $0 price or that are clearly fees/adjustments
+
+Only include: meats, seafood, produce, dairy, eggs, bread/bakery, dry goods, oils, sauces, beverages, and other actual food ingredients.
+
+Return ONLY a raw JSON array. For each food item: name (noun-first format, no SKUs), price (unit price NOT extended total), case_size, case_unit (lb/oz/each/pack/bag), unit (same as case_unit), supplier (from header), date (YYYY-MM-DD, use ${today()} if missing).
+
+Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"}]` }
           ]}]
         })
       });
@@ -3294,7 +3326,7 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
       if (data.error) throw new Error(data.error.message);
       let text = data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No items found");
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No food items found");
       setScanResults(parsed);
     } catch (e) {
       setScanError("Couldn't read that invoice. Try a clearer photo with good lighting.");
@@ -3473,20 +3505,22 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
                     </>
                   ) : (
                     <>
-                      <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12, fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>
-                        ✓ Found {scanResults.length} ingredients — review below
+                      <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>
+                        ✓ Found {scanResults.length} food items — tap × to remove anything that shouldn't be here
                       </div>
+                      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>AI already filtered out fees and non-food items. Remove anything else that slipped through.</div>
                       <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
                         {scanResults.map((r, i) => (
-                          <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{r.name}</div>
+                          <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                            <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600, flex: 1 }}>{r.name}</div>
                             <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>${Number(r.price).toFixed(2)}</div>
+                            <button onClick={() => removeFromScanResults(i)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18, padding: "0 2px", flexShrink: 0, lineHeight: 1 }}>×</button>
                           </div>
                         ))}
                       </div>
                       <div style={{ display: "flex", gap: 10 }}>
                         <button onClick={resetScan} style={{ background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px 16px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Rescan</button>
-                        <button onClick={confirmScan} disabled={saving} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
+                        <button onClick={confirmScan} disabled={saving || scanResults.length === 0} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
                           {saving ? "Saving..." : `✓ Import ${scanResults.length} Ingredients`}
                         </button>
                       </div>
@@ -3532,10 +3566,19 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
                         </>
                       ) : (
                         <>
-                          <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12, fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>✓ Found {scanResults.length} more ingredients</div>
+                          <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>✓ Found {scanResults.length} more food items</div>
+                          <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                            {scanResults.map((r, i) => (
+                              <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                                <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600, flex: 1 }}>{r.name}</div>
+                                <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>${Number(r.price).toFixed(2)}</div>
+                                <button onClick={() => removeFromScanResults(i)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18, padding: "0 2px", flexShrink: 0, lineHeight: 1 }}>×</button>
+                              </div>
+                            ))}
+                          </div>
                           <div style={{ display: "flex", gap: 10 }}>
                             <button onClick={resetScan} style={{ background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px 16px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Rescan</button>
-                            <button onClick={confirmScan} disabled={saving} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>{saving ? "Saving..." : `✓ Import ${scanResults.length} More`}</button>
+                            <button onClick={confirmScan} disabled={saving || scanResults.length === 0} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>{saving ? "Saving..." : `✓ Import ${scanResults.length} More`}</button>
                           </div>
                         </>
                       )}
