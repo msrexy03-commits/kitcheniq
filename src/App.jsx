@@ -91,12 +91,11 @@ const fmtPct = (n) => `${Number(n).toFixed(1)}%`;
 
 // ─── Unit cost calculator ─────────────────────────────────────────────────────
 const UNIT_CONVERSIONS = {
-  lb: { oz: 16, lb: 1, g: 453.592, strips: 16, slices: 16 },
+  lb: { oz: 16, lb: 1, g: 453.592, slices: 16 },
   oz: { oz: 1, lb: 0.0625, g: 28.3495 },
   g: { g: 1, oz: 0.03527, lb: 0.002205 },
-  each: { each: 1, strips: 1, slices: 1 },
-  strips: { strips: 1, each: 1, oz: 1 },   // 1 strip ≈ 1 oz for costing
-  slices: { slices: 1, each: 1, oz: 1 },   // 1 slice ≈ 1 oz for costing
+  each: { each: 1, slices: 1 },
+  slices: { slices: 1, each: 1, oz: 1 },
   pack: { pack: 1 },
   case: { case: 1 },
   bag: { bag: 1 },
@@ -412,10 +411,9 @@ const UNIT_OPTIONS = [
 
 // Recipe row units — how a cook measures per serving
 const RECIPE_UNIT_OPTIONS = [
-  { value: "oz", label: "oz (recommended for meat, cheese, sauces)" },
-  { value: "each", label: "each (eggs, buns, slices, pieces)" },
-  { value: "strips", label: "strips — 1 strip ≈ 1 oz (bacon)" },
-  { value: "slices", label: "slices — 1 slice ≈ 1 oz (bread/cheese)" },
+  { value: "oz", label: "oz (meat, bacon, cheese, sauces)" },
+  { value: "each", label: "each (eggs, buns, patties, pieces)" },
+  { value: "slices", label: "slices (bread, cheese slices)" },
   { value: "tbsp", label: "tbsp" },
   { value: "tsp", label: "tsp" },
   { value: "cup", label: "cup" },
