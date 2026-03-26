@@ -94,10 +94,17 @@ const UNIT_CONVERSIONS = {
   lb: { oz: 16, lb: 1, g: 453.592 },
   oz: { oz: 1, lb: 0.0625, g: 28.3495 },
   g: { g: 1, oz: 0.03527, lb: 0.002205 },
-  each: { each: 1 },
+  each: { each: 1, strips: 1, slices: 1 },
+  strips: { strips: 1, each: 1 },
+  slices: { slices: 1, each: 1 },
   pack: { pack: 1 },
   case: { case: 1 },
   bag: { bag: 1 },
+  gallon: { gallon: 1, oz: 128, cup: 16, quart: 4 },
+  quart: { quart: 1, oz: 32, cup: 4, gallon: 0.25 },
+  cup: { cup: 1, oz: 8, tbsp: 16, tsp: 48 },
+  tbsp: { tbsp: 1, tsp: 3, oz: 0.5, cup: 0.0625 },
+  tsp: { tsp: 1, tbsp: 0.333, oz: 0.1667 },
 };
 
 function convertUnits(value, fromUnit, toUnit) {
@@ -390,14 +397,31 @@ function Modal({ title, onClose, children }) {
   );
 }
 
+// Ingredient case units — how suppliers sell it
 const UNIT_OPTIONS = [
-  { value: "lb", label: "lb" },
-  { value: "oz", label: "oz" },
-  { value: "g", label: "g" },
-  { value: "each", label: "each" },
+  { value: "oz", label: "oz (ounces)" },
+  { value: "lb", label: "lb (pounds)" },
+  { value: "each", label: "each (pieces / eggs / slices)" },
+  { value: "gallon", label: "gallon" },
+  { value: "quart", label: "quart" },
+  { value: "bag", label: "bag" },
   { value: "case", label: "case" },
   { value: "pack", label: "pack" },
-  { value: "bag", label: "bag" },
+  { value: "g", label: "g (grams)" },
+];
+
+// Recipe row units — how a cook measures per serving
+const RECIPE_UNIT_OPTIONS = [
+  { value: "oz", label: "oz" },
+  { value: "each", label: "each (1 egg / 1 slice / 1 piece)" },
+  { value: "strips", label: "strips (bacon)" },
+  { value: "slices", label: "slices (bread / cheese)" },
+  { value: "tbsp", label: "tbsp" },
+  { value: "tsp", label: "tsp" },
+  { value: "cup", label: "cup" },
+  { value: "lb", label: "lb" },
+  { value: "gallon", label: "gallon" },
+  { value: "g", label: "g" },
 ];
 
 // ─── Auth Screen ──────────────────────────────────────────────────────────────
@@ -709,9 +733,9 @@ Example output:
                       style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.accent, fontSize: 12, fontFamily: T.body, outline: "none" }} />
                     <input value={r.case_size || ""} onChange={(e) => updateResult(i, "case_size", e.target.value)} placeholder="Size"
                       style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
-                    <select value={r.case_unit || "lb"} onChange={(e) => updateResult(i, "case_unit", e.target.value)}
+                    <select value={r.case_unit || "oz"} onChange={(e) => updateResult(i, "case_unit", e.target.value)}
                       style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }}>
-                      {["lb","oz","each","case","pack","bag","g"].map(u => <option key={u} value={u}>{u}</option>)}
+                      {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                     </select>
                   </div>
                   <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body, marginTop: 5 }}>
@@ -1742,7 +1766,7 @@ Return ONLY raw JSON, no markdown, no backticks:
                     style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 10px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }} />
                   <select value={row.qty_unit} onChange={(e) => updateRow(i, "qty_unit", e.target.value)}
                     style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 8px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none" }}>
-                    {["oz","lb","g","each","pack","bag","case"].map(u => <option key={u} value={u}>{u}</option>)}
+                    {RECIPE_UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                   </select>
                   <button onClick={() => removeRow(i)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 16, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                 </div>
@@ -3737,7 +3761,7 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                       </select>
                       <input value={row.qty} onChange={e => updateDishRow(i, "qty", e.target.value)} placeholder="Qty" type="number" style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
                       <select value={row.qty_unit} onChange={e => updateDishRow(i, "qty_unit", e.target.value)} style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 6px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }}>
-                        {["oz","lb","g","each","pack","bag","case"].map(u => <option key={u} value={u}>{u}</option>)}
+                        {RECIPE_UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                       </select>
                       <button onClick={() => removeDishRow(i)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 16, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                     </div>
