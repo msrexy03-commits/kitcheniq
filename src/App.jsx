@@ -221,7 +221,8 @@ function normalizeIngredient(raw) {
 }
 
 function calcRecipeCost(row, ingredients) {
-  const matches = ingredients.filter(i => i.name.toLowerCase() === row.ingredient_name?.toLowerCase());
+  const rowKey = normalizeNameForGrouping(row.ingredient_name || "");
+  const matches = ingredients.filter(i => normalizeNameForGrouping(i.name) === rowKey);
   const ing = matches.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
   if (!ing) return Number(row.cost) || 0;
   const unitCost = getUnitCost(ing);
@@ -238,10 +239,23 @@ function calcMenuStats(item, ingredients = []) {
   return { cost, profit, margin };
 }
 
+// Normalize ingredient name for fuzzy grouping —
+// strips trailing 's', collapses whitespace, lowercases
+// so "Egg Shell" and "Eggs Shell" group together
+function normalizeNameForGrouping(name) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")         // collapse whitespace
+    .replace(/(\w)s\b/g, "$1")    // strip trailing 's' from words (eggs→egg, potatoes→potato)
+    .replace(/[^a-z0-9 ]/g, "")  // strip special chars
+    .trim();
+}
+
 function getPriceAlerts(ingredients) {
   const grouped = {};
   ingredients.forEach((ing) => {
-    const key = ing.name.trim().toLowerCase();
+    const key = normalizeNameForGrouping(ing.name);
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(ing);
   });
