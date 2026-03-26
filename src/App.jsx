@@ -115,6 +115,105 @@ function getUnitCost(ingredient) {
   return ingredient.price / ingredient.case_size;
 }
 
+// ─── Ingredient Normalization ─────────────────────────────────────────────────
+// Converts OCR-parsed ingredients into recipe-usable units before saving.
+// Goal: case_unit should always match what a cook would use in a recipe row.
+function normalizeIngredient(raw) {
+  const name = (raw.name || "").toLowerCase();
+  const packText = String(raw.pack_text || raw.case_size || "").toLowerCase();
+  let { price, case_size, case_unit } = raw;
+  case_size = Number(case_size) || null;
+  case_unit = (case_unit || "each").toLowerCase();
+
+  // ── EGGS: convert dozens to individual eggs ──────────────────────────────
+  if (/egg/.test(name)) {
+    // If stored as lb (rare but possible), leave it — cook by weight is fine
+    if (case_unit === "lb" || case_unit === "oz") return { ...raw, case_size, case_unit };
+    // Detect dozens: pack text like "15DZ", "30DOZ", "2.5DOZ", or case_unit === "dz"/"doz"/"dozen"
+    const dozMatch = packText.match(/(\d*\.?\d+)\s*(?:dz|doz|dozen)/i)
+      || (case_unit && /^(dz|doz|dozen)$/.test(case_unit) && case_size);
+    if (dozMatch) {
+      const dozens = dozMatch[1] ? parseFloat(dozMatch[1]) : case_size;
+      return { ...raw, case_size: Math.round(dozens * 12), case_unit: "each", unit: "each" };
+    }
+    // Already stored as "each" — trust it only if case_size looks like egg count (>12)
+    // If case_size looks like a dozen count (≤6), assume it means dozens
+    if (case_unit === "each" && case_size && case_size <= 6) {
+      return { ...raw, case_size: Math.round(case_size * 12), case_unit: "each", unit: "each" };
+    }
+    return { ...raw, case_size, case_unit: "each", unit: "each" };
+  }
+
+  // ── SLICED BREAD / TOAST / RYE / WHITE / WHEAT / SOURDOUGH ───────────────
+  if (/\b(bread|toast|rye|sourdough|white bread|wheat bread|sliced)\b/.test(name) && !/bun|roll|bagel|english muffin/.test(name)) {
+    // Look for slice count in pack text: "20SL", "15 SLICES", etc.
+    const sliceMatch = packText.match(/(\d+)\s*(?:sl|slices?)/i);
+    if (sliceMatch) {
+      return { ...raw, case_size: parseInt(sliceMatch[1]), case_unit: "each", unit: "each" };
+    }
+    // If stored as loaf(ves), assume 20 slices per loaf
+    if (/loaf|loaves/.test(packText) || /loaf/.test(case_unit)) {
+      const loaves = case_size || 1;
+      return { ...raw, case_size: loaves * 20, case_unit: "each", unit: "each" };
+    }
+    // If stored as lb, convert to oz for portioning
+    if (case_unit === "lb" && case_size) {
+      return { ...raw, case_size: Math.round(case_size * 16), case_unit: "oz", unit: "oz" };
+    }
+    return { ...raw, case_size, case_unit: "each", unit: "each" };
+  }
+
+  // ── BUNS, ROLLS, BAGELS, ENGLISH MUFFINS ─────────────────────────────────
+  if (/\b(bun|roll|bagel|english muffin|kaiser|brioche bun|slider bun)\b/.test(name)) {
+    if (case_unit === "lb" && case_size) {
+      return { ...raw, case_size: Math.round(case_size * 16), case_unit: "oz", unit: "oz" };
+    }
+    return { ...raw, case_size, case_unit: "each", unit: "each" };
+  }
+
+  // ── BURGER PATTIES, SAUSAGE PATTIES, SAUSAGE LINKS ───────────────────────
+  if (/\b(patty|patties|sausage link|sausage patty|burger patty)\b/.test(name)) {
+    // Often stored as lb but recipes use "each" — if count available use it
+    const ctMatch = packText.match(/(\d+)\s*(?:ct|count|pc|pcs)/i);
+    if (ctMatch) return { ...raw, case_size: parseInt(ctMatch[1]), case_unit: "each", unit: "each" };
+    // If lb, convert to oz
+    if (case_unit === "lb" && case_size) {
+      return { ...raw, case_size: Math.round(case_size * 16), case_unit: "oz", unit: "oz" };
+    }
+    return { ...raw, case_size, case_unit: "each", unit: "each" };
+  }
+
+  // ── SLICED CHEESE (individual slices) ─────────────────────────────────────
+  if (/\b(sliced cheese|american cheese|cheese slice|singles)\b/.test(name)) {
+    const ctMatch = packText.match(/(\d+)\s*(?:ct|slices?|pc)/i);
+    if (ctMatch) return { ...raw, case_size: parseInt(ctMatch[1]), case_unit: "each", unit: "each" };
+    if (case_unit === "lb" && case_size) {
+      return { ...raw, case_size: Math.round(case_size * 16), case_unit: "oz", unit: "oz" };
+    }
+    return { ...raw, case_size, case_unit: "each", unit: "each" };
+  }
+
+  // ── BACON: count-based strips ─────────────────────────────────────────────
+  if (/\bbacon\b/.test(name)) {
+    // Sysco-style "18/14-16CT" means 18 packs of ~15 strips — if count detected, use each
+    const ctMatch = packText.match(/(\d+)\s*ct/i) || raw.name.match(/(\d+)\s*ct/i);
+    if (ctMatch) return { ...raw, case_size: parseInt(ctMatch[1]), case_unit: "each", unit: "each" };
+    // Otherwise store as lb (weight-based portioning is fine for bacon)
+    if (case_unit === "lb") return { ...raw, case_size, case_unit: "lb", unit: "lb" };
+    if (case_unit === "each" && case_size) return { ...raw, case_size, case_unit: "each", unit: "each" };
+    return { ...raw, case_size, case_unit };
+  }
+
+  // ── WEIGHT-BASED: meats, shredded cheese, bulk items → convert lb to oz ──
+  const weightBasedPattern = /\b(beef|chicken|turkey|pork|ham|steak|tenderloin|sirloin|brisket|salmon|tuna|tilapia|shrimp|scallop|lobster|crab|fish|ground|deli meat|roast beef|pastrami|corned beef|shredded cheese|cheddar shredded|mozzarella shredded|cheese shredded|provolone|swiss|fries|potato|pasta|rice|noodle|sauce|dressing|mayo|ketchup|mustard|ranch|aioli|butter|margarine|lard|oil|shortening)\b/.test(name);
+  if (weightBasedPattern && case_unit === "lb" && case_size) {
+    return { ...raw, case_size: Math.round(case_size * 16), case_unit: "oz", unit: "oz" };
+  }
+
+  // ── DEFAULT: pass through unchanged ──────────────────────────────────────
+  return { ...raw, case_size, case_unit, unit: case_unit };
+}
+
 function calcRecipeCost(row, ingredients) {
   const matches = ingredients.filter(i => i.name.toLowerCase() === row.ingredient_name?.toLowerCase());
   const ing = matches.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
@@ -556,7 +655,7 @@ Example output:
       text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No items found");
-      setResults(parsed);
+      setResults(parsed.map(r => normalizeIngredient(r)));
     } catch (e) {
       setError("Couldn't read the invoice. Try a clearer photo with good lighting.");
     }
@@ -599,7 +698,7 @@ Example output:
         {results && (
           <div>
             <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 6 }}>✓ Found {results.length} items — review and edit below</div>
-            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>Tap any field to correct it before importing</div>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>Units normalized for recipe use (eggs = each egg, lbs → oz). Tap any field to correct.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
               {results.map((r, i) => (
                 <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "12px 14px" }}>
@@ -1297,8 +1396,10 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
     setAiError(null);
     try {
       const ingredientList = uniqueIngredients.map(i => {
-        const servingUnit = (i.case_unit === "lb" || i.case_unit === "g") ? "oz" : i.case_unit || i.unit;
-        return `${i.name} (use "${servingUnit}" for per-serving quantities)`;
+        // Units are already normalized — use them directly.
+        // oz for weight-based, each (= 1 piece) for countable items.
+        const unit = i.case_unit || i.unit || "oz";
+        return `${i.name} (recipe unit: "${unit}" means one ${unit === "each" ? "piece/egg/slice/strip" : unit})`;
       }).join("\n");
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1317,44 +1418,40 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
             content: `You are helping a restaurant owner build a recipe cost calculator for their menu item.
 
 Menu item: "${form.name}"
-Available ingredients (use the exact unit shown for each):
+Available ingredients (use the EXACT unit shown — units are already normalized to recipe scale):
 ${ingredientList}
 
 FIRST — check if this is a real food item that would appear on a restaurant menu.
 If it is NOT real food (e.g. nonsense words, celebrity names, memes, gibberish), return:
 {"not_food": true, "recipe": [], "questions": []}
 
-If it IS real food, suggest which ingredients from their list are likely in this dish with realistic PER-SERVING quantities.
+If it IS real food, suggest which ingredients are likely in this dish with realistic PER-SERVING quantities.
 
-CRITICAL UNIT RULES:
-- Always use the unit shown next to each ingredient
-- Meat portions: typically 4-8 oz per serving, never "lb" for a single dish
-- Eggs: use "each" (2-3 per serving)
-- Cheese: 1-2 oz per serving
-- Butter: 1 each (pat) per serving
+CRITICAL UNIT RULES — the units are already correct, just use them:
+- "each" for eggs means 1 egg — use 2 or 3 for a typical dish, never 0.16
+- "each" for bread/buns/patties/links/slices means 1 piece — use whole numbers
+- "oz" for meats means 1 ounce — use 4-8 oz for a typical protein portion
+- "oz" for shredded cheese means 1 ounce — use 1-2 oz per serving
+- NEVER use fractional "each" values like 0.083 or 0.16 — if the unit is "each", use whole numbers only
 
-QUESTION RULES — VERY IMPORTANT:
-- NEVER ask a yes/no when the real question is "which one" — use "choice" type instead
+QUESTION RULES:
 - Only ask if the answer changes cost meaningfully AND you genuinely cannot guess. Max 2 questions.
-- If you would need to ask something dumb or obvious, just pick the most common option and don't ask
-- Do NOT ask about ingredients not in the available list above
+- Use "choice" type for which-one questions, never yes/no for those.
+- Do NOT ask about ingredients not in the available list above.
 
 Return ONLY raw JSON, no markdown, no backticks:
 {
   "not_food": false,
-  "recipe": [
-    {"ingredient_name": "EXACT name from list above", "qty": 6, "qty_unit": "oz"}
-  ],
+  "recipe": [{"ingredient_name": "EXACT name from list above", "qty": 2, "qty_unit": "each"}],
   "questions": [
-    {"key": "bread", "question": "Does this come with toast or bread?", "type": "yesno", "if_yes": [{"ingredient_name": "EXACT name", "qty": 2, "qty_unit": "each"}]},
+    {"key": "bread", "question": "Does this come with toast?", "type": "yesno", "if_yes": [{"ingredient_name": "EXACT name", "qty": 2, "qty_unit": "each"}]},
     {"key": "patty_size", "question": "How many oz is the patty?", "type": "number", "ingredient_name": "EXACT name", "qty_unit": "oz"},
-    {"key": "potato_type", "question": "What type of potato?", "type": "choice", "options": [{"label": "Red Potato", "ingredient_name": "EXACT name", "qty": 6, "qty_unit": "oz"}, {"label": "Russet Potato", "ingredient_name": "EXACT name", "qty": 6, "qty_unit": "oz"}]}
+    {"key": "bun_type", "question": "What type of bun?", "type": "choice", "options": [{"label": "Brioche Bun", "ingredient_name": "EXACT name", "qty": 1, "qty_unit": "each"}]}
   ]
 }
 
-- ingredient_name must be EXACTLY as listed above, character for character
-- Only include ingredients actually in their list — skip anything not listed
-- Keep quantities realistic for a single serving
+- ingredient_name must be EXACTLY as listed above
+- Only include ingredients actually in their list
 - If nothing unclear, return empty questions array`
           }]
         })
@@ -3327,7 +3424,7 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
       let text = data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No food items found");
-      setScanResults(parsed);
+      setScanResults(parsed.map(r => normalizeIngredient(r)));
     } catch (e) {
       setScanError("Couldn't read that invoice. Try a clearer photo with good lighting.");
     }
@@ -3373,15 +3470,15 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
     setAiLoading(true); setAiError(null);
     try {
       const ingredientList = uniqueIngredients.map(i => {
-        const u = (i.case_unit === "lb" || i.case_unit === "g") ? "oz" : i.case_unit || i.unit;
-        return `${i.name} (use "${u}")`;
+        const u = i.case_unit || i.unit || "oz";
+        return `${i.name} (recipe unit: "${u}")`;
       }).join("\n");
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-opus-4-5", max_tokens: 512,
-          messages: [{ role: "user", content: `Menu item: "${dishName}"\nIngredients available:\n${ingredientList}\n\nIf this is not real food, return {"not_food":true,"recipe":[]}.\nOtherwise return ONLY raw JSON: {"not_food":false,"recipe":[{"ingredient_name":"EXACT name","qty":6,"qty_unit":"oz"}]}\nOnly use ingredients from the list. Realistic per-serving quantities. Max 5 ingredients.` }]
+          messages: [{ role: "user", content: `Menu item: "${dishName}"\nIngredients (units are normalized — each = 1 piece/egg/slice):\n${ingredientList}\n\nIf this is not real food, return {"not_food":true,"recipe":[]}.\nOtherwise return ONLY raw JSON: {"not_food":false,"recipe":[{"ingredient_name":"EXACT name","qty":2,"qty_unit":"each"}]}\nOnly use ingredients from the list. Realistic per-serving quantities. NEVER use fractional each values — if unit is "each", use whole numbers only (1, 2, 3...). Max 5 ingredients.` }]
         })
       });
       const data = await response.json();
