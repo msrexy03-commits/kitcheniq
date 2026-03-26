@@ -3471,6 +3471,14 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                 ))}
               </div>
 
+              {step === 1 && scanDone && (
+                <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "20px 24px" }}>
+                  <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>✓ Invoice imported!</div>
+                  <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 20 }}>{ingredients.length} ingredients saved. Ready for the next step.</div>
+                  <button onClick={() => { setStep(2); resetScan(); }} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Next →</button>
+                </div>
+              )}
+
               {step === 1 && !scanDone && (
                 <>
                   <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.text, marginBottom: 8 }}>Scan your first supplier invoice</div>
@@ -3527,12 +3535,6 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                     </>
                   )}
 
-                  {scanDone && (
-                    <div style={{ marginTop: 16, background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>✓ Invoice imported!</div>
-                      <button onClick={() => { setStep(2); resetScan(); }} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Next →</button>
-                    </div>
-                  )}
                 </>
               )}
 
