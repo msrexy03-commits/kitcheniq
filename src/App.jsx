@@ -3411,8 +3411,8 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
     if (!dishName || !dishPrice) return;
     setSaving(true);
     const ings = dishIngredients.filter(r => r.ingredient_name && r.qty).map(r => ({ ingredient_name: r.ingredient_name, qty: parseFloat(r.qty), qty_unit: r.qty_unit }));
-    const { data } = await supabase.from("menu_items").insert([{ name: dishName, sale_price: parseFloat(dishPrice), ingredients: ings, user_id: session.user.id }]).select();
-    if (data) setMenuItems(prev => [...prev, ...data[0]]);
+    const { data, error } = await supabase.from("menu_items").insert([{ name: dishName, sale_price: parseFloat(dishPrice), ingredients: ings, user_id: session.user.id }]).select();
+    if (!error && data?.[0]) setMenuItems(prev => [...prev, data[0]]);
     await supabase.from("profiles").update({ onboarding_completed: true }).eq("id", session.user.id);
     setSaving(false);
     setStep(4);
