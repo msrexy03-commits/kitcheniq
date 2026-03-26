@@ -3506,14 +3506,14 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                   ) : (
                     <>
                       <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>
-                        ✓ Found {scanResults.length} food items — tap × to remove anything that shouldn't be here
+                        ✓ Found {scanResults.length} food items — edit name/price or tap × to remove
                       </div>
-                      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>AI already filtered out fees and non-food items. Remove anything else that slipped through.</div>
+                      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>Tap any name or price to correct it before importing.</div>
                       <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
                         {scanResults.map((r, i) => (
-                          <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                            <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600, flex: 1 }}>{r.name}</div>
-                            <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>${Number(r.price).toFixed(2)}</div>
+                          <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <input value={r.name} onChange={e => setScanResults(prev => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} style={{ flex: 1, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
+                            <input value={r.price} onChange={e => setScanResults(prev => prev.map((x, idx) => idx === i ? { ...x, price: e.target.value } : x))} style={{ width: 64, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px", color: T.accent, fontSize: 12, fontFamily: T.body, outline: "none" }} />
                             <button onClick={() => removeFromScanResults(i)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18, padding: "0 2px", flexShrink: 0, lineHeight: 1 }}>×</button>
                           </div>
                         ))}
@@ -3544,50 +3544,47 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                   </div>
                   <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 24 }}>You can always scan more invoices later from the Ingredients tab.</div>
 
-                  {!scanDone ? (
+                  {!scanResults ? (
                     <>
-                      {!scanResults ? (
-                        <>
-                          <div onClick={() => document.getElementById("onboard-upload2").click()} style={{ border: `2px dashed ${scanImage ? T.accentMid : T.border}`, borderRadius: 12, padding: "24px 20px", textAlign: "center", cursor: "pointer", background: scanImage ? T.accentDim : T.faint, marginBottom: 16 }}>
-                            {scanImage
-                              ? <img src={scanImage} alt="Invoice" style={{ maxWidth: "100%", maxHeight: 140, borderRadius: 8, objectFit: "contain" }} />
-                              : <>
-                                  <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
-                                  <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>Tap to upload another invoice</div>
-                                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Bread supplier, meat supplier, dairy — any invoice</div>
-                                </>}
-                            <input id="onboard-upload2" type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => handleScanFile(e.target.files[0])} />
-                          </div>
-                          {scanning && <div style={{ textAlign: "center", padding: "16px 0", fontSize: 13, color: T.accent, fontFamily: T.body }}>⏳ AI is reading your invoice...</div>}
-                          <div style={{ display: "flex", gap: 10 }}>
-                            <button onClick={() => setStep(3)} style={{ flex: 1, background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Skip — Set Up My Dish →</button>
-                            {scanImage && <button onClick={runScan} disabled={scanning} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>🔍 Scan</button>}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>✓ Found {scanResults.length} more food items</div>
-                          <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-                            {scanResults.map((r, i) => (
-                              <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                                <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600, flex: 1 }}>{r.name}</div>
-                                <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>${Number(r.price).toFixed(2)}</div>
-                                <button onClick={() => removeFromScanResults(i)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18, padding: "0 2px", flexShrink: 0, lineHeight: 1 }}>×</button>
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ display: "flex", gap: 10 }}>
-                            <button onClick={resetScan} style={{ background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px 16px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Rescan</button>
-                            <button onClick={confirmScan} disabled={saving || scanResults.length === 0} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>{saving ? "Saving..." : `✓ Import ${scanResults.length} More`}</button>
-                          </div>
-                        </>
-                      )}
+                      <div onClick={() => document.getElementById("onboard-upload2").click()} style={{ border: `2px dashed ${scanImage ? T.accentMid : T.border}`, borderRadius: 12, padding: "24px 20px", textAlign: "center", cursor: "pointer", background: scanImage ? T.accentDim : T.faint, marginBottom: 16 }}>
+                        {scanImage
+                          ? <img src={scanImage} alt="Invoice" style={{ maxWidth: "100%", maxHeight: 140, borderRadius: 8, objectFit: "contain" }} />
+                          : <>
+                              <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
+                              <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>Tap to upload another invoice</div>
+                              <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Bread supplier, meat supplier, dairy — any invoice</div>
+                            </>}
+                        <input id="onboard-upload2" type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => handleScanFile(e.target.files[0])} />
+                      </div>
+                      {scanning && <div style={{ textAlign: "center", padding: "16px 0", fontSize: 13, color: T.accent, fontFamily: T.body }}>⏳ AI is reading your invoice...</div>}
+                      {scanError && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body, marginBottom: 12 }}>⚠ {scanError}</div>}
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={() => setStep(3)} style={{ flex: 1, background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Skip — Set Up My Dish →</button>
+                        {scanImage && <button onClick={runScan} disabled={scanning} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>🔍 Scan</button>}
+                      </div>
                     </>
-                  ) : (
+                  ) : scanDone ? (
                     <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>✓ Imported! Total: {ingredients.length} ingredients</div>
                       <button onClick={() => setStep(3)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Next →</button>
                     </div>
+                  ) : (
+                    <>
+                      <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>✓ Found {scanResults.length} more food items — edit or remove before importing</div>
+                      <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                        {scanResults.map((r, i) => (
+                          <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <input value={r.name} onChange={e => setScanResults(prev => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} style={{ flex: 1, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
+                            <input value={r.price} onChange={e => setScanResults(prev => prev.map((x, idx) => idx === i ? { ...x, price: e.target.value } : x))} style={{ width: 64, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px", color: T.accent, fontSize: 12, fontFamily: T.body, outline: "none" }} />
+                            <button onClick={() => removeFromScanResults(i)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18, padding: "0 2px", flexShrink: 0, lineHeight: 1 }}>×</button>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={resetScan} style={{ background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px 16px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Rescan</button>
+                        <button onClick={confirmScan} disabled={saving || scanResults.length === 0} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>{saving ? "Saving..." : `✓ Import ${scanResults.length} More`}</button>
+                      </div>
+                    </>
                   )}
                 </>
               )}
