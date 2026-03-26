@@ -3240,7 +3240,7 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
           </div>
 
           <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 620, margin: "0 auto 20px", lineHeight: 1.75 }}>
-            KitchenIQ is an intelligent price management system for independent restaurants. Scan your supplier invoice and it automatically tracks every price change, calculates your real food cost on every dish, and tells you exactly what to charge — in seconds, not hours.
+            KitchenIQ is an intelligent price management system for independent restaurants. Scan invoices from <strong style={{ color: T.text }}>any supplier</strong> — Sysco, US Foods, your bread guy, your egg guy — and it automatically tracks every price change, calculates your real food cost on every dish, and tells you exactly what to charge.
           </div>
 
           <div style={{ fontSize: 15, color: T.accent, fontFamily: T.body, marginBottom: 40, fontWeight: 500 }}>
@@ -3284,10 +3284,10 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
           {[
-            { step: "1", icon: "📸", title: "Scan Your Invoice", desc: "Take a photo of any supplier invoice. AI reads every ingredient, price, and case size automatically — no typing." },
-            { step: "2", icon: "⚡", title: "Instant Price Alerts", desc: "The moment a price changes, you get an alert showing exactly which dishes are affected and by how much per plate." },
-            { step: "3", icon: "💰", title: "Know What to Charge", desc: "See your real food cost % on every dish. Get a specific suggested price to hit your target margin." },
-            { step: "4", icon: "🔄", title: "Never Get Blindsided", desc: "Weekly summaries, email alerts, and a dashboard that shows your biggest profit leaks at a glance." },
+            { step: "1", icon: "📸", title: "Scan Any Invoice", desc: "Take a photo of any supplier invoice — Sysco, US Foods, your local bread guy. AI reads every ingredient, price, and case size automatically." },
+            { step: "2", icon: "⚡", title: "Instant Price Alerts", desc: "The moment a price changes on any supplier, you get an alert showing exactly which dishes are affected and by how much per plate." },
+            { step: "3", icon: "💰", title: "Know What to Charge", desc: "See your real food cost % on every dish across all suppliers. Get a specific suggested price to hit your target margin." },
+            { step: "4", icon: "🔄", title: "Never Get Blindsided", desc: "Email alerts, price history charts, and a dashboard that shows your biggest profit leaks across every supplier at a glance." },
           ].map(s => (
             <div key={s.step} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "24px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
@@ -3298,6 +3298,35 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
               <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>{s.desc}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Works with every supplier — key differentiator */}
+      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, padding: "64px 24px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
+          <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Works With Every Supplier</div>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(22px, 3.5vw, 36px)", color: T.text, marginBottom: 16, lineHeight: 1.2 }}>
+            Your diner doesn't use one supplier.{" "}
+            <span style={{ color: T.accent }}>Neither does KitchenIQ.</span>
+          </div>
+          <div style={{ fontSize: 16, color: T.muted, fontFamily: T.body, maxWidth: 620, margin: "0 auto 40px", lineHeight: 1.7 }}>
+            Most food cost tools only work if you buy everything from one distributor. KitchenIQ works with every invoice from every supplier — scan them all and see your complete picture in one place.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 12, marginBottom: 40 }}>
+            {["Sysco", "US Foods", "Performance Food Group", "Your Bread Guy", "Your Egg Farmer", "Local Meat Supplier", "Restaurant Depot", "Any Supplier"].map((s, i) => (
+              <div key={i} style={{
+                background: i === 7 ? T.accentDim : T.faint,
+                border: `1px solid ${i === 7 ? T.accentMid : T.border}`,
+                borderRadius: 8, padding: "10px 18px",
+                fontSize: 13, color: i === 7 ? T.accent : T.text,
+                fontFamily: T.font, fontWeight: i === 7 ? 700 : 500,
+              }}>{i === 7 ? "✓ " : ""}{s}</div>
+            ))}
+          </div>
+          <div style={{ background: `linear-gradient(135deg, #0f1a10, #0a0f0a)`, border: `1px solid ${T.warn}44`, borderRadius: 12, padding: "20px 28px", maxWidth: 600, margin: "0 auto" }}>
+            <div style={{ fontSize: 14, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>⚠ Supplier-specific tools only show part of the picture</div>
+            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>If you buy bread from one supplier and meat from another, any tool tied to a single distributor leaves you blind to half your costs. KitchenIQ sees everything.</div>
+          </div>
         </div>
       </div>
 
@@ -3337,9 +3366,10 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             {[
-              { icon: "📈", title: "Supplier prices change constantly", desc: "Sysco, US Foods, local vendors — prices shift every delivery and you don't always notice" },
+              { icon: "📈", title: "Supplier prices change constantly", desc: "Sysco, US Foods, local vendors — prices shift every delivery and you don't always notice until it hits your margins" },
               { icon: "🔢", title: "You're guessing your margins", desc: "Most owners estimate food cost by feel. The real number is almost always worse than you think" },
               { icon: "🧾", title: "Manual tracking doesn't work", desc: "Spreadsheets take hours, get ignored, and go stale. Nobody has time for that during service" },
+              { icon: "🔒", title: "Supplier tools only show half the picture", desc: "Any tool tied to one distributor is blind to your other suppliers. Your bread, eggs, and local meat don't show up" },
             ].map(p => (
               <div key={p.title} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 18px" }}>
                 <div style={{ fontSize: 22, marginBottom: 10 }}>{p.icon}</div>
