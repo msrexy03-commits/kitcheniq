@@ -3506,7 +3506,8 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
   );
 }
 // ─── Onboarding Wizard ────────────────────────────────────────────────────────
-function OnboardingWizard({ session, ingredients, setIngredients, menuItems, setMenuItems, onComplete }) {
+function OnboardingWizard({ session, ingredients, setIngredients, menuItems, setMenuItems, onComplete, tier }) {
+  const isTracker = tier === "tracker";
   const [step, setStep] = useState(0);
   // steps: 0=welcome 1=scan1 2=scan2(optional) 3=dish 4=result
   const [visible, setVisible] = useState(false);
@@ -3688,15 +3689,34 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
             <div style={{ textAlign: "center", animation: "fadeIn 0.5s ease" }}>
               <div style={{ width: 80, height: 80, borderRadius: 20, background: T.accentDim, border: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, margin: "0 auto 24px", boxShadow: `0 0 40px ${T.accent}44` }}>⬡</div>
               <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 30, color: T.text, marginBottom: 12 }}>Welcome to KitchenIQ!</div>
-              <div style={{ fontSize: 16, color: T.muted, fontFamily: T.body, lineHeight: 1.7, marginBottom: 12, maxWidth: 420, margin: "0 auto 12px" }}>
-                Let's get you your first real food cost insight in under 5 minutes.
-              </div>
-              <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 40, maxWidth: 440, margin: "0 auto 40px" }}>
-                First we'll scan one of your supplier invoices so KitchenIQ knows what ingredients you actually use. Then we'll calculate the real cost of your top dish.
-              </div>
+              {isTracker ? (
+                <>
+                  <div style={{ fontSize: 16, color: T.muted, fontFamily: T.body, lineHeight: 1.7, marginBottom: 12, maxWidth: 420, margin: "0 auto 12px" }}>
+                    You're on the <strong style={{ color: T.accent }}>Tracker plan</strong> — let's get your ingredients loaded so KitchenIQ can start catching price changes automatically.
+                  </div>
+                  <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 40, maxWidth: 440, margin: "0 auto 40px" }}>
+                    Scan your supplier invoices and we'll track every price from here on out. The moment something spikes you'll see it right in the app.
+                  </div>
+                  <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "14px 20px", maxWidth: 380, margin: "0 auto 32px", textAlign: "left" }}>
+                    <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 8 }}>What happens after setup:</div>
+                    {["📸 Scan any invoice from any supplier", "⚡ See price changes the moment they happen", "📊 Full price history per ingredient", "🔒 Upgrade anytime to unlock margin calculations"].map(f => (
+                      <div key={f} style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 6 }}>{f}</div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 16, color: T.muted, fontFamily: T.body, lineHeight: 1.7, marginBottom: 12, maxWidth: 420, margin: "0 auto 12px" }}>
+                    Let's get you your first real food cost insight in under 5 minutes.
+                  </div>
+                  <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.6, marginBottom: 40, maxWidth: 440, margin: "0 auto 40px" }}>
+                    First we'll scan one of your supplier invoices so KitchenIQ knows what ingredients you actually use. Then we'll calculate the real cost of your top dish.
+                  </div>
+                </>
+              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
                 <button onClick={() => setStep(1)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 10, padding: "16px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}55` }}>
-                  Let's Go — Scan My First Invoice →
+                  {isTracker ? "Let's Go — Scan My First Invoice →" : "Let's Go — Scan My First Invoice →"}
                 </button>
                 <button onClick={onComplete} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>
                   Skip setup — take me to the dashboard
@@ -3710,13 +3730,16 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
             <div style={{ animation: "fadeIn 0.4s ease" }}>
               {/* Progress */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
-                {["Scan Invoice", "Scan More?", "Your Top Dish", "Results"].map((label, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flex: i < 3 ? 1 : 0 }}>
+                {(isTracker
+                  ? ["Scan Invoice", "Scan More?", "All Set!"]
+                  : ["Scan Invoice", "Scan More?", "Your Top Dish", "Results"]
+                ).map((label, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flex: i < (isTracker ? 2 : 3) ? 1 : 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 22, height: 22, borderRadius: "50%", background: i < step ? T.accent : i === step - 1 ? T.accent : T.faint, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontFamily: T.font, fontWeight: 800, color: i <= step - 1 ? "#0f1410" : T.muted, flexShrink: 0 }}>{i < step - 1 ? "✓" : i + 1}</div>
                       <div style={{ fontSize: 10, color: i === step - 1 ? T.accent : T.muted, fontFamily: T.body, whiteSpace: "nowrap" }}>{label}</div>
                     </div>
-                    {i < 3 && <div style={{ flex: 1, height: 1, background: i < step - 1 ? T.accent : T.faint }} />}
+                    {i < (isTracker ? 2 : 3) && <div style={{ flex: 1, height: 1, background: i < step - 1 ? T.accent : T.faint }} />}
                   </div>
                 ))}
               </div>
@@ -3811,14 +3834,14 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                       {scanning && <div style={{ textAlign: "center", padding: "16px 0", fontSize: 13, color: T.accent, fontFamily: T.body }}>⏳ AI is reading your invoice...</div>}
                       {scanError && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body, marginBottom: 12 }}>⚠ {scanError}</div>}
                       <div style={{ display: "flex", gap: 10 }}>
-                        <button onClick={() => setStep(3)} style={{ flex: 1, background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Skip — Set Up My Dish →</button>
+                        <button onClick={() => setStep(isTracker ? "tracker_done" : 3)} style={{ flex: 1, background: "none", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>{isTracker ? "Skip — I'm Done →" : "Skip — Set Up My Dish →"}</button>
                         {scanImage && <button onClick={runScan} disabled={scanning} style={{ flex: 1, background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>🔍 Scan</button>}
                       </div>
                     </>
                   ) : scanDone ? (
                     <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>✓ Imported! Total: {ingredients.length} ingredients</div>
-                      <button onClick={() => setStep(3)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Next →</button>
+                      <button onClick={() => setStep(isTracker ? "tracker_done" : 3)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>Next →</button>
                     </div>
                   ) : (
                     <>
@@ -3921,6 +3944,44 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
               </div>
               <button onClick={async () => { await supabase.from("profiles").update({ onboarding_completed: true }).eq("id", session.user.id); onComplete(); }} style={{ display: "block", margin: "12px auto 0", background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>
                 Skip — go to dashboard
+              </button>
+            </div>
+          )}
+
+          {/* Tracker Done Screen */}
+          {step === "tracker_done" && (
+            <div style={{ animation: "fadeIn 0.5s ease", textAlign: "center" }}>
+              <div style={{ fontSize: 52, marginBottom: 16 }}>🎉</div>
+              <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text, marginBottom: 8 }}>
+                You're all set!
+              </div>
+              <div style={{ fontSize: 15, color: T.muted, fontFamily: T.body, marginBottom: 32, lineHeight: 1.7, maxWidth: 400, margin: "0 auto 32px" }}>
+                KitchenIQ is now tracking prices for <strong style={{ color: T.text }}>{ingredients.length} ingredients</strong> across your suppliers. Here's what happens next.
+              </div>
+
+              <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: "24px 28px", marginBottom: 24, textAlign: "left" }}>
+                <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>What to expect</div>
+                {[
+                  { icon: "📸", title: "Scan every invoice that comes in", desc: "Each scan adds a new price data point. The more you scan, the better your history gets." },
+                  { icon: "⚡", title: "Price changes appear automatically", desc: "When an ingredient price changes from one invoice to the next, it shows up in your Price Alerts tab instantly." },
+                  { icon: "📊", title: "Price history builds over time", desc: "Your dashboard tracks price trends per ingredient so you can see what's going up and when." },
+                  { icon: "🔒", title: "Want margin calculations?", desc: "Upgrade to the Full plan anytime to unlock recipe costing, menu margins, and AI suggestions." },
+                ].map(item => (
+                  <div key={item.title} style={{ display: "flex", gap: 14, marginBottom: 16 }}>
+                    <div style={{ fontSize: 22, flexShrink: 0 }}>{item.icon}</div>
+                    <div>
+                      <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 3 }}>{item.title}</div>
+                      <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.5 }}>{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={onComplete} style={{ width: "100%", background: T.accent, color: "#0f1410", border: "none", borderRadius: 10, padding: "16px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}55`, marginBottom: 12 }}>
+                Take Me to My Dashboard →
+              </button>
+              <button onClick={() => window.location.href = "/#/paywall"} style={{ width: "100%", background: "none", border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 10, padding: "12px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+                Upgrade to Full Plan — Unlock Margins →
               </button>
             </div>
           )}
@@ -4089,6 +4150,7 @@ function KitchenIQApp() {
       setIngredients={setIngredients}
       menuItems={menuItems}
       setMenuItems={setMenuItems}
+      tier={profile?.subscription_tier}
       onComplete={async () => {
         await supabase.from("profiles").update({ onboarding_completed: true }).eq("id", session.user.id);
         setProfile(p => ({ ...p, onboarding_completed: true }));
