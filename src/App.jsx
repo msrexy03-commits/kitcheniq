@@ -775,7 +775,7 @@ Example output:
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlash, chartOpacity: externalChartOpacity }) {
+function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlash, chartOpacity: externalChartOpacity, tier }) {
   const [internalFlash, setInternalFlash] = useState(null);
   const [chartOpacity, setChartOpacity] = useState(externalChartOpacity ?? 0);
   const flashCard = externalFlash ?? internalFlash;
@@ -832,7 +832,16 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
       </div>
 
       {/* ── Menu Suggestions Panel ── */}
-      {menuStats.length > 0 && (() => {
+      {tier === "tracker" ? (
+        <div style={{ background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "20px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ fontSize: 28 }}>🔒</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>Menu margins & recipe costing are on the Full plan</div>
+            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>You're on Tracker — upgrade to see your real food cost % on every dish.</div>
+          </div>
+          <a href="/#/paywall" style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>Upgrade →</a>
+        </div>
+      ) : menuStats.length > 0 && (() => {
         const suggestions = menuStats.map(m => {
           const issues = [];
           if (m.margin < 50 && m.cost > 0) {
@@ -2141,7 +2150,7 @@ function PaywallScreen({ session }) {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 520 }}>
+      <div style={{ width: "100%", maxWidth: 560 }}>
         <button onClick={signOut} style={{ background: "none", border: "none", color: T.muted, fontSize: 13, fontFamily: T.body, cursor: "pointer", marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
           ← Back to home
         </button>
@@ -2150,12 +2159,37 @@ function PaywallScreen({ session }) {
           <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></div>
           <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Restaurant cost intelligence</div>
         </div>
+
+        {/* Tracker Tier */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "24px 28px", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 16, color: T.text }}>Tracker</div>
+              <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>Basic price tracking — no margins</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 26, color: T.text }}>$25</div>
+              <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>per month</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {["✓ Invoice scanning", "✓ Price spike alerts", "✓ Price history"].map(f => (
+              <span key={f} style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{f}</span>
+            ))}
+          </div>
+          <button onClick={() => checkout("price_1TFT25BgJhkzALVkj60iZ33B")} disabled={!!loading}
+            style={{ width: "100%", background: T.faint, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: "11px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
+            {loading === "price_1TFT25BgJhkzALVkj60iZ33B" ? "Redirecting..." : "Start Tracking — $25/month"}
+          </button>
+        </div>
+
+        {/* Full Plan — Monthly */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "28px 32px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "24px 28px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
               <div>
-                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Monthly</div>
-                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 4 }}>Cancel anytime</div>
+                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Full — Monthly</div>
+                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginTop: 4 }}>Everything included · Cancel anytime</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 32, color: T.text }}>$89</div>
@@ -2167,11 +2201,13 @@ function PaywallScreen({ session }) {
               {loading === import.meta.env.VITE_STRIPE_PRICE_MONTHLY ? "Redirecting..." : "Get Started Monthly"}
             </button>
           </div>
-          <div style={{ background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 14, padding: "28px 32px", position: "relative" }}>
+
+          {/* Full Plan — Yearly */}
+          <div style={{ background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 14, padding: "28px 28px", position: "relative" }}>
             <div style={{ position: "absolute", top: -12, left: 24, background: T.accent, color: "#0f1410", borderRadius: 20, padding: "4px 14px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em" }}>BEST VALUE</div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
               <div>
-                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Yearly</div>
+                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Full — Yearly</div>
                 <div style={{ fontSize: 13, color: T.accent, fontFamily: T.body, marginTop: 4 }}>Save $269 vs monthly</div>
               </div>
               <div style={{ textAlign: "right" }}>
@@ -2185,27 +2221,78 @@ function PaywallScreen({ session }) {
             </button>
           </div>
         </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px", marginBottom: 24 }}>
-          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 14 }}>Everything included</div>
-          {["AI invoice scanning", "AI menu scanning", "Automatic margin calculation", "Price spike email alerts", "Price history tracking", "Unlimited scans"].map(f => (
-            <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <span style={{ color: T.accent, fontSize: 14 }}>✓</span>
-              <span style={{ fontSize: 13, color: T.text, fontFamily: T.body }}>{f}</span>
-            </div>
-          ))}
+
+        {/* Feature comparison */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 14 }}>What's included</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "8px 16px", alignItems: "center" }}>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 600 }}>Feature</div>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 600, textAlign: "center" }}>Tracker</div>
+            <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, fontWeight: 600, textAlign: "center" }}>Full</div>
+            {[
+              ["AI invoice scanning", true, true],
+              ["Price history tracking", true, true],
+              ["Price spike alerts (in-app)", true, true],
+              ["Price spike email alerts", false, true],
+              ["Menu margin calculations", false, true],
+              ["Recipe costing", false, true],
+              ["AI recipe suggestions", false, true],
+              ["AI menu scanning", false, true],
+              ["CSV export", false, true],
+              ["Dashboard insights", false, true],
+            ].map(([feat, tracker, full]) => (
+              <>
+                <div key={feat} style={{ fontSize: 13, color: T.text, fontFamily: T.body }}>{feat}</div>
+                <div style={{ textAlign: "center", fontSize: 14 }}>{tracker ? <span style={{ color: T.accent }}>✓</span> : <span style={{ color: T.faint }}>—</span>}</div>
+                <div style={{ textAlign: "center", fontSize: 14 }}>{full ? <span style={{ color: T.accent }}>✓</span> : <span style={{ color: T.faint }}>—</span>}</div>
+              </>
+            ))}
+          </div>
         </div>
+
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px", marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 10 }}>Beta tester coupon code</div>
           <input value={coupon} onChange={e => setCoupon(e.target.value)} placeholder="Enter your code..."
             style={{ width: "100%", background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", color: T.text, fontSize: 13, fontFamily: T.body, outline: "none", boxSizing: "border-box" }} />
           <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 8 }}>Beta testers enter your code above then select a plan — it will apply 100% off automatically</div>
         </div>
+
         {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "12px 16px", fontSize: 13, color: T.warn, fontFamily: T.body, marginBottom: 16 }}>⚠ {error}</div>}
         <div style={{ textAlign: "center" }}>
           <button onClick={signOut} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer" }}>Sign out</button>
         </div>
         <LegalLinks />
       </div>
+    </div>
+  );
+}
+
+// ─── Tracker Upgrade Gate ─────────────────────────────────────────────────────
+function TrackerUpgradeGate({ feature }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 24px", textAlign: "center" }}>
+      <div style={{ fontSize: 48, marginBottom: 20 }}>🔒</div>
+      <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 22, color: T.text, marginBottom: 10 }}>{feature}</div>
+      <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, lineHeight: 1.7, maxWidth: 420, marginBottom: 32 }}>
+        {feature} is available on the Full KitchenIQ plan. Upgrade to unlock menu margin calculations, recipe costing, AI recipe suggestions, and everything else.
+      </div>
+      <div style={{ background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 14, padding: "24px 32px", width: "100%", maxWidth: 400, marginBottom: 20 }}>
+        <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 12 }}>Full Plan — Everything Included</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body }}>Monthly</div>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.accent }}>$89<span style={{ fontSize: 13, color: T.muted, fontWeight: 400 }}>/mo</span></div>
+        </div>
+        {["Menu margin calculations", "Recipe costing", "AI recipe suggestions", "AI menu scanning", "Dashboard insights", "CSV export"].map(f => (
+          <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <span style={{ color: T.accent, fontSize: 13 }}>✓</span>
+            <span style={{ fontSize: 13, color: T.text, fontFamily: T.body }}>{f}</span>
+          </div>
+        ))}
+        <a href="/#/paywall" style={{ display: "block", marginTop: 20, background: T.accent, color: "#0f1410", borderRadius: 8, padding: "13px 20px", fontSize: 14, fontFamily: T.font, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
+          Upgrade to Full Plan →
+        </a>
+      </div>
+      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Questions? Email <span style={{ color: T.accent }}>support@trykitcheniq.com</span></div>
     </div>
   );
 }
@@ -4073,9 +4160,12 @@ function KitchenIQApp() {
           {loading
             ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
             : <>
-              {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} />}
+              {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} tier={profile?.subscription_tier} />}
               {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} />}
-              {tab === 2 && <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />}
+              {tab === 2 && (profile?.subscription_tier === "tracker"
+                ? <TrackerUpgradeGate feature="Menu Items & Margin Calculations" />
+                : <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />
+              )}
               {tab === 3 && <AlertsView ingredients={ingredients} />}
               {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
               {tab === 5 && <SupportView session={session} />}

@@ -32,12 +32,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Webhook error: ${e.message}` });
   }
  
-  const setSubscribed = async (userId, value, stripeCustomerId, subscriptionId) => {
+const TRACKER_PRICE_ID = "price_1TFT25BgJhkzALVkj60iZ33B";
+
+const setSubscribed = async (userId, value, stripeCustomerId, subscriptionId, priceId) => {
+    const tier = !value ? "none" : priceId === TRACKER_PRICE_ID ? "tracker" : "full";
     await supabase.from("profiles").upsert({
       id: userId,
       is_subscribed: value,
       stripe_customer_id: stripeCustomerId || null,
       subscription_id: subscriptionId || null,
+      subscription_tier: tier,
     });
   };
  
@@ -45,14 +49,19 @@ export default async function handler(req, res) {
     case "checkout.session.completed": {
       const session = event.data.object;
       const userId = session.metadata?.userId;
-      if (userId) await setSubscribed(userId, true, session.customer, session.subscription);
+      if (userId) {
+        // Get price ID from the subscription
+        const sub = await stripe.subscriptions.retrieve(session.subscription);
+        const priceId = sub.items.data[0]?.price?.id;
+        await setSubscribed(userId, true, session.customer, session.subscription, priceId);
+      }
       break;
     }
     case "customer.subscription.deleted":
     case "customer.subscription.paused": {
       const sub = event.data.object;
       const userId = sub.metadata?.userId;
-      if (userId) await setSubscribed(userId, false, sub.customer, sub.id);
+      if (userId) await setSubscribed(userId, false, sub.customer, sub.id, null);
       break;
     }
     case "customer.subscription.resumed":
@@ -62,7 +71,8 @@ export default async function handler(req, res) {
       if (subId) {
         const sub = await stripe.subscriptions.retrieve(subId);
         const userId = sub.metadata?.userId;
-        if (userId) await setSubscribed(userId, true, sub.customer, sub.id);
+        const priceId = sub.items.data[0]?.price?.id;
+        if (userId) await setSubscribed(userId, true, sub.customer, sub.id, priceId);
       }
       break;
     }
@@ -72,7 +82,7 @@ export default async function handler(req, res) {
       if (subId) {
         const sub = await stripe.subscriptions.retrieve(subId);
         const userId = sub.metadata?.userId;
-        if (userId) await setSubscribed(userId, false, sub.customer, sub.id);
+        if (userId) await setSubscribed(userId, false, sub.customer, sub.id, null);
       }
       break;
     }
@@ -80,4 +90,3 @@ export default async function handler(req, res) {
  
   return res.status(200).json({ received: true });
 }
- 
