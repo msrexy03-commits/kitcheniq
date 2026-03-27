@@ -809,7 +809,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <OnboardingBanner ingredients={ingredients} menuItems={menuItems} onNavigate={onNavigate} />
+      <OnboardingBanner ingredients={ingredients} menuItems={menuItems} onNavigate={onNavigate} tier={tier} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
         {[
           { key: "ingredients", label: "Ingredients Tracked", value: ingredients.length, accent: true },
@@ -1940,57 +1940,51 @@ function AlertsView({ ingredients }) {
 }
 
 // ─── Onboarding Banner ────────────────────────────────────────────────────────
-function OnboardingBanner({ ingredients, menuItems, onNavigate }) {
+function OnboardingBanner({ ingredients, menuItems, onNavigate, tier }) {
+  const isTracker = tier === "tracker";
   const hasIngredients = ingredients.length > 0;
   const hasMenuItems = menuItems.length > 0;
   const hasRecipes = menuItems.some(m => (m.ingredients || []).length > 0);
+
+  // Tracker — only show a nudge if they haven't scanned anything yet
+  if (isTracker) {
+    if (hasIngredients) return null;
+    return (
+      <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "20px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ fontSize: 28 }}>📸</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 3 }}>Scan your first invoice to get started</div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Take a photo of any supplier invoice — AI reads every ingredient and price automatically.</div>
+        </div>
+        <button onClick={() => onNavigate(1)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+          Scan Invoice →
+        </button>
+      </div>
+    );
+  }
+
+  // Full plan — only show the single next uncompleted step, disappears when all done
   const allDone = hasIngredients && hasMenuItems && hasRecipes;
   if (allDone) return null;
 
-  const steps = [
-    { num: 1, done: hasIngredients, title: "Scan your invoices", desc: "Take a photo of any supplier invoice — AI reads every ingredient and price automatically", action: "Scan Invoice →", tab: 1 },
-    { num: 2, done: hasMenuItems, title: "Scan your menu", desc: "Photo your printed menu and AI imports all your items and prices in seconds", action: "Scan Menu →", tab: 2 },
-    { num: 3, done: hasRecipes, title: "Add recipes to menu items", desc: "Tell the app what ingredients go into each dish so margins calculate automatically", action: "Add Recipes →", tab: 2 },
-  ];
-  const currentStep = steps.find(s => !s.done) || steps[2];
+  const nextStep = !hasIngredients
+    ? { title: "Scan your first invoice", desc: "Take a photo of any supplier invoice — AI reads every ingredient and price automatically", action: "Scan Invoice →", tab: 1 }
+    : !hasMenuItems
+    ? { title: "Scan your menu", desc: "Photo your printed menu and AI imports all your items and prices in seconds", action: "Scan Menu →", tab: 2 }
+    : { title: "Add recipes to your menu items", desc: "Tell the app what goes into each dish so margins calculate automatically", action: "Add Recipes →", tab: 2 };
 
   return (
-    <div style={{ background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "24px 28px", marginBottom: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-        <div>
-          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 17, color: T.text, marginBottom: 4 }}>👋 Welcome to KitchenIQ</div>
-          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Complete these 3 steps to see your restaurant's real margins</div>
-        </div>
-        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, background: T.faint, borderRadius: 20, padding: "4px 12px" }}>{steps.filter(s => s.done).length}/3 done</div>
+    <div style={{ background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "18px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{ width: 36, height: 36, borderRadius: "50%", background: T.accentDim, border: `2px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+        {!hasIngredients ? "📸" : !hasMenuItems ? "📷" : "🍽"}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {steps.map((step) => (
-          <div key={step.num} style={{
-            display: "flex", alignItems: "center", gap: 16,
-            background: step.done ? T.accentDim : step.num === currentStep.num ? T.faint : "transparent",
-            border: `1px solid ${step.done ? T.accentMid : step.num === currentStep.num ? T.border : "transparent"}`,
-            borderRadius: 10, padding: "14px 18px", transition: "all 0.2s",
-          }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-              background: step.done ? T.accent : step.num === currentStep.num ? T.accentDim : T.faint,
-              border: `2px solid ${step.done ? T.accent : step.num === currentStep.num ? T.accentMid : T.border}`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: step.done ? 16 : 13, color: step.done ? "#0f1410" : step.num === currentStep.num ? T.accent : T.muted,
-              fontFamily: T.font, fontWeight: 700,
-            }}>
-              {step.done ? "✓" : step.num}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontFamily: T.font, fontWeight: 600, color: step.done ? T.muted : T.text, textDecoration: step.done ? "line-through" : "none" }}>{step.title}</div>
-              {!step.done && <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>{step.desc}</div>}
-            </div>
-            {!step.done && step.num === currentStep.num && (
-              <button onClick={() => onNavigate(step.tab)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>{step.action}</button>
-            )}
-          </div>
-        ))}
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontFamily: T.font, fontWeight: 700, color: T.text, marginBottom: 2 }}>{nextStep.title}</div>
+        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{nextStep.desc}</div>
       </div>
+      <button onClick={() => onNavigate(nextStep.tab)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+        {nextStep.action}
+      </button>
     </div>
   );
 }
