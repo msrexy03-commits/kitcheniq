@@ -3307,53 +3307,43 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
       </div>
 
       {/* Hero */}
-      <div style={{ background: `linear-gradient(135deg, #0a0f0a 0%, #0f1a10 50%, #0a0f0a 100%)`, borderBottom: `1px solid ${T.accentMid}`, padding: "80px 24px 72px", textAlign: "center", opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-20px)", transition: "all 0.7s ease" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 20, padding: "6px 16px", marginBottom: 28 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.warn}`, transition: "box-shadow 0.5s ease" }} />
-            <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.08em" }}>RESTAURANT OWNERS ARE LEAVING MONEY ON THE TABLE</span>
+      <div style={{ background: `linear-gradient(135deg, #0a0f0a 0%, #0f1a10 50%, #0a0f0a 100%)`, borderBottom: `1px solid ${T.accentMid}`, padding: "100px 24px 90px", textAlign: "center", opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-20px)", transition: "all 0.7s ease" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+
+          {/* Eyebrow */}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 20, padding: "6px 16px", marginBottom: 32 }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: T.warn, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.warn}`, transition: "box-shadow 0.5s ease" }} />
+            <span style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.1em" }}>FOR INDEPENDENT RESTAURANTS</span>
           </div>
 
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(28px, 4.5vw, 50px)", color: T.text, marginBottom: 24, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
-            Your supplier raised prices last month.{" "}
-            <span style={{ color: T.warn }}>Every invoice you didn't scan</span>
-            {" "}is money walking out your back door.
+          {/* Headline */}
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: "clamp(36px, 5.5vw, 62px)", color: T.text, marginBottom: 12, lineHeight: 1.1, letterSpacing: "-0.03em" }}>
+            Your supplier raised prices.
+          </div>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: "clamp(36px, 5.5vw, 62px)", color: T.warn, marginBottom: 32, lineHeight: 1.1, letterSpacing: "-0.03em" }}>
+            Did you notice?
           </div>
 
-          <div style={{ fontSize: "clamp(15px, 2vw, 18px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 620, margin: "0 auto 20px", lineHeight: 1.75 }}>
-            KitchenIQ is an intelligent price management system for independent restaurants. Scan invoices from <strong style={{ color: T.text }}>any supplier</strong> — Sysco, US Foods, your bread guy, your egg guy — and it automatically tracks every price change, calculates your real food cost on every dish, and tells you exactly what to charge.
+          {/* Subtext — one sentence */}
+          <div style={{ fontSize: "clamp(16px, 2vw, 20px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 540, margin: "0 auto 48px", lineHeight: 1.7 }}>
+            KitchenIQ automatically tracks supplier price changes and shows your real food cost on every dish — across every supplier, not just one.
           </div>
 
-          <div style={{ fontSize: 15, color: T.accent, fontFamily: T.body, marginBottom: 40, fontWeight: 500 }}>
-            📸 Scan invoice → ⚡ Instant price alerts → 💰 Know exactly what to charge
-          </div>
-
-          <div style={{ background: T.card, border: `1px solid ${T.warn}44`, borderRadius: 14, padding: "24px 32px", marginBottom: 48, display: "inline-block", minWidth: 280 }}>
-            <div style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.1em", marginBottom: 8 }}>ESTIMATED REVENUE LOST THIS MONTH FROM UNTRACKED PRICE CHANGES</div>
-            <div style={{ fontSize: "clamp(32px, 6vw, 48px)", fontFamily: T.font, fontWeight: 800, color: T.warn, lineHeight: 1 }}>${(Math.floor(Date.now() / 864e8) % 141 + 280).toLocaleString()}</div>
-            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Based on avg. 50-seat independent restaurant</div>
-          </div>
-
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}44`, transform: pulse ? "scale(1.02)" : "scale(1)", transition: "transform 0.5s ease" }}>
-              Start Saving Money →
+          {/* CTAs */}
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "18px 40px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}44`, transform: pulse ? "scale(1.02)" : "scale(1)", transition: "transform 0.5s ease" }}>
+              Start Free Trial →
             </button>
-            <button onClick={onDemo} style={{ background: T.accentDim, color: T.accent, border: `2px solid ${T.accent}`, borderRadius: 8, padding: "16px 36px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 20px ${T.accent}22` }}>
-              ▶ Try Live Demo — Free
+            <button onClick={onDemo} style={{ background: "transparent", color: T.text, border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "18px 40px", fontSize: 16, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+              ▶ See Live Demo
             </button>
           </div>
 
-          {/* Demo callout */}
-          <div onClick={onDemo} style={{ marginTop: 32, maxWidth: 600, margin: "32px auto 0", background: T.card, border: `2px solid ${T.accentMid}`, borderRadius: 14, padding: "20px 24px", cursor: "pointer", transition: "border-color 0.2s", display: "flex", alignItems: "center", gap: 16 }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = T.accent}
-            onMouseLeave={e => e.currentTarget.style.borderColor = T.accentMid}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>▶</div>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>See KitchenIQ in action — no signup required</div>
-              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Walk through a real demo with sample restaurant data. Takes 2 minutes.</div>
-            </div>
-            <div style={{ fontSize: 20, color: T.accent, flexShrink: 0 }}>→</div>
+          {/* Trial note */}
+          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 16 }}>
+            7-day free trial · No commitment · Cancel anytime
           </div>
+
         </div>
       </div>
 
