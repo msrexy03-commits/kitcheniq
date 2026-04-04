@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restaurant Supplier Price Tracking Software | KitchenIQ</title>
+  <meta name="description" content="Track supplier price changes automatically with KitchenIQ. Get instant alerts when Sysco, US Foods, or any supplier raises prices. Built for independent restaurants." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0e0a; color: #e8f0e9; font-family: 'Arial', sans-serif; line-height: 1.7; }
+    .nav { background: #111611; border-bottom: 1px solid #1c281c; padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-weight: 900; font-size: 20px; color: #e8f0e9; text-decoration: none; }
+    .logo span { color: #4eca6e; }
+    .cta-btn { background: #4eca6e; color: #0a0e0a; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }
+    .hero { padding: 80px 24px; text-align: center; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 1.1; margin-bottom: 20px; letter-spacing: -0.02em; }
+    h1 span { color: #e8854a; }
+    .subtitle { font-size: 18px; color: #587a5c; max-width: 600px; margin: 0 auto 40px; }
+    .suppliers { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 40px; }
+    .chip { background: #111711; border: 1px solid #1c281c; border-radius: 6px; padding: 8px 16px; font-size: 13px; color: #587a5c; }
+    .chip.green { color: #4eca6e; border-color: rgba(78,202,110,0.35); background: rgba(78,202,110,0.11); font-weight: 700; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+    .feature { background: #111711; border: 1px solid #1c281c; border-radius: 12px; padding: 28px 24px; }
+    .feature-icon { font-size: 28px; margin-bottom: 12px; }
+    .feature h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .feature p { font-size: 14px; color: #587a5c; }
+    .content { max-width: 800px; margin: 0 auto; padding: 0 24px 80px; }
+    .content h2 { font-size: 28px; font-weight: 800; margin-bottom: 16px; }
+    .content p { font-size: 16px; color: #587a5c; margin-bottom: 20px; }
+    .cta-section { background: #111711; border-top: 1px solid #1c281c; padding: 80px 24px; text-align: center; }
+    .cta-section h2 { font-size: 32px; font-weight: 900; margin-bottom: 16px; }
+    .cta-section p { color: #587a5c; margin-bottom: 32px; font-size: 16px; }
+    .cta-large { background: #4eca6e; color: #0a0e0a; border: none; border-radius: 8px; padding: 18px 48px; font-size: 17px; font-weight: 800; cursor: pointer; text-decoration: none; display: inline-block; }
+    .trial-note { font-size: 12px; color: #587a5c; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="logo">Kitchen<span>IQ</span></a>
+    <a href="/" class="cta-btn">Start Free Trial →</a>
+  </nav>
+
+  <div class="hero">
+    <h1>Your Supplier Raised Prices.<br><span>Did You Notice?</span></h1>
+    <p class="subtitle">KitchenIQ automatically tracks price changes across every supplier invoice and alerts you the moment something spikes — before it destroys your margins.</p>
+    <div class="suppliers">
+      <span class="chip">Sysco</span>
+      <span class="chip">US Foods</span>
+      <span class="chip">Performance Food Group</span>
+      <span class="chip">Restaurant Depot</span>
+      <span class="chip">Your Bread Guy</span>
+      <span class="chip">Your Egg Farmer</span>
+      <span class="chip">Local Meat Supplier</span>
+      <span class="chip green">✓ Any Supplier</span>
+    </div>
+    <a href="/" class="cta-large">Start Your 7-Day Free Trial →</a>
+    <p class="trial-note">No commitment · Cancel anytime · 5 minutes to set up</p>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">📸</div>
+      <h3>Scan Any Invoice</h3>
+      <p>Take a photo of any supplier invoice. AI reads every ingredient, price, and case size automatically — Sysco, US Foods, or your local guys.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <h3>Instant Price Spike Alerts</h3>
+      <p>The moment any supplier raises a price, you get an instant alert showing exactly which dishes are affected and by how much per plate.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📊</div>
+      <h3>Full Price History</h3>
+      <p>See every price change over time for every ingredient. Know which suppliers are raising prices most and when it started.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🔒</div>
+      <h3>Multi-Supplier Support</h3>
+      <p>Unlike tools tied to one distributor, KitchenIQ works with every supplier. Scan all your invoices and see your complete cost picture.</p>
+    </div>
+  </div>
+
+  <div class="content">
+    <h2>Why Supplier Price Tracking Matters for Independent Restaurants</h2>
+    <p>Independent restaurants typically buy from 3-5 different suppliers — a main distributor like Sysco or US Foods, plus local bread vendors, egg farmers, meat suppliers, and produce companies. Every one of those suppliers adjusts prices regularly, and most restaurant owners have no system to catch those changes.</p>
+    <p>KitchenIQ solves this by scanning every invoice from every supplier and automatically tracking price changes over time. When your egg cost jumps 15% or your beef goes up $4 per case, you know immediately — not at the end of the month when you're already losing money.</p>
+
+    <h2>The Problem With Supplier-Specific Tools</h2>
+    <p>Some distributors offer their own cost tracking tools — but these only work for purchases made through that distributor. If you buy bread from a local bakery, eggs from a local farm, or meat from a regional supplier, those prices are completely invisible to distributor-specific tools.</p>
+    <p>KitchenIQ works with every invoice from every supplier. Scan them all and see your complete cost picture in one place.</p>
+
+    <h2>How KitchenIQ Tracks Supplier Prices</h2>
+    <p>Every time a new invoice comes in, you take a photo with your phone. KitchenIQ's AI reads every line item — ingredient name, price, case size, and unit — and compares it to your previous invoice from the same supplier. Any price change triggers an instant alert showing exactly what changed, by how much, and which menu items are affected.</p>
+  </div>
+
+  <div class="cta-section">
+    <h2>Stop Getting Blindsided by Supplier Price Changes</h2>
+    <p>Scan your first invoice in 5 minutes. Free for 7 days — no commitment.</p>
+    <a href="/" class="cta-large">Try KitchenIQ Free →</a>
+    <p class="trial-note">Works with every supplier · trykitcheniq.com</p>
+  </div>
+</body>
+</html>

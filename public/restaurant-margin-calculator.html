@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restaurant Margin Calculator | KitchenIQ</title>
+  <meta name="description" content="Calculate your real food cost and profit margin on every menu item automatically. KitchenIQ tracks ingredient prices and calculates margins in real time as supplier prices change." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0e0a; color: #e8f0e9; font-family: 'Arial', sans-serif; line-height: 1.7; }
+    .nav { background: #111611; border-bottom: 1px solid #1c281c; padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-weight: 900; font-size: 20px; color: #e8f0e9; text-decoration: none; }
+    .logo span { color: #4eca6e; }
+    .cta-btn { background: #4eca6e; color: #0a0e0a; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }
+    .hero { padding: 80px 24px; text-align: center; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 1.1; margin-bottom: 20px; letter-spacing: -0.02em; }
+    h1 span { color: #4eca6e; }
+    .subtitle { font-size: 18px; color: #587a5c; max-width: 600px; margin: 0 auto 40px; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; max-width: 900px; margin: 0 auto 60px; padding: 0 24px; }
+    .metric { background: #111711; border: 1px solid #1c281c; border-radius: 10px; padding: 20px; text-align: center; }
+    .metric-value { font-size: 32px; font-weight: 900; color: #4eca6e; margin-bottom: 4px; }
+    .metric-label { font-size: 12px; color: #587a5c; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+    .feature { background: #111711; border: 1px solid #1c281c; border-radius: 12px; padding: 28px 24px; }
+    .feature-icon { font-size: 28px; margin-bottom: 12px; }
+    .feature h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .feature p { font-size: 14px; color: #587a5c; }
+    .content { max-width: 800px; margin: 0 auto; padding: 0 24px 80px; }
+    .content h2 { font-size: 28px; font-weight: 800; margin-bottom: 16px; }
+    .content p { font-size: 16px; color: #587a5c; margin-bottom: 20px; }
+    .cta-section { background: #111711; border-top: 1px solid #1c281c; padding: 80px 24px; text-align: center; }
+    .cta-section h2 { font-size: 32px; font-weight: 900; margin-bottom: 16px; }
+    .cta-section p { color: #587a5c; margin-bottom: 32px; font-size: 16px; }
+    .cta-large { background: #4eca6e; color: #0a0e0a; border: none; border-radius: 8px; padding: 18px 48px; font-size: 17px; font-weight: 800; cursor: pointer; text-decoration: none; display: inline-block; }
+    .trial-note { font-size: 12px; color: #587a5c; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="logo">Kitchen<span>IQ</span></a>
+    <a href="/" class="cta-btn">Start Free Trial →</a>
+  </nav>
+
+  <div class="hero">
+    <h1>Know Your Real <span>Restaurant Margins</span> on Every Dish</h1>
+    <p class="subtitle">KitchenIQ automatically calculates your food cost percentage and profit margin on every menu item — and updates in real time when supplier prices change.</p>
+    <a href="/" class="cta-large">Start Your 7-Day Free Trial →</a>
+    <p class="trial-note">No commitment · Cancel anytime · 5 minutes to set up</p>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-value">65%</div>
+      <div class="metric-label">Target margin KitchenIQ helps you hit</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">$3,400</div>
+      <div class="metric-label">Avg annual loss from untracked price changes</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">5 min</div>
+      <div class="metric-label">Setup time to start tracking margins</div>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">🍽</div>
+      <h3>Recipe Costing</h3>
+      <p>Build recipes for every menu item. KitchenIQ calculates the exact ingredient cost per plate using your latest supplier prices.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📊</div>
+      <h3>Live Margin Calculations</h3>
+      <p>See your food cost percentage and profit margin on every dish. Updates automatically when any ingredient price changes.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">💡</div>
+      <h3>Suggested Pricing</h3>
+      <p>KitchenIQ tells you exactly what to charge to hit your target margin. No more guessing what your dishes should cost.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <h3>Instant Alerts When Margins Drop</h3>
+      <p>When a price spike affects your margins, you get an immediate alert showing exactly which dishes need attention.</p>
+    </div>
+  </div>
+
+  <div class="content">
+    <h2>Why Most Restaurant Owners Get Margins Wrong</h2>
+    <p>Most independent restaurant owners estimate food cost by feel — a rough percentage they remember from when they set menu prices years ago. The problem is supplier prices change constantly, and that number is almost always wrong by the time you actually check it.</p>
+    <p>KitchenIQ calculates your actual food cost percentage on every dish using your most recent supplier prices. When your egg cost goes up 20% in February, your Bacon and Eggs plate margin drops automatically and you see it immediately.</p>
+
+    <h2>How Restaurant Margin Calculation Works in KitchenIQ</h2>
+    <p>You build a recipe for each menu item — selecting the ingredients you use and the quantities per plate. KitchenIQ then looks up your current cost for each ingredient based on your most recent supplier invoice and calculates the total ingredient cost per serving. Divide that by your menu price and you get your food cost percentage. Subtract from 100% and you have your margin.</p>
+    <p>The difference with KitchenIQ is that this calculation updates automatically every time a supplier price changes. You don't recalculate manually — it's always current.</p>
+
+    <h2>What Is a Good Restaurant Profit Margin?</h2>
+    <p>A healthy food cost percentage for independent restaurants is typically 28-35% of the menu price, which translates to a food margin of 65-72%. Fine dining restaurants often target lower food cost percentages around 25-30%. Diners and casual restaurants typically run 30-38% food cost. KitchenIQ's default target is 65% margin which you can adjust to match your specific goals.</p>
+  </div>
+
+  <div class="cta-section">
+    <h2>See Your Real Margins in Under 5 Minutes</h2>
+    <p>Scan your first invoice, build your first recipe, and know your actual food cost today.</p>
+    <a href="/" class="cta-large">Try KitchenIQ Free →</a>
+    <p class="trial-note">Restaurant margin calculator · trykitcheniq.com</p>
+  </div>
+</body>
+</html>
