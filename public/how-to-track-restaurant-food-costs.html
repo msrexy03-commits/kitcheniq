@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to Track Restaurant Food Costs (Without Spreadsheets) | KitchenIQ</title>
+  <meta name="description" content="A practical guide for independent restaurant owners on how to track food costs, monitor supplier price changes, and protect your margins — without spending hours on spreadsheets." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0e0a;
+      color: #e8f0e9;
+      font-family: Georgia, 'Times New Roman', serif;
+      line-height: 1.8;
+    }
+
+    .nav {
+      background: #111611;
+      border-bottom: 1px solid #1c281c;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: Arial, sans-serif;
+    }
+
+    .logo { font-weight: 900; font-size: 20px; color: #e8f0e9; text-decoration: none; }
+    .logo span { color: #4eca6e; }
+    .cta-btn { background: #4eca6e; color: #0a0e0a; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; font-family: Arial, sans-serif; }
+
+    .hero {
+      background: linear-gradient(135deg, #0a0f0a, #0f1a10);
+      border-bottom: 1px solid #1c281c;
+      padding: 60px 24px 48px;
+      text-align: center;
+    }
+
+    .category {
+      display: inline-block;
+      background: rgba(78,202,110,0.12);
+      border: 1px solid rgba(78,202,110,0.35);
+      color: #4eca6e;
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-family: Arial, sans-serif;
+      font-size: clamp(26px, 4vw, 44px);
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      max-width: 780px;
+      margin: 0 auto 20px;
+    }
+
+    .meta {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #587a5c;
+      margin-bottom: 0;
+    }
+
+    .article {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 56px 24px 80px;
+    }
+
+    .lead {
+      font-size: 20px;
+      color: #a0c4a8;
+      line-height: 1.7;
+      margin-bottom: 40px;
+      font-style: italic;
+    }
+
+    h2 {
+      font-family: Arial, sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      color: #e8f0e9;
+      margin: 48px 0 16px;
+      line-height: 1.2;
+    }
+
+    h3 {
+      font-family: Arial, sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #e8f0e9;
+      margin: 32px 0 12px;
+    }
+
+    p {
+      font-size: 17px;
+      color: #8aaa90;
+      margin-bottom: 22px;
+      line-height: 1.8;
+    }
+
+    .callout {
+      background: #111711;
+      border-left: 3px solid #4eca6e;
+      border-radius: 0 10px 10px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+    }
+
+    .callout p {
+      color: #e8f0e9;
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .warn-callout {
+      background: rgba(232,133,74,0.08);
+      border-left: 3px solid #e8854a;
+      border-radius: 0 10px 10px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+    }
+
+    .warn-callout p {
+      color: #e8f0e9;
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .step-list {
+      list-style: none;
+      margin: 24px 0 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .step-list li {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      background: #111711;
+      border: 1px solid #1c281c;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+
+    .step-num {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #4eca6e;
+      color: #0a0e0a;
+      font-family: Arial, sans-serif;
+      font-weight: 900;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .step-content h4 {
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #e8f0e9;
+      margin-bottom: 5px;
+    }
+
+    .step-content p {
+      font-size: 14px;
+      color: #587a5c;
+      margin: 0;
+    }
+
+    .cta-box {
+      background: linear-gradient(135deg, rgba(78,202,110,0.12), rgba(78,202,110,0.04));
+      border: 2px solid rgba(78,202,110,0.35);
+      border-radius: 16px;
+      padding: 36px 32px;
+      text-align: center;
+      margin: 48px 0;
+    }
+
+    .cta-box h3 {
+      font-family: Arial, sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: #e8f0e9;
+      margin: 0 0 10px;
+    }
+
+    .cta-box p {
+      font-size: 15px;
+      color: #587a5c;
+      margin-bottom: 24px;
+    }
+
+    .cta-box a {
+      background: #4eca6e;
+      color: #0a0e0a;
+      border-radius: 8px;
+      padding: 14px 36px;
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .cta-note {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      color: #587a5c;
+      margin-top: 12px;
+      margin-bottom: 0;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #1c281c;
+      margin: 40px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a href="/" class="logo">Kitchen<span>IQ</span></a>
+    <a href="/" class="cta-btn">Try Free →</a>
+  </nav>
+
+  <div class="hero">
+    <div class="category">Restaurant Operations</div>
+    <h1>How to Track Restaurant Food Costs Without Spreadsheets</h1>
+    <p class="meta">By KitchenIQ · April 2026 · 7 min read</p>
+  </div>
+
+  <article class="article">
+
+    <p class="lead">Most independent restaurant owners are losing money on food costs every single month — not because they're careless, but because they have no real system to track them.</p>
+
+    <p>Supplier prices change constantly. Your Sysco rep adjusts prices on every delivery. Your bread guy quietly raises his rate. Your egg farmer responds to market conditions. By the time you notice the impact on your margins, you've already lost the money.</p>
+
+    <p>This guide walks through exactly how to track restaurant food costs as an independent operator — without spending hours in spreadsheets and without enterprise software that costs more than it saves.</p>
+
+    <h2>Why Food Cost Tracking Matters More Than You Think</h2>
+
+    <p>Food cost is the single biggest controllable expense in a restaurant. Labor costs are hard to move — you need people to run service. But food cost responds directly to what you pay your suppliers and what you charge your customers.</p>
+
+    <p>The industry benchmark for food cost percentage is 28-35% of your menu price. That means for every $10 dish you sell, you should be spending $2.80 to $3.50 on ingredients. If that number creeps to 40% or higher — which happens silently when supplier prices rise and menu prices stay the same — your margins collapse without warning.</p>
+
+    <div class="warn-callout">
+      <p>⚠ The average independent restaurant loses $3,400 per year to supplier price changes they never caught. That's not one big spike — that's dozens of small ones adding up over 12 months.</p>
+    </div>
+
+    <h2>The Problem With How Most Restaurants Track Food Costs</h2>
+
+    <h3>Method 1: Nothing</h3>
+    <p>Most independent restaurant owners have no formal food cost tracking system at all. They know roughly what things cost based on memory and gut feel, and they adjust menu prices occasionally when something feels off. This works until it doesn't — and it usually stops working quietly, over months, before you realize what's happened.</p>
+
+    <h3>Method 2: Spreadsheets</h3>
+    <p>The ambitious approach. You set up a spreadsheet, manually type in prices from each invoice, and try to keep it updated every delivery. This works for about three weeks before real life takes over — service is busy, invoices pile up, and the spreadsheet goes stale. A stale spreadsheet is worse than nothing because it gives you false confidence.</p>
+
+    <h3>Method 3: POS Reports</h3>
+    <p>Some restaurant owners rely on their POS system to tell them their food cost. The problem is POS systems calculate theoretical food cost based on what you programmed in — they don't automatically update when your supplier changes their price. You have to manually update every ingredient cost in the POS for the numbers to mean anything, which brings you back to the same problem as spreadsheets.</p>
+
+    <h2>A Better Way: Automatic Invoice Tracking</h2>
+
+    <p>The most effective food cost tracking system for an independent restaurant is one that requires the least manual effort. Every step that requires you to stop and type something in is a step that will eventually get skipped during a busy week.</p>
+
+    <p>The ideal system works like this: an invoice arrives, you scan it, and everything updates automatically. Price changes get flagged. Dish margins recalculate. You get an alert if something significant changed.</p>
+
+    <div class="callout">
+      <p>"I had no idea my corned beef cost had changed. KitchenIQ caught it on the first scan — I would have never noticed otherwise. Now I scan every invoice the day it comes in." — Owner, Jake's Restaurant · North Stonington, CT</p>
+    </div>
+
+    <h2>Step-by-Step: How to Set Up Food Cost Tracking That Actually Works</h2>
+
+    <ol class="step-list">
+      <li>
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Scan every invoice the day it arrives</h4>
+          <p>Don't let invoices pile up. The day a delivery comes in, scan the invoice. This takes 30 seconds and gives you an immediate price comparison against your last delivery from the same supplier.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Track every supplier, not just your main one</h4>
+          <p>Independent restaurants typically buy from 3-5 different vendors. Your main distributor, a local bread company, an egg farmer, a produce supplier. All of them raise prices. Track all of them.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Build a recipe for every menu item</h4>
+          <p>For each dish, record which ingredients you use and how much. This lets you calculate your actual food cost per plate — not an estimate, the real number based on what you paid last week.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Set up price spike alerts</h4>
+          <p>You shouldn't have to check your food costs manually. A good system alerts you automatically when any ingredient price changes significantly — so you can respond immediately rather than discovering it months later.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <h4>Review your margins monthly</h4>
+          <p>Once your tracking system is in place, a monthly margin review takes 10 minutes. Look at which dishes are below your target margin and decide whether to raise the price, reduce the portion, or find a cheaper supplier for that ingredient.</p>
+        </div>
+      </li>
+    </ol>
+
+    <h2>What to Do When a Supplier Raises Prices</h2>
+
+    <p>When you catch a price spike — and you will catch more of them once you're actually tracking — you have three options:</p>
+
+    <p><strong style="color: #e8f0e9;">Raise your menu price.</strong> If eggs go up 20% and your omelette is a high-volume item, raising the price by $0.50 is usually the right move. Most customers won't notice a small adjustment, and your margin is protected.</p>
+
+    <p><strong style="color: #e8f0e9;">Find an alternative supplier.</strong> If one distributor is consistently raising prices on a specific ingredient, it's worth getting a quote from a competitor. You don't have to switch entirely — use the quote as leverage.</p>
+
+    <p><strong style="color: #e8f0e9;">Adjust the recipe.</strong> Slightly reducing the portion of an expensive ingredient, or substituting a similar one at a lower cost, can recover margin without touching the menu price. This works best for ingredients that customers don't specifically notice by quantity.</p>
+
+    <hr class="divider" />
+
+    <div class="cta-box">
+      <h3>Start Tracking Your Food Costs Today</h3>
+      <p>KitchenIQ automatically tracks supplier price changes and calculates your real food cost on every dish. Scan your first invoice in under 2 minutes.</p>
+      <a href="/">Try KitchenIQ Free for 7 Days →</a>
+      <p class="cta-note">No commitment · Cancel anytime · Works with every supplier</p>
+    </div>
+
+    <h2>Common Food Cost Tracking Mistakes to Avoid</h2>
+
+    <h3>Only tracking your main supplier</h3>
+    <p>If you buy 70% of your ingredients from Sysco and 30% from local vendors, tracking only Sysco gives you 70% of the picture. The local vendors often have more price volatility, not less. Track everything.</p>
+
+    <h3>Updating prices quarterly instead of per invoice</h3>
+    <p>Prices change delivery by delivery. A quarterly update means you could be running with 3-month-old cost data during a period of significant price movement. Scan every invoice.</p>
+
+    <h3>Using theoretical food cost instead of actual</h3>
+    <p>Theoretical food cost is what your food should cost based on recipes and ideal portion control. Actual food cost accounts for waste, over-portioning, and supplier price changes. The gap between theoretical and actual is where most restaurants lose money. Track actual.</p>
+
+    <h3>Waiting for end-of-month reports to catch problems</h3>
+    <p>By the time an end-of-month P&L shows your food cost climbed to 42%, you've already served 30 days of under-priced meals. Real-time alerts when prices change let you respond within days, not months.</p>
+
+    <hr class="divider">
+
+    <p>Food cost tracking doesn't have to be a major time investment. The right system does the work automatically — you just have to scan the invoice when it arrives. Everything else should happen without you.</p>
+
+    <p>If you're still tracking food costs manually or not tracking them at all, the first step is just getting your most recent invoices into a system that can compare them. Start there, and the rest follows.</p>
+
+    <div class="cta-box">
+      <h3>Ready to Stop Guessing Your Food Costs?</h3>
+      <p>KitchenIQ scans any supplier invoice and automatically tracks every price change. Free for 7 days — no credit card games.</p>
+      <a href="/">Get Started Free →</a>
+      <p class="cta-note">trykitcheniq.com · Starting at $25/month</p>
+    </div>
+
+  </article>
+
+</body>
+</html>
