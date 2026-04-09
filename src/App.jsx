@@ -4091,6 +4091,13 @@ function KitchenIQApp() {
     if (params.get("success") === "true") {
       window.history.replaceState({}, "", "/");
       setShowCheckoutTransition(true);
+      // Google Ads conversion tracking
+      if (typeof gtag !== "undefined") {
+        gtag("event", "conversion", {
+          send_to: "AW-18071916084/pNXSCN-qgJkcELScrqlD",
+          transaction_id: "",
+        });
+      }
       if (session) {
         setTimeout(async () => {
           const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
