@@ -1386,18 +1386,21 @@ Example output:
 }
 
 // ─── Menu Items ───────────────────────────────────────────────────────────────
-function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
+function MenuView({ menuItems, setMenuItems, ingredients, userId, session, profile }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", salePrice: "", ingredients: [{ ingredient_name: "", qty: "", qty_unit: "oz" }] });
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showMenuScanner, setShowMenuScanner] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiQuestions, setAiQuestions] = useState([]); // [{question, type: "yesno"|"number"|"text", key}]
+  const [aiQuestions, setAiQuestions] = useState([]);
   const [aiAnswers, setAiAnswers] = useState({});
   const [aiPendingSuggestion, setAiPendingSuggestion] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const [swapModal, setSwapModal] = useState(null); // { ingredientName, currentCost }
+  const [swapResults, setSwapResults] = useState([]);
+  const [swapLoading, setSwapLoading] = useState(false);
 
   // Deduplicated ingredient list — one entry per unique name, using most recent price
   const uniqueIngredients = Object.values(
@@ -1409,6 +1412,31 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId }) {
   ).sort((a, b) => a.name.localeCompare(b.name));
 
   const [skippedDupes, setSkippedDupes] = useState(0);
+
+  const openSwap = async (ingredientName, currentCost) => {
+    setSwapModal({ ingredientName, currentCost });
+    setSwapResults([]);
+    setSwapLoading(true);
+    try {
+      const userState = profile?.state || null;
+      const { data } = await supabase
+        .from("supplier_pricing")
+        .select("*")
+        .ilike("ingredient_name", `%${ingredientName.split(" ")[0]}%`)
+        .order("unit_price", { ascending: true })
+        .limit(10);
+      const filtered = (data || []).filter(row => {
+        if (row.supplier_type === "national" || row.state_code === "NATIONAL") return true;
+        if (row.supplier_type === "local" && userState && row.state_code === userState) return true;
+        return false;
+      });
+      setSwapResults(filtered);
+    } catch (e) {
+      console.error("Swap error:", e);
+    } finally {
+      setSwapLoading(false);
+    }
+  };
 
   const handleScannedMenu = async (items) => {
     setSaving(true);
@@ -1733,7 +1761,7 @@ Return ONLY raw JSON, no markdown, no backticks:
                           {biggestIngredient.ingredient_name} is your biggest cost driver at {fmt$2(biggestIngredient.cost)}/serving
                         </div>
                         <button
-                          onClick={() => window.open(`mailto:jake@trykitcheniq.com?subject=Supplier%20Switch%20Request&body=Hi%20Jake%2C%0A%0AI'd%20like%20to%20find%20a%20better%20price%20for%20${encodeURIComponent(biggestIngredient.ingredient_name)}%20for%20my%20${encodeURIComponent(m.name)}.%0A%0ACurrent%20cost%3A%20${encodeURIComponent(fmt$2(biggestIngredient.cost))}%20per%20serving%0A%0AThanks`, '_blank')}
+                          onClick={() => openSwap(biggestIngredient.ingredient_name, biggestIngredient.cost)}
                           style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
                           Find Better Price →
                         </button>
@@ -1754,6 +1782,74 @@ Return ONLY raw JSON, no markdown, no backticks:
         </div>
       )}
       {showMenuScanner && <MenuScanner onMenuFound={handleScannedMenu} onClose={() => setShowMenuScanner(false)} />}
+
+      {/* ── Supplier Swap Modal ── */}
+      {swapModal && (
+        <Modal title="Find Better Price" onClose={() => setSwapModal(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>
+              Looking for cheaper alternatives to <strong style={{ color: T.text }}>{swapModal.ingredientName}</strong>.
+              Your current cost is <strong style={{ color: T.warn }}>{fmt$2(swapModal.currentCost)}/serving</strong>.
+            </div>
+
+            {swapLoading && (
+              <div style={{ textAlign: "center", padding: "24px 0", color: T.muted, fontFamily: T.body, fontSize: 13 }}>
+                Searching supplier database...
+              </div>
+            )}
+
+            {!swapLoading && swapResults.length === 0 && (
+              <div style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px", textAlign: "center" }}>
+                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>
+                  No alternatives found in our database yet for this ingredient.
+                  As more restaurants scan invoices, we'll build up alternatives automatically.
+                </div>
+              </div>
+            )}
+
+            {!swapLoading && swapResults.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  {swapResults.length} alternative{swapResults.length > 1 ? "s" : ""} found
+                </div>
+                {swapResults.map((r, i) => {
+                  const savings = swapModal.currentCost - r.unit_price;
+                  const isCheaper = savings > 0;
+                  return (
+                    <div key={i} style={{ background: isCheaper ? T.accentDim : T.faint, border: `1px solid ${isCheaper ? T.accentMid : T.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 3 }}>{r.supplier_name}</div>
+                        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>
+                          {fmt$2(r.unit_price)}/{r.case_unit || "unit"} · {r.supplier_type === "national" || r.state_code === "NATIONAL" ? "National supplier" : `Local · ${r.state_code}`}
+                        </div>
+                        {isCheaper && (
+                          <div style={{ fontSize: 12, color: T.accent, fontFamily: T.body, marginTop: 4, fontWeight: 600 }}>
+                            Save {fmt$2(Math.abs(savings))}/unit vs what you're paying
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                        {r.website ? (
+                          <a href={r.website} target="_blank" rel="noopener noreferrer"
+                            style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", textDecoration: "none", textAlign: "center" }}>
+                            Visit Supplier →
+                          </a>
+                        ) : (
+                          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>No website on file</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, borderTop: `1px solid ${T.border}`, paddingTop: 12, lineHeight: 1.5 }}>
+              Prices are sourced from other KitchenIQ restaurants and may vary. Always confirm current pricing directly with the supplier.
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {modal === "form" && (
         <Modal title={editId ? "Edit Menu Item" : "Add Menu Item"} onClose={() => setModal(null)}>
@@ -4441,7 +4537,7 @@ function KitchenIQApp() {
               {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} />}
               {tab === 2 && (profile?.subscription_tier === "tracker"
                 ? <TrackerUpgradeGate feature="Menu Items & Margin Calculations" />
-                : <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} />
+                : <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} session={session} profile={profile} />
               )}
               {tab === 3 && <AlertsView ingredients={ingredients} session={session} profile={profile} />}
               {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
