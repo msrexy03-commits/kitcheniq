@@ -4,7 +4,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 
 const fontLink = document.createElement("link");
 fontLink.rel = "stylesheet";
-fontLink.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&display=swap";
+fontLink.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap";
 document.head.appendChild(fontLink);
 
 const globalStyle = document.createElement("style");
@@ -61,20 +61,20 @@ class ErrorBoundary extends Component {
         <div style={{ minHeight: "100vh", background: "#0f1410", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ width: "100%", maxWidth: 480, textAlign: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 22, color: "#e8f0e9", marginBottom: 10 }}>
+            <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 22, color: "#e8f0e9", marginBottom: 10 }}>
               Something went wrong
             </div>
-            <div style={{ fontSize: 14, color: "#6b8a6e", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6, marginBottom: 28 }}>
+            <div style={{ fontSize: 14, color: "#6b8a6e", fontFamily: "'Inter', sans-serif", lineHeight: 1.6, marginBottom: 28 }}>
               KitchenIQ ran into an unexpected error. Your data is safe — try refreshing the page. If it keeps happening, contact jake@trykitcheniq.com.
             </div>
             <button
               onClick={() => window.location.reload()}
-              style={{ background: "#4eca6e", color: "#0f1410", border: "none", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontFamily: "'Syne', sans-serif", fontWeight: 700, cursor: "pointer", marginRight: 12 }}>
+              style={{ background: "#4eca6e", color: "#0f1410", border: "none", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontFamily: "'Outfit', sans-serif", fontWeight: 700, cursor: "pointer", marginRight: 12 }}>
               Refresh Page
             </button>
             <button
               onClick={() => this.setState({ hasError: false, error: null })}
-              style={{ background: "transparent", color: "#6b8a6e", border: "1px solid #1e2b1f", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontFamily: "'Syne', sans-serif", fontWeight: 600, cursor: "pointer" }}>
+              style={{ background: "transparent", color: "#6b8a6e", border: "1px solid #1e2b1f", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontFamily: "'Outfit', sans-serif", fontWeight: 600, cursor: "pointer" }}>
               Try Again
             </button>
           </div>
@@ -355,7 +355,7 @@ const T = {
   accent: "#4eca6e", accentDim: "#4eca6e1a", accentMid: "#4eca6e50",
   warn: "#e8854a", warnDim: "#e8854a1a",
   text: "#edf2ee", muted: "#7a957e", faint: "#1a231a",
-  font: "'Syne', sans-serif", body: "'DM Sans', sans-serif",
+  font: "'Outfit', sans-serif", body: "'Inter', sans-serif",
 };
 
 function StatCard({ label, value, sub, accent }) {
