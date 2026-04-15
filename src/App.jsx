@@ -2030,81 +2030,51 @@ Return ONLY raw JSON, no markdown, no backticks:
 // ─── Price Alerts + Supplier Swap ─────────────────────────────────────────────
 function AlertsView({ ingredients, session, profile }) {
   const alerts = getPriceAlerts(ingredients);
-  const [swapData, setSwapData] = useState({}); // keyed by ingredient name
-  const [swapLoading, setSwapLoading] = useState({});
-  const [swapDismissed, setSwapDismissed] = useState({});
-  const [swapAccepted, setSwapAccepted] = useState({});
+  const [swapModal, setSwapModal] = useState(null); // { name, newPrice }
+  const [swapResults, setSwapResults] = useState([]);
+  const [swapLoading, setSwapLoading] = useState(false);
 
-  // Fetch supplier swap suggestions for a spiked ingredient
-  const fetchSwap = async (alert) => {
-    if (swapData[alert.name] || swapLoading[alert.name]) return;
-    setSwapLoading(p => ({ ...p, [alert.name]: true }));
+  const openSwapModal = async (alert) => {
+    setSwapModal(alert);
+    setSwapResults([]);
+    setSwapLoading(true);
     try {
       const userState = profile?.state || null;
-      // Query supplier_pricing for cheaper alternatives
-      // Match national suppliers always, local suppliers only if same state
-      let query = supabase
+      const firstWord = alert.name.split(" ")[0];
+      const { data } = await supabase
         .from("supplier_pricing")
         .select("*")
-        .ilike("ingredient_name", `%${alert.name.split(" ")[0]}%`) // fuzzy match on first word
+        .ilike("ingredient_name", `%${firstWord}%`)
         .order("unit_price", { ascending: true })
         .limit(10);
 
-      const { data } = await query;
-
-      if (!data || data.length === 0) {
-        setSwapData(p => ({ ...p, [alert.name]: null }));
-        return;
-      }
-
-      // Filter: national suppliers always show, local only if state matches
-      const filtered = data.filter(row => {
+      const filtered = (data || []).filter(row => {
         if (row.supplier_type === "national" || row.state_code === "NATIONAL") return true;
         if (row.supplier_type === "local" && userState && row.state_code === userState) return true;
         return false;
       });
 
-      // Find cheapest that's actually cheaper than what they're paying
-      const cheaper = filtered.filter(row => row.unit_price < alert.newPrice);
-      if (cheaper.length === 0) {
-        setSwapData(p => ({ ...p, [alert.name]: null }));
-        return;
-      }
-
-      const best = cheaper[0];
-      setSwapData(p => ({ ...p, [alert.name]: best }));
+      setSwapResults(filtered);
     } catch (e) {
       console.error("Swap fetch error:", e);
     } finally {
-      setSwapLoading(p => ({ ...p, [alert.name]: false }));
+      setSwapLoading(false);
     }
   };
 
-  // Auto-fetch swaps for price increases over 8% — run on mount and when alerts change
-  useEffect(() => {
-    const spiked = alerts.filter(a => a.pct >= 8);
-    spiked.forEach(a => {
-      if (!swapData[a.name] && !swapLoading[a.name]) {
-        fetchSwap(a);
-      }
-    });
-  }, [alerts.length, JSON.stringify(alerts.map(a => a.name))]);
-
-  const handleAcceptSwap = async (alert, swap) => {
-    // Log to swap_requests table
-    if (session) {
+  const handleAcceptSwap = async (swap) => {
+    if (session && swapModal) {
       await supabase.from("swap_requests").insert({
         user_id: session.user.id,
-        ingredient_name: alert.name,
-        current_supplier: alert.supplier || "Current Supplier",
-        current_unit_price: alert.newPrice,
+        ingredient_name: swapModal.name,
+        current_supplier: "Current Supplier",
+        current_unit_price: swapModal.newPrice,
         suggested_supplier_name: swap.supplier_name,
         suggested_supplier_website: swap.website,
         suggested_unit_price: swap.unit_price,
         status: "accepted",
       });
     }
-    setSwapAccepted(p => ({ ...p, [alert.name]: swap }));
   };
 
   return (
@@ -2117,82 +2087,102 @@ function AlertsView({ ingredients, session, profile }) {
         ? <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: 40, textAlign: "center", color: T.muted, fontFamily: T.body }}>
             No price changes yet. You need at least 2 entries for the same ingredient.
           </div>
-        : <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {alerts.map((a, i) => {
-              const swap = swapData[a.name];
-              const loading = swapLoading[a.name];
-              const dismissed = swapDismissed[a.name];
-              const accepted = swapAccepted[a.name];
-              const savings = swap ? ((a.newPrice - swap.unit_price) * (a.caseSize || 1)).toFixed(2) : null;
-
-              return (
-                <div key={i}>
-                  {/* Alert card */}
-                  <div style={{ background: T.card, border: `1px solid ${a.pct > 0 ? T.warn + "55" : T.accentMid}`, borderRadius: swap && !dismissed && !accepted ? "10px 10px 0 0" : 10, padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{a.name}</div>
-                      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>
-                        {fmt$2(a.oldPrice)} → {fmt$2(a.newPrice)} · {a.unit} · {a.date}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      {loading && <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Searching...</div>}
-                      {a.pct > 0 && !loading && !swap && !dismissed && (
-                        <button onClick={() => fetchSwap(a)} style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "6px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
-                          Find Better Price →
-                        </button>
-                      )}
-                      <div style={{ fontSize: 22, fontFamily: T.font, fontWeight: 800, color: a.pct > 0 ? T.warn : T.accent }}>
-                        {a.pct > 0 ? "▲" : "▼"} {Math.abs(a.pct).toFixed(1)}%
-                      </div>
-                    </div>
+        : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {alerts.map((a, i) => (
+              <div key={i} style={{ background: T.card, border: `1px solid ${a.pct > 0 ? T.warn + "55" : T.accentMid}`, borderRadius: 10, padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{a.name}</div>
+                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>
+                    {fmt$2(a.oldPrice)} → {fmt$2(a.newPrice)} · {a.unit} · {a.date}
                   </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                  {a.pct > 0 && (
+                    <button
+                      onClick={() => openSwapModal(a)}
+                      style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 13px", fontSize: 11, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      Find Better Price →
+                    </button>
+                  )}
+                  <div style={{ fontSize: 22, fontFamily: T.font, fontWeight: 800, color: a.pct > 0 ? T.warn : T.accent, minWidth: 80, textAlign: "right" }}>
+                    {a.pct > 0 ? "▲" : "▼"} {Math.abs(a.pct).toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+      }
 
-                  {/* Swap suggestion card — only shows for price increases with a cheaper alternative */}
-                  {swap && !dismissed && !accepted && (
-                    <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      {/* ── Supplier Swap Modal ── */}
+      {swapModal && (
+        <Modal title="Find Better Price" onClose={() => { setSwapModal(null); setSwapResults([]); }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>
+              Finding cheaper alternatives to <strong style={{ color: T.text }}>{swapModal.name}</strong>.
+              You're currently paying <strong style={{ color: T.warn }}>{fmt$2(swapModal.newPrice)}/{swapModal.unit || "unit"}</strong>.
+            </div>
+
+            {swapLoading && (
+              <div style={{ textAlign: "center", padding: "24px 0", color: T.muted, fontFamily: T.body, fontSize: 13 }}>
+                Searching supplier database...
+              </div>
+            )}
+
+            {!swapLoading && swapResults.length === 0 && (
+              <div style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 10, padding: "24px", textAlign: "center" }}>
+                <div style={{ fontSize: 22, marginBottom: 10 }}>🔍</div>
+                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>
+                  No alternatives found yet for this ingredient.<br />
+                  As more restaurants scan invoices, alternatives build up automatically.
+                </div>
+              </div>
+            )}
+
+            {!swapLoading && swapResults.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  {swapResults.length} supplier{swapResults.length > 1 ? "s" : ""} found
+                </div>
+                {swapResults.map((r, i) => {
+                  const savings = swapModal.newPrice - r.unit_price;
+                  const isCheaper = savings > 0;
+                  return (
+                    <div key={i} style={{ background: isCheaper ? T.accentDim : T.faint, border: `1px solid ${isCheaper ? T.accentMid : T.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                       <div>
-                        <div style={{ fontSize: 12, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>
-                          💡 Cheaper alternative found
+                        <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 3 }}>{r.supplier_name}</div>
+                        <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>
+                          {fmt$2(r.unit_price)}/{r.case_unit || "unit"} · {r.state_code === "NATIONAL" ? "National supplier" : `Local · ${r.state_code}`}
                         </div>
-                        <div style={{ fontSize: 13, color: T.text, fontFamily: T.body, lineHeight: 1.5 }}>
-                          <strong style={{ color: T.accent }}>{swap.supplier_name}</strong> has this for{" "}
-                          <strong style={{ color: T.accent }}>{fmt$2(swap.unit_price)}/{swap.case_unit || "unit"}</strong>
-                          {" "}— that's <strong style={{ color: T.accent }}>${savings} less per case</strong>
-                        </div>
-                        {swap.supplier_type === "national" && (
-                          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 3 }}>
-                            National supplier · Available in your area
+                        {isCheaper && (
+                          <div style={{ fontSize: 12, color: T.accent, fontFamily: T.body, marginTop: 4, fontWeight: 600 }}>
+                            Save {fmt$2(Math.abs(savings))}/unit vs what you're paying
+                          </div>
+                        )}
+                        {!isCheaper && (
+                          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>
+                            Higher than your current price
                           </div>
                         )}
                       </div>
-                      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                        <a href={swap.website} target="_blank" rel="noopener noreferrer"
-                          onClick={() => handleAcceptSwap(a, swap)}
-                          style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 7, padding: "9px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>
-                          View Supplier →
+                      {r.website && (
+                        <a href={r.website} target="_blank" rel="noopener noreferrer"
+                          onClick={() => handleAcceptSwap(r)}
+                          style={{ background: isCheaper ? T.accent : T.faint, color: isCheaper ? "#0a0d0a" : T.muted, border: isCheaper ? "none" : `1px solid ${T.border}`, borderRadius: 6, padding: "8px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
+                          Visit →
                         </a>
-                        <button onClick={() => setSwapDismissed(p => ({ ...p, [a.name]: true }))}
-                          style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 7, padding: "9px 14px", fontSize: 12, fontFamily: T.body, cursor: "pointer" }}>
-                          Dismiss
-                        </button>
-                      </div>
+                      )}
                     </div>
-                  )}
+                  );
+                })}
+              </div>
+            )}
 
-                  {/* Accepted state */}
-                  {accepted && (
-                    <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderTop: "none", borderRadius: "0 0 10px 10px", padding: "12px 24px" }}>
-                      <div style={{ fontSize: 12, color: T.accent, fontFamily: T.body }}>
-                        ✓ Viewing <strong>{accepted.supplier_name}</strong> — good luck with the switch!
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, borderTop: `1px solid ${T.border}`, paddingTop: 12, lineHeight: 1.5 }}>
+              Prices sourced from other KitchenIQ restaurants and may vary. Always confirm pricing directly with the supplier.
+            </div>
           </div>
-      }
+        </Modal>
+      )}
     </div>
   );
 }
