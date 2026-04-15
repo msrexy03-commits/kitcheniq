@@ -3280,212 +3280,218 @@ function useRoute() {
 
 // ─── Landing Page ─────────────────────────────────────────────────────────────
 function LandingPage({ onSignUp, onLogin, onDemo }) {
-  const [pulse, setPulse] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [pulse, setPulse] = useState(false);
   useEffect(() => {
-    setTimeout(() => setVisible(true), 100);
-    const interval = setInterval(() => setPulse(p => !p), 2000);
-    return () => clearInterval(interval);
+    setTimeout(() => setVisible(true), 80);
+    const iv = setInterval(() => setPulse(p => !p), 2200);
+    return () => clearInterval(iv);
   }, []);
+
+  const fadeIn = (delay = 0) => ({
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateY(0)" : "translateY(18px)",
+    transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms`,
+  });
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
 
-      {/* Nav */}
-      <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card, position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
+      {/* ── NAV ── */}
+      <nav style={{ borderBottom: `1px solid ${T.border}`, background: "rgba(10,14,10,0.92)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
-            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: T.accentDim, border: `1.5px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>⬡</div>
+            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 19, color: T.text, letterSpacing: "-0.01em" }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={onLogin} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Log In</button>
-            <button onClick={onDemo} style={{ background: T.accentDim, border: `1px solid ${T.accent}`, color: T.accent, borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>▶ Live Demo</button>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>Get Started →</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={onLogin} style={{ background: "transparent", border: "none", color: T.muted, fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", padding: "8px 16px" }}>Log in</button>
+            <button onClick={onDemo} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, borderRadius: 7, padding: "8px 18px", fontSize: 13, fontFamily: T.body, fontWeight: 500, cursor: "pointer" }}>Live demo</button>
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0e0a", border: "none", borderRadius: 7, padding: "9px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>Start free trial</button>
           </div>
         </div>
-      </div>
+      </nav>
 
-      {/* Hero */}
-      <div style={{ background: `linear-gradient(135deg, #0a0f0a 0%, #0f1a10 50%, #0a0f0a 100%)`, borderBottom: `1px solid ${T.accentMid}`, padding: "100px 24px 90px", textAlign: "center", opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-20px)", transition: "all 0.7s ease" }}>
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>
-
-          {/* Eyebrow */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 20, padding: "6px 16px", marginBottom: 32 }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: T.warn, boxShadow: `0 0 ${pulse ? "8px" : "4px"} ${T.warn}`, transition: "box-shadow 0.5s ease" }} />
-            <span style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 600, letterSpacing: "0.1em" }}>FOR INDEPENDENT RESTAURANTS</span>
+      {/* ── HERO ── */}
+      <div style={{ padding: "96px 32px 80px", maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ maxWidth: 740, ...fadeIn(0) }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: 28 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.5, transition: "opacity 0.6s" }} />
+            <span style={{ fontSize: 11, color: T.warn, fontFamily: T.body, fontWeight: 600, letterSpacing: "0.08em" }}>FOR INDEPENDENT RESTAURANTS</span>
           </div>
-
-          {/* Headline */}
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: "clamp(36px, 5.5vw, 62px)", color: T.text, marginBottom: 12, lineHeight: 1.1, letterSpacing: "-0.03em" }}>
+          <h1 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(38px, 5vw, 64px)", lineHeight: 1.08, letterSpacing: "-0.03em", color: T.text, margin: "0 0 14px" }}>
             Your supplier raised prices.
-          </div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: "clamp(36px, 5.5vw, 62px)", color: T.warn, marginBottom: 32, lineHeight: 1.1, letterSpacing: "-0.03em" }}>
+          </h1>
+          <h1 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(38px, 5vw, 64px)", lineHeight: 1.08, letterSpacing: "-0.03em", color: T.warn, margin: "0 0 28px" }}>
             Did you notice?
-          </div>
-
-          {/* Subtext — one sentence */}
-          <div style={{ fontSize: "clamp(16px, 2vw, 20px)", color: T.muted, fontFamily: "'DM Sans', sans-serif", fontWeight: 400, maxWidth: 540, margin: "0 auto 48px", lineHeight: 1.7 }}>
-            KitchenIQ automatically tracks supplier price changes and shows your real food cost on every dish — across every supplier, not just one.
-          </div>
-
-          {/* CTAs */}
-          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "18px 40px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}44`, transform: pulse ? "scale(1.02)" : "scale(1)", transition: "transform 0.5s ease" }}>
-              Start Free Trial →
+          </h1>
+          <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: T.muted, lineHeight: 1.75, maxWidth: 560, margin: "0 0 40px", fontWeight: 400 }}>
+            KitchenIQ tracks every price change across all your suppliers automatically — so you always know your real food cost, on every dish, every day.
+          </p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0e0a", border: "none", borderRadius: 8, padding: "16px 36px", fontSize: 15, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
+              Start free trial →
             </button>
-            <button onClick={onDemo} style={{ background: "transparent", color: T.text, border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "18px 40px", fontSize: 16, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
-              ▶ See Live Demo
+            <button onClick={onDemo} style={{ background: "transparent", color: T.muted, border: "none", fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11 }}>▶</span> Watch demo
             </button>
           </div>
-
-          {/* Trial note */}
-          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 16 }}>
-            7-day free trial · No commitment · Cancel anytime
-          </div>
-
+          <p style={{ fontSize: 12, color: T.muted, marginTop: 14, opacity: 0.7 }}>7-day free trial · No credit card commitment · Cancel anytime</p>
         </div>
       </div>
 
-      {/* How it works */}
-      <div style={{ padding: "72px 24px", maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 12 }}>How It Works</div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(22px, 3.5vw, 36px)", color: T.text, lineHeight: 1.2 }}>Set up in 10 minutes. Saves you hours every month.</div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+      {/* ── STATS ROW ── */}
+      <div style={{ borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, background: T.card, ...fadeIn(100) }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
           {[
-            { step: "1", icon: "📸", title: "Scan Any Invoice", desc: "Take a photo of any supplier invoice — Sysco, US Foods, your local bread guy. AI reads every ingredient, price, and case size automatically." },
-            { step: "2", icon: "⚡", title: "Instant Price Alerts", desc: "The moment a price changes on any supplier, you get an alert showing exactly which dishes are affected and by how much per plate." },
-            { step: "3", icon: "💰", title: "Know What to Charge", desc: "See your real food cost % on every dish across all suppliers. Get a specific suggested price to hit your target margin." },
-            { step: "4", icon: "🔄", title: "Never Get Blindsided", desc: "Email alerts, price history charts, and a dashboard that shows your biggest profit leaks across every supplier at a glance." },
-          ].map(s => (
-            <div key={s.step} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "24px 20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: T.accent, color: "#0f1410", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontFamily: T.font, fontWeight: 800, flexShrink: 0 }}>{s.step}</div>
-                <div style={{ fontSize: 22 }}>{s.icon}</div>
-              </div>
-              <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 8 }}>{s.title}</div>
-              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>{s.desc}</div>
+            { num: "$3,400+", label: "Average annual loss from untracked price changes" },
+            { num: "5 min", label: "Setup time — scan your first invoice and you're live" },
+            { num: "Any supplier", label: "Works with Sysco, US Foods, local vendors — all of them" },
+          ].map((s, i) => (
+            <div key={i} style={{ padding: "32px 24px", borderRight: i < 2 ? `1px solid ${T.border}` : "none" }}>
+              <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.accent, marginBottom: 6, letterSpacing: "-0.02em" }}>{s.num}</div>
+              <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{s.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Works with every supplier — key differentiator */}
-      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, padding: "64px 24px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Works With Every Supplier</div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(22px, 3.5vw, 36px)", color: T.text, marginBottom: 16, lineHeight: 1.2 }}>
-            Your diner doesn't use one supplier.{" "}
-            <span style={{ color: T.accent }}>Neither does KitchenIQ.</span>
+      {/* ── HOW IT WORKS ── */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 32px", ...fadeIn(150) }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16, fontWeight: 600 }}>How it works</div>
+            <h2 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(24px, 3vw, 38px)", color: T.text, lineHeight: 1.15, letterSpacing: "-0.02em", margin: "0 0 20px" }}>
+              From invoice to insight in seconds
+            </h2>
+            <p style={{ fontSize: 15, color: T.muted, lineHeight: 1.75, margin: "0 0 40px" }}>
+              No spreadsheets. No manual entry. Just scan, and KitchenIQ handles the rest.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+              {[
+                { n: "01", title: "Scan any invoice", desc: "Photo your supplier invoice — Sysco, US Foods, your local guys. AI reads every ingredient, price, and case size instantly." },
+                { n: "02", title: "Get instant alerts", desc: "The moment a price changes, you're notified. See exactly which dishes are affected and by how much per plate." },
+                { n: "03", title: "Know your real margins", desc: "See your actual food cost percentage on every dish and get a suggested price to protect your margins." },
+              ].map(s => (
+                <div key={s.n} style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+                  <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 11, color: T.accentMid, letterSpacing: "0.1em", paddingTop: 2, minWidth: 24, flexShrink: 0 }}>{s.n}</div>
+                  <div>
+                    <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>{s.title}</div>
+                    <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.6 }}>{s.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div style={{ fontSize: 16, color: T.muted, fontFamily: T.body, maxWidth: 620, margin: "0 auto 40px", lineHeight: 1.7 }}>
-            Most food cost tools only work if you buy everything from one distributor. KitchenIQ works with every invoice from every supplier — scan them all and see your complete picture in one place.
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 12, marginBottom: 40 }}>
-            {["Sysco", "US Foods", "Performance Food Group", "Your Bread Guy", "Your Egg Farmer", "Local Meat Supplier", "Restaurant Depot", "Any Supplier"].map((s, i) => (
-              <div key={i} style={{
-                background: i === 7 ? T.accentDim : T.faint,
-                border: `1px solid ${i === 7 ? T.accentMid : T.border}`,
-                borderRadius: 8, padding: "10px 18px",
-                fontSize: 13, color: i === 7 ? T.accent : T.text,
-                fontFamily: T.font, fontWeight: i === 7 ? 700 : 500,
-              }}>{i === 7 ? "✓ " : ""}{s}</div>
-            ))}
-          </div>
-          <div style={{ background: `linear-gradient(135deg, #0f1a10, #0a0f0a)`, border: `1px solid ${T.warn}44`, borderRadius: 12, padding: "20px 28px", maxWidth: 600, margin: "0 auto" }}>
-            <div style={{ fontSize: 14, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>⚠ Supplier-specific tools only show part of the picture</div>
-            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>If you buy bread from one supplier and meat from another, any tool tied to a single distributor leaves you blind to half your costs. KitchenIQ sees everything.</div>
-          </div>
-        </div>
-      </div>
 
-      {/* Demo Banner */}
-      <div style={{ padding: "0 24px 64px", maxWidth: 1100, margin: "0 auto" }}>
-        <div onClick={onDemo} style={{
-          background: `linear-gradient(135deg, #0f1a10, #162212)`,
-          border: `2px solid ${T.accent}`,
-          borderRadius: 16, padding: "32px 40px",
-          cursor: "pointer", display: "flex", alignItems: "center", gap: 24,
-          boxShadow: `0 0 40px ${T.accent}18`,
-          flexWrap: "wrap",
-        }}
-          onMouseEnter={e => e.currentTarget.style.boxShadow = `0 0 60px ${T.accent}33`}
-          onMouseLeave={e => e.currentTarget.style.boxShadow = `0 0 40px ${T.accent}18`}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600, marginBottom: 10 }}>✓ No signup required</div>
-            <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(18px, 2.5vw, 26px)", color: T.text, marginBottom: 8, lineHeight: 1.2 }}>See exactly what happens when you scan a real invoice</div>
-            <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>Try the full app with sample restaurant data — invoices, price alerts, margin calculations, all of it. Takes 2 minutes.</div>
-          </div>
-          <button onClick={onDemo} style={{
-            background: T.accent, color: "#0f1410", border: "none", borderRadius: 10,
-            padding: "16px 32px", fontSize: 16, fontFamily: T.font, fontWeight: 800,
-            cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-            boxShadow: `0 0 24px ${T.accent}55`,
-          }}>
-            ▶ Try Live Demo →
-          </button>
-        </div>
-      </div>
-
-      {/* Pain points */}
-      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, padding: "64px 24px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
-            <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(20px, 3vw, 32px)", color: T.text }}>Sound familiar?</div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          {/* Visual panel — mock alert card */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 28, display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Live price alerts</div>
             {[
-              { icon: "📈", title: "Supplier prices change constantly", desc: "Sysco, US Foods, local vendors — prices shift every delivery and you don't always notice until it hits your margins" },
-              { icon: "🔢", title: "You're guessing your margins", desc: "Most owners estimate food cost by feel. The real number is almost always worse than you think" },
-              { icon: "🧾", title: "Manual tracking doesn't work", desc: "Spreadsheets take hours, get ignored, and go stale. Nobody has time for that during service" },
-              { icon: "🔒", title: "Supplier tools only show half the picture", desc: "Any tool tied to one distributor is blind to your other suppliers. Your bread, eggs, and local meat don't show up" },
+              { name: "Eggs Shell Large Grade AA", change: "+38%", old: "$23.86", new: "$32.98", warn: true },
+              { name: "Bacon Sliced Applewood", change: "+16%", old: "$41.20", new: "$47.80", warn: true },
+              { name: "Ground Beef 80/20", change: "+7%", old: "$92.00", new: "$98.50", warn: true },
+              { name: "Cheddar Cheese Shredded", change: "-6%", old: "$26.50", new: "$24.80", warn: false },
+            ].map((a, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: T.faint, borderRadius: 10, padding: "14px 16px", border: `1px solid ${a.warn ? T.warn + "22" : T.border}` }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{a.old} → {a.new} per case</div>
+                </div>
+                <div style={{ fontSize: 13, fontFamily: T.font, fontWeight: 800, color: a.warn ? T.warn : T.accent, flexShrink: 0 }}>{a.change}</div>
+              </div>
+            ))}
+            <div style={{ background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 8, padding: "12px 16px", marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: T.warn, fontFamily: T.body, lineHeight: 1.5 }}>⚠ Your Bacon & Eggs plate now costs <strong>$0.84 more</strong> per serving. Consider adjusting your menu price.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── SUPPLIERS ── */}
+      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, padding: "56px 32px", ...fadeIn(200) }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 14, fontWeight: 600 }}>Works with every supplier</div>
+              <h2 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(22px, 2.5vw, 32px)", color: T.text, lineHeight: 1.2, margin: "0 0 14px", letterSpacing: "-0.02em" }}>
+                Your diner doesn't use one supplier. Neither does KitchenIQ.
+              </h2>
+              <p style={{ fontSize: 14, color: T.muted, lineHeight: 1.7, margin: 0 }}>
+                Most food cost tools are locked to a single distributor. KitchenIQ works with every invoice from every supplier — giving you the full picture, not half of it.
+              </p>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {["Sysco", "US Foods", "Performance Food Group", "Restaurant Depot", "Your Bread Guy", "Your Egg Farmer", "Local Meat Supplier", "✓ Any Supplier"].map((s, i) => (
+                <div key={i} style={{
+                  fontSize: 12, fontFamily: T.body, fontWeight: i === 7 ? 700 : 400,
+                  color: i === 7 ? T.accent : T.muted,
+                  background: i === 7 ? T.accentDim : T.faint,
+                  border: `1px solid ${i === 7 ? T.accentMid : T.border}`,
+                  borderRadius: 6, padding: "7px 14px",
+                }}>{s}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── TESTIMONIAL ── */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 32px", ...fadeIn(250) }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" }}>
+          <div>
+            <div style={{ width: 3, height: 48, background: T.accent, borderRadius: 2, marginBottom: 24 }} />
+            <blockquote style={{ fontFamily: T.body, fontSize: 18, color: T.text, lineHeight: 1.7, fontStyle: "italic", margin: "0 0 20px", fontWeight: 300 }}>
+              "I had no idea my corned beef cost had changed. KitchenIQ caught it on the first scan — I would have never noticed otherwise."
+            </blockquote>
+            <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>Owner, Jake's Restaurant</div>
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>North Stonington, CT</div>
+          </div>
+
+          {/* Pain points right column */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {[
+              { title: "Prices change every delivery", desc: "Sysco, US Foods, local vendors — shifts happen constantly and quietly." },
+              { title: "You're estimating your margins", desc: "Most owners guess food cost by feel. The real number is almost always worse." },
+              { title: "Supplier tools show half the picture", desc: "Any tool tied to one distributor is blind to everything else you buy." },
             ].map(p => (
-              <div key={p.title} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 18px" }}>
-                <div style={{ fontSize: 22, marginBottom: 10 }}>{p.icon}</div>
-                <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 6 }}>{p.title}</div>
-                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, lineHeight: 1.5 }}>{p.desc}</div>
+              <div key={p.title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, marginTop: 6, flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 3 }}>{p.title}</div>
+                  <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.6, fontFamily: T.body }}>{p.desc}</div>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Testimonial */}
-      <div style={{ padding: "64px 24px", textAlign: "center" }}>
-        <div style={{ maxWidth: 560, margin: "0 auto", background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 14, padding: "32px 36px" }}>
-          <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, fontStyle: "italic", lineHeight: 1.7, marginBottom: 16 }}>
-            "I had no idea my corned beef cost had changed. KitchenIQ caught it on the first scan — I would have never noticed otherwise."
-          </div>
-          <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>— Owner, Jake's Restaurant · North Stonington, CT</div>
-        </div>
-      </div>
-
-      {/* Bottom CTA */}
-      <div style={{ background: `linear-gradient(135deg, #0a0f0a, #0f1a10)`, borderTop: `1px solid ${T.accentMid}`, padding: "72px 24px", textAlign: "center" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto" }}>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "clamp(22px, 4vw, 38px)", color: T.text, marginBottom: 16, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
-            Most restaurants lose more in one month than KitchenIQ costs in a year
-          </div>
-          <div style={{ fontSize: 15, color: T.muted, fontFamily: T.body, marginBottom: 12, lineHeight: 1.6 }}>
-            One unnoticed price spike on a high-volume ingredient can cost you $200–$400 in a single month. KitchenIQ catches it automatically every time you scan an invoice.
-          </div>
-          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32 }}>$89/month · $799/year · Cancel anytime</div>
+      {/* ── BOTTOM CTA ── */}
+      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, padding: "80px 32px" }}>
+        <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
+          <h2 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(24px, 3.5vw, 40px)", color: T.text, lineHeight: 1.15, letterSpacing: "-0.02em", margin: "0 0 16px" }}>
+            Most restaurants lose more in a month than KitchenIQ costs in a year.
+          </h2>
+          <p style={{ fontSize: 15, color: T.muted, lineHeight: 1.7, margin: "0 0 10px" }}>
+            One unnoticed price spike on a high-volume ingredient can cost $200–$400 in a single month. KitchenIQ catches it automatically.
+          </p>
+          <p style={{ fontSize: 13, color: T.muted, margin: "0 0 36px", opacity: 0.7 }}>$89/month · $799/year · Cancel anytime</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "18px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 40px ${T.accent}55` }}>
-              Start Catching Price Changes →
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0e0a", border: "none", borderRadius: 8, padding: "17px 44px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
+              Start free trial →
             </button>
-            <button onClick={onDemo} style={{ background: T.accentDim, color: T.accent, border: `2px solid ${T.accent}`, borderRadius: 8, padding: "18px 32px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
-              ▶ Try Demo First
+            <button onClick={onDemo} style={{ background: "transparent", color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "17px 32px", fontSize: 15, fontFamily: T.body, fontWeight: 500, cursor: "pointer" }}>
+              ▶ Try demo first
             </button>
           </div>
-          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 16 }}>Set up in under 10 minutes. No spreadsheets. No manual entry.</div>
-          <div style={{ marginTop: 32, display: "flex", justifyContent: "center", gap: 16 }}>
+          <p style={{ fontSize: 12, color: T.muted, marginTop: 14, opacity: 0.6 }}>Set up in under 10 minutes. No spreadsheets. No manual entry.</p>
+          <div style={{ marginTop: 32, display: "flex", justifyContent: "center" }}>
             <LegalLinks />
           </div>
         </div>
       </div>
+
     </div>
   );
 }
