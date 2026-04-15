@@ -3345,10 +3345,10 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
           background: "linear-gradient(to bottom, transparent, #0a0d0a)",
         }} />
 
-        {/* Content — anchored left, fills full width */}
+        {/* Content — full width, text flush left with padding */}
         <div style={{ position: "relative", zIndex: 2, width: "100%", ...fadeIn(0) }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "64px 20px 72px" : "110px 32px 110px" }}>
-            <div style={{ maxWidth: isMobile ? "100%" : "55%" }}>
+          <div style={{ padding: isMobile ? "64px 20px 72px" : "110px 6% 110px" }}>
+            <div style={{ maxWidth: isMobile ? "100%" : "48%" }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: isMobile ? 20 : 28 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.45, transition: "opacity 0.6s" }} />
                 <span className="landing-label" style={{ color: T.warn }}>For independent restaurants</span>
