@@ -3419,10 +3419,10 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: isMobile ? 20 : 28, display: "flex", flexDirection: "column", gap: 12 }}>
             <span className="landing-label" style={{ color: T.muted, marginBottom: 4 }}>Live price alerts</span>
             {[
-              { name: "Eggs Shell Large Grade AA", change: "+38%", old: "$23.86", new: "$32.98", warn: true },
-              { name: "Bacon Sliced Applewood", change: "+16%", old: "$41.20", new: "$47.80", warn: true },
-              { name: "Ground Beef 80/20", change: "+7%", old: "$92.00", new: "$98.50", warn: true },
-              { name: "Cheddar Cheese Shredded", change: "-6%", old: "$26.50", new: "$24.80", warn: false },
+              { name: "Chicken Breast Boneless 40lb", change: "+22%", old: "$78.40", new: "$95.60", warn: true },
+              { name: "Roma Tomatoes 25lb Case", change: "+14%", old: "$32.00", new: "$36.50", warn: true },
+              { name: "Extra Virgin Olive Oil 4/1gal", change: "+9%", old: "$64.20", new: "$70.00", warn: true },
+              { name: "Russet Potatoes 50lb", change: "-5%", old: "$28.00", new: "$26.60", warn: false },
             ].map((a, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: T.faint, borderRadius: 10, padding: "12px 14px", border: `1px solid ${a.warn ? T.warn + "22" : T.border}` }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -3433,7 +3433,7 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
               </div>
             ))}
             <div style={{ background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 8, padding: "11px 14px", marginTop: 2 }}>
-              <div style={{ fontSize: 12, color: T.warn, fontFamily: T.body, lineHeight: 1.55 }}>⚠ Your Bacon & Eggs plate now costs <strong>$0.84 more</strong> per serving.</div>
+              <div style={{ fontSize: 12, color: T.warn, fontFamily: T.body, lineHeight: 1.55 }}>⚠ Your Grilled Chicken plate now costs <strong>$1.24 more</strong> per serving. Consider adjusting your menu price.</div>
             </div>
           </div>
         </div>
