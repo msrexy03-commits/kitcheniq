@@ -10,10 +10,51 @@ document.head.appendChild(fontLink);
 const globalStyle = document.createElement("style");
 globalStyle.textContent = `
   *, *::before, *::after { box-sizing: border-box; }
-  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  }
   body { margin: 0; padding: 0; }
   h1, h2, h3, h4, h5, h6 { margin: 0; padding: 0; font-size: inherit; }
-  button { font-smooth: always; -webkit-font-smoothing: antialiased; }
+  button {
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "kern" 1;
+    letter-spacing: -0.01em;
+  }
+  p { margin: 0; }
+  .landing-h1 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: clamp(36px, 5vw, 64px);
+    line-height: 1.06;
+    letter-spacing: -0.04em;
+    color: #edf2ee;
+  }
+  .landing-h2 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: clamp(22px, 2.8vw, 36px);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    color: #edf2ee;
+  }
+  .landing-body {
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    color: #7a957e;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  .landing-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
 `;
 document.head.appendChild(globalStyle);
 
@@ -3292,6 +3333,8 @@ function useRoute() {
 function LandingPage({ onSignUp, onLogin, onDemo }) {
   const [visible, setVisible] = useState(false);
   const [pulse, setPulse] = useState(false);
+  const isMobile = useIsMobile();
+
   useEffect(() => {
     setTimeout(() => setVisible(true), 80);
     const iv = setInterval(() => setPulse(p => !p), 2200);
@@ -3304,161 +3347,149 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
     transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms`,
   });
 
+  const px = isMobile ? "20px" : "32px";
+  const sectionPad = isMobile ? "52px 20px" : "80px 32px";
+
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
 
       {/* ── NAV ── */}
-      <nav style={{ borderBottom: `1px solid ${T.border}`, background: "rgba(10,14,10,0.92)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: T.accentDim, border: `1.5px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>⬡</div>
-            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 19, color: T.text, letterSpacing: "-0.01em" }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+      <nav style={{ borderBottom: `1px solid ${T.border}`, background: "rgba(10,13,10,0.94)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: `0 ${px}`, display: "flex", alignItems: "center", justifyContent: "space-between", height: isMobile ? 56 : 64 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1.5px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
+            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: isMobile ? 17 : 19, color: T.text, letterSpacing: "-0.01em" }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={onLogin} style={{ background: "transparent", border: "none", color: T.muted, fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", padding: "8px 16px" }}>Log in</button>
-            <button onClick={onDemo} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, borderRadius: 7, padding: "8px 18px", fontSize: 13, fontFamily: T.body, fontWeight: 500, cursor: "pointer" }}>Live demo</button>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0e0a", border: "none", borderRadius: 7, padding: "9px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>Start free trial</button>
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8 }}>
+            {!isMobile && <button onClick={onLogin} style={{ background: "transparent", border: "none", color: T.muted, fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", padding: "8px 14px" }}>Log in</button>}
+            {!isMobile && <button onClick={onDemo} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, borderRadius: 7, padding: "8px 16px", fontSize: 13, fontFamily: T.body, fontWeight: 500, cursor: "pointer" }}>Live demo</button>}
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 7, padding: isMobile ? "8px 16px" : "9px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+              {isMobile ? "Free trial" : "Start free trial"}
+            </button>
           </div>
         </div>
       </nav>
 
       {/* ── HERO ── */}
-      <div style={{ padding: "96px 32px 80px", maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ maxWidth: 740, ...fadeIn(0) }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: 28 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.5, transition: "opacity 0.6s" }} />
-            <span style={{ fontSize: 11, color: T.warn, fontFamily: T.body, fontWeight: 600, letterSpacing: "0.08em" }}>FOR INDEPENDENT RESTAURANTS</span>
+      <div style={{ padding: isMobile ? "56px 20px 44px" : "96px 32px 80px", maxWidth: 1100, margin: "0 auto", ...fadeIn(0) }}>
+        <div style={{ maxWidth: isMobile ? "100%" : 740 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: isMobile ? 20 : 28 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.45, transition: "opacity 0.6s" }} />
+            <span className="landing-label" style={{ color: T.warn }}>For independent restaurants</span>
           </div>
-          <h1 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(38px, 5vw, 64px)", lineHeight: 1.08, letterSpacing: "-0.03em", color: T.text, margin: "0 0 14px" }}>
-            Your supplier raised prices.
-          </h1>
-          <h1 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(38px, 5vw, 64px)", lineHeight: 1.08, letterSpacing: "-0.03em", color: T.warn, margin: "0 0 28px" }}>
-            Did you notice?
-          </h1>
-          <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: T.muted, lineHeight: 1.75, maxWidth: 560, margin: "0 0 40px", fontWeight: 400 }}>
+
+          <h1 className="landing-h1" style={{ marginBottom: 10 }}>Your supplier raised prices.</h1>
+          <h1 className="landing-h1" style={{ color: T.warn, marginBottom: isMobile ? 20 : 28 }}>Did you notice?</h1>
+
+          <p className="landing-body" style={{ fontSize: isMobile ? 15 : 18, maxWidth: 560, marginBottom: isMobile ? 32 : 40 }}>
             KitchenIQ tracks every price change across all your suppliers automatically — so you always know your real food cost, on every dish, every day.
           </p>
+
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0e0a", border: "none", borderRadius: 8, padding: "16px 36px", fontSize: 15, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 8, padding: isMobile ? "14px 28px" : "16px 36px", fontSize: isMobile ? 14 : 15, fontFamily: T.font, fontWeight: 700, cursor: "pointer", width: isMobile ? "100%" : "auto" }}>
               Start free trial →
             </button>
-            <button onClick={onDemo} style={{ background: "transparent", color: T.muted, border: "none", fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 11 }}>▶</span> Watch demo
+            <button onClick={onDemo} style={{ background: "transparent", color: T.muted, border: "none", fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, width: isMobile ? "100%" : "auto", justifyContent: isMobile ? "center" : "flex-start" }}>
+              <span style={{ fontSize: 10 }}>▶</span> Watch demo
             </button>
           </div>
-          <p style={{ fontSize: 12, color: T.muted, marginTop: 14, opacity: 0.7 }}>7-day free trial · No credit card commitment · Cancel anytime</p>
+          <p style={{ fontSize: 12, color: T.muted, marginTop: 14, opacity: 0.6, fontFamily: T.body }}>7-day free trial · No commitment · Cancel anytime</p>
         </div>
       </div>
 
       {/* ── STATS ROW ── */}
       <div style={{ borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, background: T.card, ...fadeIn(100) }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: `0 ${px}`, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)" }}>
           {[
             { num: "$3,400+", label: "Average annual loss from untracked price changes" },
             { num: "5 min", label: "Setup time — scan your first invoice and you're live" },
-            { num: "Any supplier", label: "Works with Sysco, US Foods, local vendors — all of them" },
+            { num: "Any supplier", label: "Sysco, US Foods, local vendors — works with all of them" },
           ].map((s, i) => (
-            <div key={i} style={{ padding: "32px 24px", borderRight: i < 2 ? `1px solid ${T.border}` : "none" }}>
-              <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 28, color: T.accent, marginBottom: 6, letterSpacing: "-0.02em" }}>{s.num}</div>
-              <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{s.label}</div>
+            <div key={i} style={{ padding: isMobile ? "24px 0" : "32px 24px", borderRight: !isMobile && i < 2 ? `1px solid ${T.border}` : "none", borderBottom: isMobile && i < 2 ? `1px solid ${T.border}` : "none" }}>
+              <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: isMobile ? 24 : 28, color: T.accent, marginBottom: 5, letterSpacing: "-0.02em" }}>{s.num}</div>
+              <div className="landing-body" style={{ fontSize: 13 }}>{s.label}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* ── HOW IT WORKS ── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 32px", ...fadeIn(150) }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: sectionPad, ...fadeIn(150) }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 40 : 80, alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16, fontWeight: 600 }}>How it works</div>
-            <h2 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(24px, 3vw, 38px)", color: T.text, lineHeight: 1.15, letterSpacing: "-0.02em", margin: "0 0 20px" }}>
-              From invoice to insight in seconds
-            </h2>
-            <p style={{ fontSize: 15, color: T.muted, lineHeight: 1.75, margin: "0 0 40px" }}>
-              No spreadsheets. No manual entry. Just scan, and KitchenIQ handles the rest.
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+            <span className="landing-label" style={{ color: T.accent, display: "block", marginBottom: 14 }}>How it works</span>
+            <h2 className="landing-h2" style={{ marginBottom: 14 }}>From invoice to insight in seconds</h2>
+            <p className="landing-body" style={{ marginBottom: 36, fontSize: 15 }}>No spreadsheets. No manual entry. Just scan, and KitchenIQ handles the rest.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
               {[
                 { n: "01", title: "Scan any invoice", desc: "Photo your supplier invoice — Sysco, US Foods, your local guys. AI reads every ingredient, price, and case size instantly." },
-                { n: "02", title: "Get instant alerts", desc: "The moment a price changes, you're notified. See exactly which dishes are affected and by how much per plate." },
+                { n: "02", title: "Get instant alerts", desc: "The moment a price changes you're notified. See exactly which dishes are affected and by how much per plate." },
                 { n: "03", title: "Know your real margins", desc: "See your actual food cost percentage on every dish and get a suggested price to protect your margins." },
               ].map(s => (
-                <div key={s.n} style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-                  <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 11, color: T.accentMid, letterSpacing: "0.1em", paddingTop: 2, minWidth: 24, flexShrink: 0 }}>{s.n}</div>
+                <div key={s.n} style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
+                  <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 11, color: T.accentMid, letterSpacing: "0.1em", paddingTop: 3, minWidth: 22, flexShrink: 0 }}>{s.n}</div>
                   <div>
-                    <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>{s.title}</div>
-                    <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.6 }}>{s.desc}</div>
+                    <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600, marginBottom: 4, letterSpacing: "-0.01em" }}>{s.title}</div>
+                    <div className="landing-body" style={{ fontSize: 13 }}>{s.desc}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Visual panel — mock alert card */}
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 28, display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Live price alerts</div>
+          {/* Mock alert card */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: isMobile ? 20 : 28, display: "flex", flexDirection: "column", gap: 12 }}>
+            <span className="landing-label" style={{ color: T.muted, marginBottom: 4 }}>Live price alerts</span>
             {[
               { name: "Eggs Shell Large Grade AA", change: "+38%", old: "$23.86", new: "$32.98", warn: true },
               { name: "Bacon Sliced Applewood", change: "+16%", old: "$41.20", new: "$47.80", warn: true },
               { name: "Ground Beef 80/20", change: "+7%", old: "$92.00", new: "$98.50", warn: true },
               { name: "Cheddar Cheese Shredded", change: "-6%", old: "$26.50", new: "$24.80", warn: false },
             ].map((a, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: T.faint, borderRadius: 10, padding: "14px 16px", border: `1px solid ${a.warn ? T.warn + "22" : T.border}` }}>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: T.faint, borderRadius: 10, padding: "12px 14px", border: `1px solid ${a.warn ? T.warn + "22" : T.border}` }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                  <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}>{a.name}</div>
                   <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{a.old} → {a.new} per case</div>
                 </div>
                 <div style={{ fontSize: 13, fontFamily: T.font, fontWeight: 800, color: a.warn ? T.warn : T.accent, flexShrink: 0 }}>{a.change}</div>
               </div>
             ))}
-            <div style={{ background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 8, padding: "12px 16px", marginTop: 4 }}>
-              <div style={{ fontSize: 12, color: T.warn, fontFamily: T.body, lineHeight: 1.5 }}>⚠ Your Bacon & Eggs plate now costs <strong>$0.84 more</strong> per serving. Consider adjusting your menu price.</div>
+            <div style={{ background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 8, padding: "11px 14px", marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: T.warn, fontFamily: T.body, lineHeight: 1.55 }}>⚠ Your Bacon & Eggs plate now costs <strong>$0.84 more</strong> per serving.</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── SUPPLIERS ── */}
-      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, padding: "56px 32px", ...fadeIn(200) }}>
+      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, padding: isMobile ? "48px 20px" : "56px 32px", ...fadeIn(200) }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 28 : 64, alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 14, fontWeight: 600 }}>Works with every supplier</div>
-              <h2 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(22px, 2.5vw, 32px)", color: T.text, lineHeight: 1.2, margin: "0 0 14px", letterSpacing: "-0.02em" }}>
-                Your diner doesn't use one supplier. Neither does KitchenIQ.
-              </h2>
-              <p style={{ fontSize: 14, color: T.muted, lineHeight: 1.7, margin: 0 }}>
-                Most food cost tools are locked to a single distributor. KitchenIQ works with every invoice from every supplier — giving you the full picture, not half of it.
-              </p>
+              <span className="landing-label" style={{ color: T.accent, display: "block", marginBottom: 12 }}>Works with every supplier</span>
+              <h2 className="landing-h2" style={{ marginBottom: 12 }}>Your diner doesn't use one supplier. Neither does KitchenIQ.</h2>
+              <p className="landing-body" style={{ fontSize: 14 }}>Most food cost tools are locked to a single distributor. KitchenIQ works with every invoice from every supplier — giving you the full picture, not half of it.</p>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {["Sysco", "US Foods", "Performance Food Group", "Restaurant Depot", "Your Bread Guy", "Your Egg Farmer", "Local Meat Supplier", "✓ Any Supplier"].map((s, i) => (
-                <div key={i} style={{
-                  fontSize: 12, fontFamily: T.body, fontWeight: i === 7 ? 700 : 400,
-                  color: i === 7 ? T.accent : T.muted,
-                  background: i === 7 ? T.accentDim : T.faint,
-                  border: `1px solid ${i === 7 ? T.accentMid : T.border}`,
-                  borderRadius: 6, padding: "7px 14px",
-                }}>{s}</div>
+                <div key={i} style={{ fontSize: 12, fontFamily: T.body, fontWeight: i === 7 ? 600 : 400, color: i === 7 ? T.accent : T.muted, background: i === 7 ? T.accentDim : T.faint, border: `1px solid ${i === 7 ? T.accentMid : T.border}`, borderRadius: 6, padding: "6px 13px" }}>{s}</div>
               ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── TESTIMONIAL ── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 32px", ...fadeIn(250) }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" }}>
+      {/* ── TESTIMONIAL + PAIN POINTS ── */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: sectionPad, ...fadeIn(250) }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 40 : 56, alignItems: "start" }}>
           <div>
-            <div style={{ width: 3, height: 48, background: T.accent, borderRadius: 2, marginBottom: 24 }} />
-            <blockquote style={{ fontFamily: T.body, fontSize: 18, color: T.text, lineHeight: 1.7, fontStyle: "italic", margin: "0 0 20px", fontWeight: 300 }}>
+            <div style={{ width: 3, height: 44, background: T.accent, borderRadius: 2, marginBottom: 22 }} />
+            <blockquote style={{ fontFamily: T.body, fontSize: isMobile ? 16 : 18, color: T.text, lineHeight: 1.72, fontStyle: "italic", margin: "0 0 18px", fontWeight: 300 }}>
               "I had no idea my corned beef cost had changed. KitchenIQ caught it on the first scan — I would have never noticed otherwise."
             </blockquote>
-            <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>Owner, Jake's Restaurant</div>
+            <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, letterSpacing: "-0.01em" }}>Owner, Jake's Restaurant</div>
             <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>North Stonington, CT</div>
           </div>
-
-          {/* Pain points right column */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {[
               { title: "Prices change every delivery", desc: "Sysco, US Foods, local vendors — shifts happen constantly and quietly." },
@@ -3468,8 +3499,8 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
               <div key={p.title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, marginTop: 6, flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 3 }}>{p.title}</div>
-                  <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.6, fontFamily: T.body }}>{p.desc}</div>
+                  <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600, marginBottom: 3, letterSpacing: "-0.01em" }}>{p.title}</div>
+                  <div className="landing-body" style={{ fontSize: 13 }}>{p.desc}</div>
                 </div>
               </div>
             ))}
@@ -3478,25 +3509,27 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
       </div>
 
       {/* ── BOTTOM CTA ── */}
-      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, padding: "80px 32px" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
-          <h2 style={{ fontFamily: T.font, fontWeight: 800, fontSize: "clamp(24px, 3.5vw, 40px)", color: T.text, lineHeight: 1.15, letterSpacing: "-0.02em", margin: "0 0 16px" }}>
+      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, padding: sectionPad }}>
+        <div style={{ maxWidth: 580, margin: "0 auto", textAlign: "center" }}>
+          <h2 className="landing-h2" style={{ marginBottom: 14 }}>
             Most restaurants lose more in a month than KitchenIQ costs in a year.
           </h2>
-          <p style={{ fontSize: 15, color: T.muted, lineHeight: 1.7, margin: "0 0 10px" }}>
+          <p className="landing-body" style={{ fontSize: 15, marginBottom: 10 }}>
             One unnoticed price spike on a high-volume ingredient can cost $200–$400 in a single month. KitchenIQ catches it automatically.
           </p>
-          <p style={{ fontSize: 13, color: T.muted, margin: "0 0 36px", opacity: 0.7 }}>$89/month · $799/year · Cancel anytime</p>
+          <p style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32, opacity: 0.65 }}>$89/month · $799/year · Cancel anytime</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0e0a", border: "none", borderRadius: 8, padding: "17px 44px", fontSize: 16, fontFamily: T.font, fontWeight: 800, cursor: "pointer" }}>
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 8, padding: "16px 40px", fontSize: 15, fontFamily: T.font, fontWeight: 700, cursor: "pointer", width: isMobile ? "100%" : "auto" }}>
               Start free trial →
             </button>
-            <button onClick={onDemo} style={{ background: "transparent", color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "17px 32px", fontSize: 15, fontFamily: T.body, fontWeight: 500, cursor: "pointer" }}>
-              ▶ Try demo first
-            </button>
+            {!isMobile && (
+              <button onClick={onDemo} style={{ background: "transparent", color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "16px 28px", fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer" }}>
+                ▶ Try demo first
+              </button>
+            )}
           </div>
-          <p style={{ fontSize: 12, color: T.muted, marginTop: 14, opacity: 0.6 }}>Set up in under 10 minutes. No spreadsheets. No manual entry.</p>
-          <div style={{ marginTop: 32, display: "flex", justifyContent: "center" }}>
+          <p style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 14, opacity: 0.55 }}>Set up in under 10 minutes. No spreadsheets.</p>
+          <div style={{ marginTop: 28, display: "flex", justifyContent: "center" }}>
             <LegalLinks />
           </div>
         </div>
