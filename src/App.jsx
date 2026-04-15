@@ -3299,7 +3299,7 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
 
       {/* ── NAV ── */}
       <nav style={{ borderBottom: `1px solid ${T.border}`, background: "rgba(10,13,10,0.94)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: `0 ${px}`, display: "flex", alignItems: "center", justifyContent: "space-between", height: isMobile ? 56 : 64 }}>
+        <div style={{ padding: `0 ${isMobile ? "20px" : "6%"}`, display: "flex", alignItems: "center", justifyContent: "space-between", height: isMobile ? 56 : 64 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1.5px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
             <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: isMobile ? 17 : 19, color: T.text, letterSpacing: "-0.01em" }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
