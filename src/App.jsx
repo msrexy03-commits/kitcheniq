@@ -4461,8 +4461,206 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
 }
 
 
+// ─── Admin Dashboard ──────────────────────────────────────────────────────────
+function AdminView() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    const [{ data: profiles }, { data: ingredients }, { data: menuItems }, { data: swapRequests }] = await Promise.all([
+      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+      supabase.from("ingredients").select("user_id, name, supplier, created_at, price, case_size"),
+      supabase.from("menu_items").select("user_id, created_at, ingredients"),
+      supabase.from("swap_requests").select("*").order("created_at", { ascending: false }),
+    ]);
+
+    // Aggregate per user
+    const users = (profiles || []).map(p => {
+      const ings = (ingredients || []).filter(i => i.user_id === p.id);
+      const menus = (menuItems || []).filter(m => m.user_id === p.id);
+      const suppliers = new Set(ings.map(i => i.supplier).filter(Boolean));
+      const lastScan = ings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]?.created_at;
+      return { profile: p, ingredients: ings, menuItems: menus, suppliers, lastScan };
+    });
+
+    setData({ users, swapRequests: swapRequests || [] });
+    setLastUpdated(new Date());
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const timeSince = (dateStr) => {
+    if (!dateStr) return "Never";
+    const diff = (Date.now() - new Date(dateStr)) / 1000;
+    if (diff < 60) return "Just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  if (loading) return (
+    <div style={{ textAlign: "center", padding: 60, color: T.muted, fontFamily: T.body, fontSize: 14 }}>
+      Loading admin data...
+    </div>
+  );
+
+  const { users, swapRequests } = data;
+  const subscribed = users.filter(u => u.profile.is_subscribed);
+  const mrr = subscribed.reduce((s, u) => s + (u.profile.subscription_tier === "full" ? 89 : u.profile.subscription_tier === "tracker" ? 25 : 0), 0);
+  const totalIngredients = users.reduce((s, u) => s + u.ingredients.length, 0);
+  const maxIngredients = Math.max(...users.map(u => u.ingredients.length), 1);
+  const recentScans = [...(data.users.flatMap(u => u.ingredients.map(i => ({ ...i, restaurantName: u.profile.restaurant_name }))))].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
+
+  const StatCard = ({ label, value, sub, color }) => (
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px" }}>
+      <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 10 }}>{label}</div>
+      <div style={{ fontSize: 30, fontWeight: 800, fontFamily: T.font, color: color || T.text, letterSpacing: "-0.02em", lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 6 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 4 }}>Internal Only</div>
+          <div style={{ fontSize: 20, fontWeight: 800, fontFamily: T.font, color: T.text, letterSpacing: "-0.02em" }}>🛡 Admin Dashboard</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {lastUpdated && <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Updated {lastUpdated.toLocaleTimeString()}</div>}
+          <button onClick={load} style={{ background: T.faint, border: `1px solid ${T.border}`, color: T.muted, borderRadius: 7, padding: "7px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>↻ Refresh</button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <StatCard label="MRR" value={`$${mrr}`} sub={`${subscribed.length} paying customers`} color={T.accent} />
+        <StatCard label="Total Accounts" value={users.length} sub={`${subscribed.length} subscribed · ${users.length - subscribed.length} free`} />
+        <StatCard label="Ingredients Tracked" value={totalIngredients} sub="across all accounts" />
+        <StatCard label="Swap Requests" value={swapRequests.length} sub="supplier switches initiated" color={swapRequests.length > 0 ? T.accent : T.text} />
+      </div>
+
+      {/* Accounts Table */}
+      <div>
+        <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 12 }}>All Accounts</div>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
+          {/* Table header */}
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "12px 20px", borderBottom: `1px solid ${T.border}`, fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: T.muted, fontFamily: T.body }}>
+            <div>Restaurant</div><div>Plan</div><div>Ingredients</div><div>Menu Items</div><div>Suppliers</div><div>Last Active</div>
+          </div>
+          {users.map((u, i) => {
+            const p = u.profile;
+            const actPct = Math.min(100, (u.ingredients.length / maxIngredients) * 100);
+            const tierColor = p.subscription_tier === "full" ? T.accent : p.subscription_tier === "tracker" ? T.warn : T.muted;
+            const tierLabel = p.subscription_tier === "full" ? "Full" : p.subscription_tier === "tracker" ? "Tracker" : "None";
+            return (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "14px 20px", borderBottom: i < users.length - 1 ? `1px solid ${T.border}` : "none", fontSize: 13, alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: T.text, fontFamily: T.font, fontSize: 14 }}>{p.restaurant_name || "Unnamed"}</div>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 2 }}>{p.state || "—"} · {p.id.slice(0, 8)}</div>
+                </div>
+                <div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: tierColor, background: tierColor + "22", border: `1px solid ${tierColor}44`, borderRadius: 4, padding: "3px 8px", fontFamily: T.font }}>
+                    {tierLabel}
+                  </span>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, color: T.text, fontFamily: T.font }}>{u.ingredients.length}</div>
+                  <div style={{ height: 3, background: T.faint, borderRadius: 2, width: 60, marginTop: 4 }}>
+                    <div style={{ height: "100%", width: `${actPct}%`, background: T.accent, borderRadius: 2 }} />
+                  </div>
+                </div>
+                <div style={{ fontWeight: 700, color: T.text, fontFamily: T.font }}>{u.menuItems.length}</div>
+                <div style={{ color: T.muted, fontFamily: T.body }}>{u.suppliers.size}</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{timeSince(u.lastScan)}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bottom two columns */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+        {/* Feature Adoption */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.font, marginBottom: 16 }}>Feature Adoption</div>
+          {[
+            { name: "Invoice scanning", count: users.filter(u => u.ingredients.length > 0).length },
+            { name: "Menu items added", count: users.filter(u => u.menuItems.length > 0).length },
+            { name: "Recipes linked", count: users.filter(u => u.menuItems.some(m => (m.ingredients || []).length > 0)).length },
+            { name: "Multi-supplier", count: users.filter(u => u.suppliers.size > 1).length },
+            { name: "State set", count: users.filter(u => u.profile.state).length },
+            { name: "Supplier swaps", count: swapRequests.length },
+          ].map((f, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: i < 5 ? `1px solid ${T.border}` : "none" }}>
+              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>{f.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 60, height: 3, background: T.faint, borderRadius: 2 }}>
+                  <div style={{ height: "100%", width: `${Math.max(4, (f.count / Math.max(users.length, 1)) * 100)}%`, background: T.accent, borderRadius: 2 }} />
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: T.text, fontFamily: T.font, minWidth: 32, textAlign: "right" }}>{f.count}/{users.length}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Revenue */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.font, marginBottom: 16 }}>Revenue</div>
+          {[
+            { label: `Full plan (${users.filter(u => u.profile.subscription_tier === "full" && u.profile.is_subscribed).length} × $89)`, value: `$${users.filter(u => u.profile.subscription_tier === "full" && u.profile.is_subscribed).length * 89}` },
+            { label: `Tracker plan (${users.filter(u => u.profile.subscription_tier === "tracker" && u.profile.is_subscribed).length} × $25)`, value: `$${users.filter(u => u.profile.subscription_tier === "tracker" && u.profile.is_subscribed).length * 25}` },
+          ].map((r, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>{r.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, fontFamily: T.font }}>{r.value}</div>
+            </div>
+          ))}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "14px 0 6px", borderTop: `1px solid ${T.accentMid}`, marginTop: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.font }}>MRR</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: T.accent, fontFamily: T.font, letterSpacing: "-0.02em" }}>${mrr}</div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>ARR (projected)</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.muted, fontFamily: T.font }}>${mrr * 12}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent scans */}
+      <div>
+        <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 12 }}>Recent Scans</div>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "4px 20px" }}>
+          {recentScans.length === 0
+            ? <div style={{ padding: "20px 0", color: T.muted, fontFamily: T.body, fontSize: 13, textAlign: "center" }}>No scans yet</div>
+            : recentScans.map((s, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 0", borderBottom: i < recentScans.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: T.accent, flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 2 }}>{s.restaurantName || "Unknown"} · ${s.price} from {s.supplier || "Unknown"}</div>
+                </div>
+                <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, flexShrink: 0 }}>{timeSince(s.created_at)}</div>
+              </div>
+            ))}
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
 const TABS = ["Dashboard", "Ingredients", "Menu Items", "Price Alerts", "Account", "Support"];
 const ICONS = ["⬡", "🥬", "🍽", "⚡", "👤", "💬"];
+const ADMIN_TAB = "Admin";
+const ADMIN_ICON = "🛡";
 
 function KitchenIQApp() {
   const { route, navigate } = useRoute();
@@ -4614,6 +4812,11 @@ function KitchenIQApp() {
               </button>
             );
           })}
+          {profile?.is_admin && (
+            <button onClick={() => setTab(99)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === 99 ? T.accent : "transparent"}`, color: tab === 99 ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+              {ADMIN_ICON} {ADMIN_TAB}
+            </button>
+          )}
         </div>
       </div>
       {priceNotif && priceNotif.length > 0 && (
@@ -4661,6 +4864,7 @@ function KitchenIQApp() {
               {tab === 3 && <AlertsView ingredients={ingredients} session={session} profile={profile} />}
               {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
               {tab === 5 && <SupportView session={session} />}
+              {tab === 99 && profile?.is_admin && <AdminView />}
             </>}
         </div>
       </div>
