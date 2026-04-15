@@ -3322,21 +3322,20 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
         display: "flex",
         alignItems: "center",
       }}>
-        {/* Background image — empty restaurant kitchen, no faces */}
+        {/* Background image — dark commercial kitchen, no people */}
         <div style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: "url('https://images.unsplash.com/photo-1567521464027-f127ff144326?w=1800&q=80')",
+          backgroundImage: "url('https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=1800&q=80')",
           backgroundSize: "cover",
-          backgroundPosition: "center right",
-          filter: "grayscale(25%)",
-          transform: "scale(1.02)",
+          backgroundPosition: "center",
+          filter: "grayscale(15%) brightness(0.4)",
         }} />
-        {/* Dark gradient — heavy left, lighter right */}
+        {/* Dark gradient — heavy left where text is */}
         <div style={{
           position: "absolute",
           inset: 0,
-          background: "linear-gradient(90deg, rgba(10,13,10,0.98) 0%, rgba(10,13,10,0.92) 40%, rgba(10,13,10,0.60) 70%, rgba(10,13,10,0.35) 100%)",
+          background: "linear-gradient(90deg, rgba(10,13,10,0.97) 0%, rgba(10,13,10,0.85) 50%, rgba(10,13,10,0.5) 100%)",
         }} />
         {/* Bottom fade to site background */}
         <div style={{
@@ -3346,10 +3345,10 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
           background: "linear-gradient(to bottom, transparent, #0a0d0a)",
         }} />
 
-        {/* Content — anchored left */}
+        {/* Content — anchored left, fills full width */}
         <div style={{ position: "relative", zIndex: 2, width: "100%", ...fadeIn(0) }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "56px 20px 64px" : "96px 32px 100px" }}>
-            <div style={{ maxWidth: isMobile ? "100%" : 580 }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "64px 20px 72px" : "110px 32px 110px" }}>
+            <div style={{ maxWidth: isMobile ? "100%" : "55%" }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: isMobile ? 20 : 28 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.45, transition: "opacity 0.6s" }} />
                 <span className="landing-label" style={{ color: T.warn }}>For independent restaurants</span>
@@ -3500,10 +3499,10 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
         <div style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: "url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1800&q=80')",
+          backgroundImage: "url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1800&q=80')",
           backgroundSize: "cover",
-          backgroundPosition: "center 40%",
-          filter: "grayscale(30%)",
+          backgroundPosition: "center",
+          filter: "grayscale(20%) brightness(0.3)",
         }} />
         {/* Top fade from background */}
         <div style={{
