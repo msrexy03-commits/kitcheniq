@@ -4,8 +4,18 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 
 const fontLink = document.createElement("link");
 fontLink.rel = "stylesheet";
-fontLink.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap";
+fontLink.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&display=swap";
 document.head.appendChild(fontLink);
+
+const globalStyle = document.createElement("style");
+globalStyle.textContent = `
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+  body { margin: 0; padding: 0; }
+  h1, h2, h3, h4, h5, h6 { margin: 0; padding: 0; font-size: inherit; }
+  button { font-smooth: always; -webkit-font-smoothing: antialiased; }
+`;
+document.head.appendChild(globalStyle);
 
 // Global animation styles
 const animStyle = document.createElement("style");
@@ -341,10 +351,10 @@ async function sendPriceAlertEmail(userEmail, changes, menuItems, ingredients) {
 }
 
 const T = {
-  bg: "#0f1410", card: "#161d17", border: "#1e2b1f",
-  accent: "#4eca6e", accentDim: "#4eca6e22", accentMid: "#4eca6e55",
-  warn: "#e8854a", warnDim: "#e8854a22",
-  text: "#e8f0e9", muted: "#6b8a6e", faint: "#2a3a2b",
+  bg: "#0a0d0a", card: "#131713", border: "#1e2b1f",
+  accent: "#4eca6e", accentDim: "#4eca6e1a", accentMid: "#4eca6e50",
+  warn: "#e8854a", warnDim: "#e8854a1a",
+  text: "#edf2ee", muted: "#7a957e", faint: "#1a231a",
   font: "'Syne', sans-serif", body: "'DM Sans', sans-serif",
 };
 
