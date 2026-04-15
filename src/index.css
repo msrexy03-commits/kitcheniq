@@ -1,10 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,300;1,14..32,400&display=swap');
+
 *, *::before, *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
-html, body, #root {
-  width: 100%;
-  min-height: 100vh;
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #edf2ee;
+  background: #0a0d0a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  font-family: 'Outfit', sans-serif;
+  font-feature-settings: "kern" 1, "ss01" 1;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: 'Outfit', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  cursor: pointer;
+}
+
+/* ── Landing Page Typography ── */
+
+.landing-h1 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+  color: #edf2ee;
+  font-feature-settings: "kern" 1, "ss01" 1;
+}
+
+.landing-h2 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: clamp(22px, 2.8vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: #edf2ee;
+  font-feature-settings: "kern" 1;
+}
+
+.landing-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #7a957e;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.landing-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0d0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e2b1f;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4eca6e44;
+}
+
+/* ── Text selection ── */
+::selection {
+  background: #4eca6e33;
+  color: #edf2ee;
 }
