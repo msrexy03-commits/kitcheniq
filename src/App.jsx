@@ -3314,30 +3314,63 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
         </div>
       </nav>
 
-      {/* ── HERO ── */}
-      <div style={{ padding: isMobile ? "56px 20px 44px" : "96px 32px 80px", maxWidth: 1100, margin: "0 auto", ...fadeIn(0) }}>
-        <div style={{ maxWidth: isMobile ? "100%" : 740 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: isMobile ? 20 : 28 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.45, transition: "opacity 0.6s" }} />
-            <span className="landing-label" style={{ color: T.warn }}>For independent restaurants</span>
+      {/* ── HERO — full bleed background image ── */}
+      <div style={{
+        position: "relative",
+        overflow: "hidden",
+        minHeight: isMobile ? "520px" : "680px",
+        display: "flex",
+        alignItems: "center",
+      }}>
+        {/* Background image */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "url('https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1800&q=80')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "grayscale(20%)",
+          transform: "scale(1.02)",
+        }} />
+        {/* Dark gradient overlay — fades into site background */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(105deg, rgba(10,13,10,0.97) 0%, rgba(10,13,10,0.88) 45%, rgba(10,13,10,0.55) 100%)",
+        }} />
+        {/* Bottom fade to background color */}
+        <div style={{
+          position: "absolute",
+          bottom: 0, left: 0, right: 0,
+          height: "120px",
+          background: "linear-gradient(to bottom, transparent, #0a0d0a)",
+        }} />
+
+        {/* Content */}
+        <div style={{ position: "relative", zIndex: 2, maxWidth: 1100, margin: "0 auto", padding: isMobile ? "56px 20px 64px" : "96px 32px 100px", width: "100%", ...fadeIn(0) }}>
+          <div style={{ maxWidth: isMobile ? "100%" : 680 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: isMobile ? 20 : 28 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.45, transition: "opacity 0.6s" }} />
+              <span className="landing-label" style={{ color: T.warn }}>For independent restaurants</span>
+            </div>
+
+            <h1 className="landing-h1" style={{ marginBottom: 10 }}>Your supplier raised prices.</h1>
+            <h1 className="landing-h1" style={{ color: T.warn, marginBottom: isMobile ? 20 : 28 }}>Did you notice?</h1>
+
+            <p className="landing-body" style={{ fontSize: isMobile ? 15 : 18, maxWidth: 520, marginBottom: isMobile ? 32 : 40 }}>
+              KitchenIQ tracks every price change across all your suppliers automatically — so you always know your real food cost, on every dish, every day.
+            </p>
+
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 8, padding: isMobile ? "14px 28px" : "16px 36px", fontSize: isMobile ? 14 : 15, fontFamily: T.font, fontWeight: 700, cursor: "pointer", width: isMobile ? "100%" : "auto" }}>
+                Start free trial →
+              </button>
+              <button onClick={onDemo} style={{ background: "rgba(255,255,255,0.08)", color: T.text, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: isMobile ? "14px 28px" : "16px 28px", fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", backdropFilter: "blur(8px)", width: isMobile ? "100%" : "auto" }}>
+                ▶ Watch demo
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: T.muted, marginTop: 14, opacity: 0.6, fontFamily: T.body }}>7-day free trial · No commitment · Cancel anytime</p>
           </div>
-
-          <h1 className="landing-h1" style={{ marginBottom: 10 }}>Your supplier raised prices.</h1>
-          <h1 className="landing-h1" style={{ color: T.warn, marginBottom: isMobile ? 20 : 28 }}>Did you notice?</h1>
-
-          <p className="landing-body" style={{ fontSize: isMobile ? 15 : 18, maxWidth: 560, marginBottom: isMobile ? 32 : 40 }}>
-            KitchenIQ tracks every price change across all your suppliers automatically — so you always know your real food cost, on every dish, every day.
-          </p>
-
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 8, padding: isMobile ? "14px 28px" : "16px 36px", fontSize: isMobile ? 14 : 15, fontFamily: T.font, fontWeight: 700, cursor: "pointer", width: isMobile ? "100%" : "auto" }}>
-              Start free trial →
-            </button>
-            <button onClick={onDemo} style={{ background: "transparent", color: T.muted, border: "none", fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, width: isMobile ? "100%" : "auto", justifyContent: isMobile ? "center" : "flex-start" }}>
-              <span style={{ fontSize: 10 }}>▶</span> Watch demo
-            </button>
-          </div>
-          <p style={{ fontSize: 12, color: T.muted, marginTop: 14, opacity: 0.6, fontFamily: T.body }}>7-day free trial · No commitment · Cancel anytime</p>
         </div>
       </div>
 
@@ -3406,8 +3439,15 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
       </div>
 
       {/* ── SUPPLIERS ── */}
-      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, padding: isMobile ? "48px 20px" : "56px 32px", ...fadeIn(200) }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ position: "relative", overflow: "hidden", borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, ...fadeIn(200) }}>
+        <div style={{
+          position: "absolute", inset: 0,
+          backgroundImage: "url('https://images.unsplash.com/photo-1495195134817-aeb325a55b65?w=1800&q=80')",
+          backgroundSize: "cover", backgroundPosition: "center",
+          filter: "grayscale(40%)", opacity: 0.15,
+        }} />
+        <div style={{ position: "absolute", inset: 0, background: T.card, opacity: 0.92 }} />
+        <div style={{ position: "relative", zIndex: 2, maxWidth: 1100, margin: "0 auto", padding: isMobile ? "48px 20px" : "56px 32px" }}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 28 : 64, alignItems: "center" }}>
             <div>
               <span className="landing-label" style={{ color: T.accent, display: "block", marginBottom: 12 }}>Works with every supplier</span>
@@ -3452,29 +3492,54 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
         </div>
       </div>
 
-      {/* ── BOTTOM CTA ── */}
-      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, padding: sectionPad }}>
-        <div style={{ maxWidth: 580, margin: "0 auto", textAlign: "center" }}>
-          <h2 className="landing-h2" style={{ marginBottom: 14 }}>
-            Most restaurants lose more in a month than KitchenIQ costs in a year.
-          </h2>
-          <p className="landing-body" style={{ fontSize: 15, marginBottom: 10 }}>
-            One unnoticed price spike on a high-volume ingredient can cost $200–$400 in a single month. KitchenIQ catches it automatically.
-          </p>
-          <p style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 32, opacity: 0.65 }}>$89/month · $799/year · Cancel anytime</p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 8, padding: "16px 40px", fontSize: 15, fontFamily: T.font, fontWeight: 700, cursor: "pointer", width: isMobile ? "100%" : "auto" }}>
-              Start free trial →
-            </button>
-            {!isMobile && (
-              <button onClick={onDemo} style={{ background: "transparent", color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "16px 28px", fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer" }}>
-                ▶ Try demo first
+      {/* ── BOTTOM CTA — with background image ── */}
+      <div style={{ position: "relative", overflow: "hidden" }}>
+        {/* Background image */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1800&q=80')",
+          backgroundSize: "cover",
+          backgroundPosition: "center 40%",
+          filter: "grayscale(30%)",
+        }} />
+        {/* Top fade from background */}
+        <div style={{
+          position: "absolute",
+          top: 0, left: 0, right: 0,
+          height: "120px",
+          background: "linear-gradient(to bottom, #0a0d0a, transparent)",
+        }} />
+        {/* Dark overlay */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(10,13,10,0.88)",
+        }} />
+
+        <div style={{ position: "relative", zIndex: 2, padding: sectionPad }}>
+          <div style={{ maxWidth: 580, margin: "0 auto", textAlign: "center" }}>
+            <h2 className="landing-h2" style={{ marginBottom: 14 }}>
+              Most restaurants lose more in a month than KitchenIQ costs in a year.
+            </h2>
+            <p className="landing-body" style={{ fontSize: 15, marginBottom: 10 }}>
+              One unnoticed price spike on a high-volume ingredient can cost $200–$400 in a single month. KitchenIQ catches it automatically.
+            </p>
+            <p style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 36, opacity: 0.65 }}>$89/month · $799/year · Cancel anytime</p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 8, padding: "16px 40px", fontSize: 15, fontFamily: T.font, fontWeight: 700, cursor: "pointer", width: isMobile ? "100%" : "auto" }}>
+                Start free trial →
               </button>
-            )}
-          </div>
-          <p style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 14, opacity: 0.55 }}>Set up in under 10 minutes. No spreadsheets.</p>
-          <div style={{ marginTop: 28, display: "flex", justifyContent: "center" }}>
-            <LegalLinks />
+              {!isMobile && (
+                <button onClick={onDemo} style={{ background: "rgba(255,255,255,0.08)", color: T.text, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "16px 28px", fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", backdropFilter: "blur(8px)" }}>
+                  ▶ Try demo first
+                </button>
+              )}
+            </div>
+            <p style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 14, opacity: 0.55 }}>Set up in under 10 minutes. No spreadsheets.</p>
+            <div style={{ marginTop: 28, display: "flex", justifyContent: "center" }}>
+              <LegalLinks />
+            </div>
           </div>
         </div>
       </div>
