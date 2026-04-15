@@ -235,15 +235,17 @@ function calcMenuStats(item, ingredients = []) {
 }
 
 // Normalize ingredient name for fuzzy grouping —
-// strips trailing 's', collapses whitespace, lowercases
-// so "Egg Shell" and "Eggs Shell" group together
+// strips brand names, trailing 's', collapses whitespace, lowercases
+// so "Hormel Bacon Layout Applewood" and "Bacon Layout Applewood Hormel" group together
+const BRAND_NAMES = ["hormel", "sysco", "tyson", "perdue", "foster farms", "pilgrims", "swift", "cargill", "kraft", "heinz", "hunts", "dole", "del monte", "land o lakes", "dean", "saputo", "prairie fresh"];
 function normalizeNameForGrouping(name) {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ")         // collapse whitespace
-    .replace(/(\w)s\b/g, "$1")    // strip trailing 's' from words (eggs→egg, potatoes→potato)
-    .replace(/[^a-z0-9 ]/g, "")  // strip special chars
+  let n = name.trim().toLowerCase().replace(/\s+/g, " ");
+  // Strip known brand names
+  BRAND_NAMES.forEach(b => { n = n.replace(new RegExp(`\\b${b}\\b`, "g"), ""); });
+  return n
+    .replace(/\s+/g, " ")           // collapse whitespace after brand removal
+    .replace(/(\w)s\b/g, "$1")      // strip trailing 's' (eggs→egg)
+    .replace(/[^a-z0-9 /]/g, "")   // strip special chars
     .trim();
 }
 
@@ -652,6 +654,7 @@ NAME NORMALIZATION RULES — follow exactly:
    - "CHICKEN BREAST BNLS SKNLS FZN" → "Chicken Breast Boneless"
 
 2. STRIP completely — never include in name:
+   - Brand names (e.g. "Hormel", "Tyson", "Perdue", "Kraft", "Foster Farms", "Prairie Fresh", "Swift", "Pilgrim's") — these are manufacturer brands, not ingredient descriptors
    - Supplier item codes, SKUs, or number strings (e.g. "SYS", "CASAIMP", "10432")
    - Pack/size specs that are already captured in case_size (e.g. "18/14-16CT", "4/5LB", "24CT")
    - Cooking state abbreviations when obvious (FZN=Frozen, BNLS=Boneless, SKNLS=Skinless) — spell out or omit
@@ -2077,10 +2080,15 @@ function AlertsView({ ingredients, session, profile }) {
     }
   };
 
-  // Auto-fetch swaps for price increases over 8%
+  // Auto-fetch swaps for price increases over 8% — run on mount and when alerts change
   useEffect(() => {
-    alerts.filter(a => a.pct >= 8).forEach(fetchSwap);
-  }, [alerts.length]);
+    const spiked = alerts.filter(a => a.pct >= 8);
+    spiked.forEach(a => {
+      if (!swapData[a.name] && !swapLoading[a.name]) {
+        fetchSwap(a);
+      }
+    });
+  }, [alerts.length, JSON.stringify(alerts.map(a => a.name))]);
 
   const handleAcceptSwap = async (alert, swap) => {
     // Log to swap_requests table
@@ -2128,7 +2136,12 @@ function AlertsView({ ingredients, session, profile }) {
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      {loading && <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Finding alternatives...</div>}
+                      {loading && <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Searching...</div>}
+                      {a.pct > 0 && !loading && !swap && !dismissed && (
+                        <button onClick={() => fetchSwap(a)} style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "6px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+                          Find Better Price →
+                        </button>
+                      )}
                       <div style={{ fontSize: 22, fontFamily: T.font, fontWeight: 800, color: a.pct > 0 ? T.warn : T.accent }}>
                         {a.pct > 0 ? "▲" : "▼"} {Math.abs(a.pct).toFixed(1)}%
                       </div>
