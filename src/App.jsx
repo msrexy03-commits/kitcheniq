@@ -10,51 +10,81 @@ document.head.appendChild(fontLink);
 const globalStyle = document.createElement("style");
 globalStyle.textContent = `
   *, *::before, *::after { box-sizing: border-box; }
+
   html {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "ss01" 1 !important;
   }
-  body { margin: 0; padding: 0; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #edf2ee;
+    background: #0a0d0a;
+  }
+
   h1, h2, h3, h4, h5, h6 { margin: 0; padding: 0; font-size: inherit; }
-  button {
-    -webkit-font-smoothing: antialiased;
-    font-feature-settings: "kern" 1;
-    letter-spacing: -0.01em;
-  }
   p { margin: 0; }
-  .landing-h1 {
-    font-family: 'Outfit', sans-serif;
-    font-weight: 800;
-    font-size: clamp(36px, 5vw, 64px);
-    line-height: 1.06;
-    letter-spacing: -0.04em;
-    color: #edf2ee;
+
+  /* Force crisp font rendering on ALL elements */
+  * {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
   }
-  .landing-h2 {
+
+  button {
     font-family: 'Outfit', sans-serif;
-    font-weight: 700;
-    font-size: clamp(22px, 2.8vw, 36px);
-    line-height: 1.15;
-    letter-spacing: -0.025em;
-    color: #edf2ee;
-  }
-  .landing-body {
-    font-family: 'Inter', sans-serif;
-    font-size: 16px;
-    line-height: 1.75;
-    color: #7a957e;
-    font-weight: 400;
+    -webkit-font-smoothing: antialiased !important;
     letter-spacing: -0.01em;
+    cursor: pointer;
   }
+
+  /* Landing page typography classes */
+  .landing-h1 {
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 800 !important;
+    font-size: clamp(36px, 5vw, 64px) !important;
+    line-height: 1.06 !important;
+    letter-spacing: -0.04em !important;
+    color: #edf2ee !important;
+    font-feature-settings: "kern" 1, "ss01" 1 !important;
+  }
+
+  .landing-h2 {
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: clamp(22px, 2.8vw, 36px) !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.025em !important;
+    color: #edf2ee !important;
+    font-feature-settings: "kern" 1 !important;
+  }
+
+  .landing-body {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 15px !important;
+    line-height: 1.75 !important;
+    color: #7a957e !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.005em !important;
+    font-feature-settings: "kern" 1, "liga" 1 !important;
+  }
+
   .landing-label {
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
   }
+
+  /* Smooth scrolling */
+  html { scroll-behavior: smooth; }
 `;
 document.head.appendChild(globalStyle);
 
