@@ -1048,7 +1048,17 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const del = async (id) => {
+    // Find the ingredient before deleting so we can clean up supplier_pricing too
+    const ing = ingredients.find(i => i.id === id);
     await supabase.from("ingredients").delete().eq("id", id);
+    // Also remove from supplier_pricing if it was crowdsourced from this entry
+    if (ing?.name && ing?.supplier && ing?.price) {
+      await supabase.from("supplier_pricing")
+        .delete()
+        .eq("supplier_name", ing.supplier)
+        .eq("ingredient_name", ing.name)
+        .eq("case_price", ing.price);
+    }
     setIngredients((prev) => prev.filter((i) => i.id !== id));
     setConfirmDeleteId(null);
   };
@@ -1078,8 +1088,22 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
     if (!error) {
       // Crowdsource: anonymously write pricing data to supplier_pricing for swap recommendations
       // Only write items with a supplier name and valid case_size so unit_price auto-calculates
+      // Outlier protection: skip entries where unit price is more than 10x the median of existing prices for same ingredient
+      const isOutlierPrice = (name, casePrice, caseSize) => {
+        if (!caseSize || caseSize <= 0) return true;
+        const unitPrice = casePrice / caseSize;
+        const existing = ingredients
+          .filter(i => normalizeNameForGrouping(i.name) === normalizeNameForGrouping(name) && i.case_size > 0)
+          .map(i => i.price / i.case_size)
+          .filter(p => p > 0);
+        if (existing.length < 2) return false; // not enough data to detect outlier
+        const median = existing.sort((a, b) => a - b)[Math.floor(existing.length / 2)];
+        return unitPrice > median * 10 || unitPrice < median * 0.1; // flag if 10x above or below median
+      };
+
       const crowdsourceRows = items
         .filter(r => r.supplier && r.price && r.case_size && r.case_size > 0)
+        .filter(r => !isOutlierPrice(r.name, r.price, r.case_size)) // skip outlier prices
         .map(r => ({
           supplier_name: r.supplier,
           supplier_type: ["Sysco", "US Foods", "Performance Food Group", "Restaurant Depot", "PFG"].includes(r.supplier) ? "national" : "local",
