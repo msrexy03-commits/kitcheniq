@@ -3840,9 +3840,29 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
 function OnboardingWizard({ session, ingredients, setIngredients, menuItems, setMenuItems, onComplete, tier }) {
   const isTracker = tier === "tracker";
   const [step, setStep] = useState(0);
-  // steps: 0=welcome 1=scan1 2=scan2(optional) 3=dish 4=result
+  // steps: 0=welcome "profile"=profile setup 1=scan1 2=scan2(optional) 3=dish 4=result
   const [visible, setVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Profile step state
+  const [profileForm, setProfileForm] = useState({ restaurant_name: "", phone: "", state: "" });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState(null);
+
+  const saveProfile = async () => {
+    if (!profileForm.restaurant_name.trim()) return setProfileError("Please enter your restaurant name.");
+    if (!profileForm.phone.trim()) return setProfileError("Please enter your phone number.");
+    if (!profileForm.state) return setProfileError("Please select your state.");
+    setProfileSaving(true); setProfileError(null);
+    const { error } = await supabase.from("profiles").update({
+      restaurant_name: profileForm.restaurant_name.trim(),
+      phone: profileForm.phone.trim(),
+      state: profileForm.state,
+    }).eq("id", session.user.id);
+    setProfileSaving(false);
+    if (error) return setProfileError("Failed to save. Please try again.");
+    setStep(1);
+  };
 
   // Dish state
   const [dishName, setDishName] = useState("");
@@ -4046,11 +4066,83 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                 </>
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-                <button onClick={() => setStep(1)} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 10, padding: "16px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}55` }}>
-                  {isTracker ? "Let's Go — Scan My First Invoice →" : "Let's Go — Scan My First Invoice →"}
+                <button onClick={() => setStep("profile")} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 10, padding: "16px 48px", fontSize: 17, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 32px ${T.accent}55` }}>
+                  {isTracker ? "Let's Go →" : "Let's Go →"}
                 </button>
                 <button onClick={onComplete} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>
                   Skip setup — take me to the dashboard
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Profile Step ── */}
+          {step === "profile" && (
+            <div style={{ animation: "fadeIn 0.5s ease", maxWidth: 480, margin: "0 auto" }}>
+              <div style={{ textAlign: "center", marginBottom: 32 }}>
+                <div style={{ width: 64, height: 64, borderRadius: 16, background: T.accentDim, border: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, margin: "0 auto 20px" }}>🏪</div>
+                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.text, marginBottom: 8 }}>Tell us about your restaurant</div>
+                <div style={{ fontSize: 14, color: T.muted, fontFamily: T.body, lineHeight: 1.6 }}>
+                  This helps us find local supplier alternatives near you and lets us reach you if we spot something important.
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* Restaurant Name */}
+                <div>
+                  <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>Restaurant Name <span style={{ color: T.warn }}>*</span></div>
+                  <input
+                    value={profileForm.restaurant_name}
+                    onChange={e => setProfileForm(p => ({ ...p, restaurant_name: e.target.value }))}
+                    placeholder="e.g. Jake's Restaurant"
+                    style={{ width: "100%", background: T.faint, border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px", fontSize: 14, color: T.text, fontFamily: T.body, outline: "none", boxSizing: "border-box" }}
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>Mobile Number <span style={{ color: T.warn }}>*</span></div>
+                  <input
+                    value={profileForm.phone}
+                    onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))}
+                    placeholder="e.g. (860) 555-0123"
+                    type="tel"
+                    style={{ width: "100%", background: T.faint, border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px", fontSize: 14, color: T.text, fontFamily: T.body, outline: "none", boxSizing: "border-box" }}
+                  />
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Used to alert you about major price spikes when you're away from the app</div>
+                </div>
+
+                {/* State */}
+                <div>
+                  <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>State <span style={{ color: T.warn }}>*</span></div>
+                  <select
+                    value={profileForm.state}
+                    onChange={e => setProfileForm(p => ({ ...p, state: e.target.value }))}
+                    style={{ width: "100%", background: T.faint, border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px", fontSize: 14, color: profileForm.state ? T.text : T.muted, fontFamily: T.body, outline: "none", cursor: "pointer", boxSizing: "border-box" }}
+                  >
+                    <option value="">Select your state</option>
+                    {["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 6 }}>Used to find local supplier alternatives near you</div>
+                </div>
+
+                {profileError && (
+                  <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>
+                    {profileError}
+                  </div>
+                )}
+
+                <button
+                  onClick={saveProfile}
+                  disabled={profileSaving}
+                  style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "14px 24px", fontSize: 15, fontFamily: T.font, fontWeight: 700, cursor: profileSaving ? "not-allowed" : "pointer", opacity: profileSaving ? 0.7 : 1, marginTop: 4 }}>
+                  {profileSaving ? "Saving..." : "Continue — Scan My First Invoice →"}
+                </button>
+
+                <button onClick={() => setStep(1)} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", textAlign: "center" }}>
+                  Skip for now
                 </button>
               </div>
             </div>
