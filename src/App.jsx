@@ -339,7 +339,7 @@ const T = {
   bg: "#0a0d0a", card: "#131713", border: "#1e2b1f",
   accent: "#4eca6e", accentDim: "#4eca6e1a", accentMid: "#4eca6e50",
   warn: "#e8854a", warnDim: "#e8854a1a",
-  text: "#edf2ee", muted: "#7a957e", faint: "#1a231a",
+  text: "#edf2ee", muted: "#9ab89e", faint: "#1a231a",
   font: "'Outfit', sans-serif", body: "'Inter', sans-serif",
 };
 
@@ -3351,7 +3351,7 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
             <div style={{ maxWidth: isMobile ? "100%" : "48%" }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: isMobile ? 20 : 28 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.45, transition: "opacity 0.6s" }} />
-                <span className="landing-label" style={{ color: T.warn }}>For independent restaurants</span>
+                <span className="landing-label" style={{ color: T.warn }}>For independent restaurant owners</span>
               </div>
 
               <h1 className="landing-h1" style={{ marginBottom: 10 }}>Your supplier raised prices.</h1>
@@ -3452,7 +3452,7 @@ function LandingPage({ onSignUp, onLogin, onDemo }) {
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 28 : 64, alignItems: "center" }}>
             <div>
               <span className="landing-label" style={{ color: T.accent, display: "block", marginBottom: 12 }}>Works with every supplier</span>
-              <h2 className="landing-h2" style={{ marginBottom: 12 }}>Your diner doesn't use one supplier. Neither does KitchenIQ.</h2>
+              <h2 className="landing-h2" style={{ marginBottom: 12 }}>Your restaurant doesn't use one supplier. Neither does KitchenIQ.</h2>
               <p className="landing-body" style={{ fontSize: 14 }}>Most food cost tools are locked to a single distributor. KitchenIQ works with every invoice from every supplier — giving you the full picture, not half of it.</p>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
