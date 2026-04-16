@@ -238,14 +238,23 @@ function calcMenuStats(item, ingredients = []) {
 // strips brand names, trailing 's', collapses whitespace, lowercases
 // so "Hormel Bacon Layout Applewood" and "Bacon Layout Applewood Hormel" group together
 const BRAND_NAMES = ["hormel", "sysco", "tyson", "perdue", "foster farms", "pilgrims", "swift", "cargill", "kraft", "heinz", "hunts", "dole", "del monte", "land o lakes", "dean", "saputo", "prairie fresh"];
+const DESCRIPTOR_WORDS = [
+  "link", "links", "patty", "patties", "sliced", "slice", "fresh", "frozen",
+  "raw", "cooked", "smoked", "cured", "boneless", "skinless", "whole", "half",
+  "thick", "thin", "lean", "extra", "natural", "organic", "grade", "choice",
+  "select", "premium", "regular", "original", "classic", "style", "type",
+  "cut", "cuts", "pack", "package", "bag", "box", "can", "jar", "bottle",
+  "bulk", "retail", "foodservice", "portion", "portions", "serving", "servings"
+];
+
 function normalizeNameForGrouping(name) {
   let n = name.trim().toLowerCase().replace(/\s+/g, " ");
-  // Strip known brand names
   BRAND_NAMES.forEach(b => { n = n.replace(new RegExp(`\\b${b}\\b`, "g"), ""); });
+  DESCRIPTOR_WORDS.forEach(d => { n = n.replace(new RegExp(`\\b${d}\\b`, "g"), ""); });
   return n
-    .replace(/\s+/g, " ")           // collapse whitespace after brand removal
-    .replace(/(\w)s\b/g, "$1")      // strip trailing 's' (eggs→egg)
-    .replace(/[^a-z0-9 /]/g, "")   // strip special chars
+    .replace(/\s+/g, " ")
+    .replace(/(\w)s\b/g, "$1")
+    .replace(/[^a-z0-9 /]/g, "")
     .trim();
 }
 
@@ -643,6 +652,30 @@ For each line item extract:
 - supplier: vendor/company name from invoice header (or "Unknown")
 - date: invoice date YYYY-MM-DD format (use ${today()} if not visible)
 
+CRITICAL PARSING RULES — read these first:
+
+A. ONE LINE ITEM = ONE JSON OBJECT. This is absolute. Never combine two invoice lines into one object, never split one line into two objects.
+   - Each physical row on the invoice with its own Item# and its own price is a separate JSON object
+   - "Frill Picks" and "Paper Straws" are TWO separate items — never combine them
+   - Non-food supplies (picks, straws, cups, napkins, gloves, foil, wrap, bags) are REAL line items — include them as-is
+   - If you see two rows on the invoice, you must output two JSON objects, period
+
+B. CASE SIZE OCR — watch for spacing errors:
+   - "3 5LB" means 3 cases of 5LB each → case_size=15 (multiply: 3×5=15), NOT 35
+   - "2 10LB" means 2×10=20 lbs → case_size=20, NOT 210
+   - "4 5LB" means 4×5=20 lbs → case_size=20, NOT 45
+   - The pattern is always: [quantity] [weight]LB — multiply them together
+   - "3/5LB" also means 3×5=15 — the slash is the same as a space in Sysco format
+   - NEVER concatenate the two numbers — always multiply
+
+C. NON-FOOD SUPPLIES — name them plainly, don't invent ingredient names:
+   - "FRILL PICKS 4IN" → name: "Frill Picks 4 Inch"
+   - "PAPER STRAWS 7.75IN" → name: "Paper Straws"
+   - "BAMBOO PICKS" → name: "Bamboo Picks"
+   - "POLY GLOVES MEDIUM" → name: "Gloves Poly Medium"
+   - "ALUMINUM FOIL 18IN" → name: "Foil Aluminum 18 Inch"
+   - Use case_unit: "each" and case_size from the pack count
+
 NAME NORMALIZATION RULES — follow exactly:
 1. FORMAT: Always write names as "Base Ingredient + Descriptor(s)" in that order. The ingredient type comes first, specific descriptors follow.
    - "SLICED BACON 18/14-16CT" → "Bacon Sliced"
@@ -666,18 +699,15 @@ NAME NORMALIZATION RULES — follow exactly:
    - Always keep: fat ratios (80/20, 85/15 for ground beef)
    - NEVER drop a descriptor that would make two different products look the same
 
-4. NEVER merge two separate line items into one, and NEVER split one line item into two.
-   - "Sausage Sweet", "Sausage Hot", and "Sausage Patties" are THREE different items — keep them separate
-   - Each invoice line = exactly one JSON object
-
-5. Title Case all names. Never ALL CAPS.
+4. Title Case all names. Never ALL CAPS.
 
 Invoice layout hints:
 - Sysco/US Foods columns: Item# | Description | Pack/Size | QTY | Unit Price | Extended Price — always use Unit Price column, never Extended Price. Pack/Size column contains the case_size info.
 - For any invoice: find the per-unit cost, not the line total
+- Count the number of rows with item numbers — your output array must have exactly that many objects
 
 Example output:
-[{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Sweet Italian","price":38.00,"case_size":10,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Hot","price":36.50,"case_size":10,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Patties","price":32.00,"case_size":160,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Cheese Cheddar Jack Shredded","price":28.00,"case_size":4,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Eggs Large","price":3.20,"case_size":30,"case_unit":"each","unit":"each","supplier":"Local Farm","date":"${today()}"}]` }
+[{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Sweet Italian","price":38.00,"case_size":10,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Hot","price":36.50,"case_size":10,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Patties","price":32.00,"case_size":160,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Frill Picks 4 Inch","price":8.50,"case_size":1000,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Paper Straws","price":12.00,"case_size":500,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Cheese Cheddar Jack Shredded","price":28.00,"case_size":4,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Eggs Large","price":3.20,"case_size":30,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"}]` }
             ]
           }]
         })
