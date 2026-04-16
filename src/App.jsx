@@ -603,6 +603,72 @@ function AuthScreen({ onBack }) {
   );
 }
 
+// ─── Image Enhancement ────────────────────────────────────────────────────────
+// Converts invoice photo to grayscale, boosts contrast, and sharpens text
+// before sending to Claude — improves OCR accuracy significantly
+function enhanceInvoiceImage(base64) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Step 1 — Grayscale
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        data[i] = data[i + 1] = data[i + 2] = gray;
+      }
+
+      // Step 2 — Auto contrast: find min/max brightness and stretch range
+      let min = 255, max = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] < min) min = data[i];
+        if (data[i] > max) max = data[i];
+      }
+      const range = max - min || 1;
+      for (let i = 0; i < data.length; i += 4) {
+        const stretched = ((data[i] - min) / range) * 255;
+        data[i] = data[i + 1] = data[i + 2] = Math.min(255, Math.max(0, stretched));
+      }
+
+      // Step 3 — Sharpen using unsharp mask kernel
+      ctx.putImageData(imageData, 0, 0);
+      const sharpened = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const src = imageData.data;
+      const dst = sharpened.data;
+      const w = canvas.width;
+      const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
+      for (let y = 1; y < canvas.height - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          let val = 0;
+          for (let ky = -1; ky <= 1; ky++) {
+            for (let kx = -1; kx <= 1; kx++) {
+              const idx = ((y + ky) * w + (x + kx)) * 4;
+              val += src[idx] * kernel[(ky + 1) * 3 + (kx + 1)];
+            }
+          }
+          const idx = (y * w + x) * 4;
+          const clamped = Math.min(255, Math.max(0, val));
+          dst[idx] = dst[idx + 1] = dst[idx + 2] = clamped;
+          dst[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(sharpened, 0, 0);
+
+      // Return enhanced image as base64 JPEG
+      const enhanced = canvas.toDataURL("image/jpeg", 0.92).split(",")[1];
+      resolve(enhanced);
+    };
+    img.src = `data:image/jpeg;base64,${base64}`;
+  });
+}
+
 // ─── Invoice Scanner ──────────────────────────────────────────────────────────
 function InvoiceScanner({ onIngredientsFound, onClose }) {
   const [image, setImage] = useState(null);
@@ -624,6 +690,7 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
     if (!imageBase64) return;
     setScanning(true); setError(null);
     try {
+      const enhanced = await enhanceInvoiceImage(imageBase64);
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -638,7 +705,7 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
           messages: [{
             role: "user",
             content: [
-              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } },
+              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
               { type: "text", text: `You are a restaurant invoice parser. Analyze this supplier invoice image and extract every product line item.
 
 Return ONLY a raw JSON array. No markdown, no backticks, no explanation, no preamble.
@@ -1390,6 +1457,7 @@ function MenuScanner({ onMenuFound, onClose }) {
     if (!imageBase64) return;
     setScanning(true); setError(null);
     try {
+      const enhanced = await enhanceInvoiceImage(imageBase64);
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -1404,7 +1472,7 @@ function MenuScanner({ onMenuFound, onClose }) {
           messages: [{
             role: "user",
             content: [
-              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } },
+              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
               { type: "text", text: `You are reading a restaurant menu. Extract every menu item and its price.
 
 Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
@@ -3993,13 +4061,14 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
     if (!scanImageBase64) return;
     setScanning(true); setScanError(null);
     try {
+      const enhanced = await enhanceInvoiceImage(scanImageBase64);
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-opus-4-5", max_tokens: 2048,
           messages: [{ role: "user", content: [
-            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: scanImageBase64 } },
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
             { type: "text", text: `You are a restaurant food cost calculator. Extract only FOOD and BEVERAGE ingredients from this supplier invoice.
 
 STRICT RULES — skip these entirely, do not include them:
