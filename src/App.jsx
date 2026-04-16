@@ -644,70 +644,68 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
 Return ONLY a raw JSON array. No markdown, no backticks, no explanation, no preamble.
 
 For each line item extract:
-- name: See NAME NORMALIZATION RULES below. This is the most important field.
-- price: the UNIT price — cost per single unit, NOT the extended/total line price. If invoice shows QTY 4 x $12.50 = $50.00 then price is 12.50 not 50.00
-- case_size: the quantity inside one case/unit. Look for formats like "4/5LB" (case_size=20 total lbs), "2/10LB" (case_size=20), "24CT" (case_size=24), "12/1LB" (case_size=12). If sold by weight per lb, case_size is the number of lbs in the case. If sold each, case_size is the count per case. If not visible, set to null.
-- case_unit: the unit that case_size is measured in. Use: "lb", "oz", "each", "case", "pack", "bag". This is what ONE unit inside the case is measured in. Example: for "4/5LB bags of flour", case_unit is "lb" and case_size is 20.
-- unit: same as case_unit — the base unit for one item
-- supplier: vendor/company name from invoice header (or "Unknown")
-- date: invoice date YYYY-MM-DD format (use ${today()} if not visible)
+- name: See NAME NORMALIZATION RULES below
+- price: the UNIT price per case — see PRICE RULES below, this is the most error-prone field
+- case_size: the quantity inside one case/unit. Look for formats like "4/5LB" (case_size=20), "2/10LB" (case_size=20), "24CT" (case_size=24), "12/1LB" (case_size=12). Multiply the two numbers — never concatenate.
+- case_unit: "lb", "oz", "each", "case", "pack", or "bag"
+- unit: same as case_unit
+- supplier: vendor name from invoice header (or "Unknown")
+- date: invoice date YYYY-MM-DD (use ${today()} if not visible)
 
-CRITICAL PARSING RULES — read these first:
+PRICE RULES — read every word of this:
 
-A. ONE LINE ITEM = ONE JSON OBJECT. This is absolute. Never combine two invoice lines into one object, never split one line into two objects.
-   - Each physical row on the invoice with its own Item# and its own price is a separate JSON object
-   - "Frill Picks" and "Paper Straws" are TWO separate items — never combine them
-   - Non-food supplies (picks, straws, cups, napkins, gloves, foil, wrap, bags) are REAL line items — include them as-is
-   - If you see two rows on the invoice, you must output two JSON objects, period
+Sysco and US Foods invoices have these columns in this exact order:
+Item# | Description | Pack/Size | QTY Ordered | QTY Shipped | UNIT PRICE | EXTENDED PRICE
 
-B. CASE SIZE OCR — watch for spacing errors:
-   - "3 5LB" means 3 cases of 5LB each → case_size=15 (multiply: 3×5=15), NOT 35
-   - "2 10LB" means 2×10=20 lbs → case_size=20, NOT 210
-   - "4 5LB" means 4×5=20 lbs → case_size=20, NOT 45
-   - The pattern is always: [quantity] [weight]LB — multiply them together
-   - "3/5LB" also means 3×5=15 — the slash is the same as a space in Sysco format
-   - NEVER concatenate the two numbers — always multiply
+UNIT PRICE = the price for ONE case. This is what you want.
+EXTENDED PRICE = UNIT PRICE × QTY. This is what you NEVER want.
 
-C. NON-FOOD SUPPLIES — name them plainly, don't invent ingredient names:
-   - "FRILL PICKS 4IN" → name: "Frill Picks 4 Inch"
-   - "PAPER STRAWS 7.75IN" → name: "Paper Straws"
-   - "BAMBOO PICKS" → name: "Bamboo Picks"
-   - "POLY GLOVES MEDIUM" → name: "Gloves Poly Medium"
-   - "ALUMINUM FOIL 18IN" → name: "Foil Aluminum 18 Inch"
-   - Use case_unit: "each" and case_size from the pack count
+The UNIT PRICE column comes BEFORE the EXTENDED PRICE column. It is always the smaller number.
+The EXTENDED PRICE is always larger because it multiplies by quantity.
+
+CRITICAL — PRICE BELONGS TO ITS OWN ROW ONLY:
+- Each row's price must come from that exact row — never borrow a price from an adjacent row
+- Process each row completely and independently before moving to the next
+- If you see two items stacked close together, each has its own unit price — do not swap them
+- Work left to right on each row: find the Item#, then Description, then Pack/Size, then skip QTY columns, then take the UNIT PRICE (first price column), ignore EXTENDED PRICE (last price column)
+
+SANITY CHECK — before finalizing each item ask yourself:
+- Is this price reasonable for this ingredient? Creamer should not cost $80. Cheese should not cost $4.
+- Is this price smaller than the adjacent price in the same row? If yes it is probably the unit price. If no, double check.
+- Would this price multiplied by the QTY equal the extended price shown? If yes you have the right number.
+
+CASE SIZE OCR — watch for spacing errors:
+- "3 5LB" means 3×5=15 lbs → case_size=15, NOT 35
+- "2 10LB" means 2×10=20 lbs → case_size=20, NOT 210
+- "3/5LB" means 3×5=15 — slash equals multiplication
+- NEVER concatenate — always multiply
+
+CRITICAL PARSING RULES:
+
+A. ONE LINE ITEM = ONE JSON OBJECT. Each physical row with its own Item# is a separate object. Never combine rows, never split a row.
+
+B. NON-FOOD SUPPLIES — include as-is with case_unit "each"
 
 NAME NORMALIZATION RULES — follow exactly:
-1. FORMAT: Always write names as "Base Ingredient + Descriptor(s)" in that order. The ingredient type comes first, specific descriptors follow.
+1. FORMAT: "Base Ingredient + Descriptor(s)" — ingredient type first, descriptors after
    - "SLICED BACON 18/14-16CT" → "Bacon Sliced"
-   - "SWEET ITALIAN SAUSAGE LINKS" → "Sausage Sweet Italian"
-   - "HOT SAUSAGE LINKS PORK" → "Sausage Hot"
-   - "SAUSAGE PATTIES 2OZ" → "Sausage Patties"
+   - "SWEET ITALIAN SAUSAGE LINKS" → "Sausage Italian Sweet"
    - "SHREDDED CHEDDAR JACK CHEESE" → "Cheese Cheddar Jack Shredded"
    - "GROUND BEEF 80/20" → "Beef Ground 80/20"
+   - "HALF AND HALF CREAMER" → "Creamer Half And Half"
    - "CHICKEN BREAST BNLS SKNLS FZN" → "Chicken Breast Boneless"
 
-2. STRIP completely — never include in name:
-   - Brand names (e.g. "Hormel", "Tyson", "Perdue", "Kraft", "Foster Farms", "Prairie Fresh", "Swift", "Pilgrim's") — these are manufacturer brands, not ingredient descriptors
-   - Supplier item codes, SKUs, or number strings (e.g. "SYS", "CASAIMP", "10432")
-   - Pack/size specs that are already captured in case_size (e.g. "18/14-16CT", "4/5LB", "24CT")
-   - Cooking state abbreviations when obvious (FZN=Frozen, BNLS=Boneless, SKNLS=Skinless) — spell out or omit
-   - The word "PORK", "BEEF", "CHICKEN" only when it's already the base ingredient name
+2. STRIP: brand names, SKUs, item codes, pack/size specs already in case_size
 
-3. KEEP descriptors that distinguish one product from another:
-   - Always keep: Sweet, Hot, Mild, Spicy, Italian, Smoked, Fresh, Ground, Sliced, Shredded, Whole, Diced, Patties, Links, Strips
-   - Always keep: size grades (Large, Extra Large, Jumbo for eggs)
-   - Always keep: fat ratios (80/20, 85/15 for ground beef)
-   - NEVER drop a descriptor that would make two different products look the same
+3. KEEP: flavor/style descriptors (Sweet, Hot, Italian, Smoked), size grades (Large, Jumbo), fat ratios (80/20)
 
-4. Title Case all names. Never ALL CAPS.
+4. Title Case always. Never ALL CAPS.
 
-Invoice layout hints:
-- Sysco/US Foods columns: Item# | Description | Pack/Size | QTY | Unit Price | Extended Price — always use Unit Price column, never Extended Price. Pack/Size column contains the case_size info.
-- For any invoice: find the per-unit cost, not the line total
-- Count the number of rows with item numbers — your output array must have exactly that many objects
+Invoice layout: Sysco/US Foods → Item# | Description | Pack/Size | QTY | Unit Price | Extended Price
+Count rows with item numbers — output array must have exactly that many objects.
 
 Example output:
-[{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Sweet Italian","price":38.00,"case_size":10,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Hot","price":36.50,"case_size":10,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Sausage Patties","price":32.00,"case_size":160,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Frill Picks 4 Inch","price":8.50,"case_size":1000,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Paper Straws","price":12.00,"case_size":500,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Cheese Cheddar Jack Shredded","price":28.00,"case_size":4,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Eggs Large","price":3.20,"case_size":30,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"}]` }
+[{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Creamer Half And Half","price":18.00,"case_size":24,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Cheese Cheddar Shredded","price":28.00,"case_size":4,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Eggs Large","price":52.00,"case_size":180,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"}]` }
             ]
           }]
         })
@@ -3948,9 +3946,14 @@ STRICT RULES — skip these entirely, do not include them:
 
 Only include: meats, seafood, produce, dairy, eggs, bread/bakery, dry goods, oils, sauces, beverages, and other actual food ingredients.
 
-Return ONLY a raw JSON array. For each food item: name (noun-first format, no SKUs), price (unit price NOT extended total), case_size, case_unit (lb/oz/each/pack/bag), unit (same as case_unit), supplier (from header), date (YYYY-MM-DD, use ${today()} if missing).
+Sysco/US Foods column order: Item# | Description | Pack/Size | QTY | UNIT PRICE | EXTENDED PRICE
+UNIT PRICE = price for one case (what you want). EXTENDED PRICE = unit price × qty (never use this).
+Unit price is always smaller and comes before extended price. Process each row independently — never borrow a price from an adjacent row.
+Case size: "4/5LB" = 4×5=20, "2/10LB" = 2×10=20 — always multiply, never concatenate.
 
-Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"}]` }
+Return ONLY a raw JSON array. For each food item: name (noun-first, no SKUs), price (unit price NOT extended total), case_size, case_unit (lb/oz/each/pack/bag), unit (same as case_unit), supplier (from header), date (YYYY-MM-DD, use ${today()} if missing).
+
+Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Creamer Half And Half","price":18.00,"case_size":24,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"}]` }
           ]}]
         })
       });
