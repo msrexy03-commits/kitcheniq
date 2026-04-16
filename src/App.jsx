@@ -728,6 +728,54 @@ Example output:
     setResults(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
   };
 
+  const flagSuspiciousItems = (items) => {
+    if (!items || items.length === 0) return [];
+    const prices = items.map(r => Number(r.price)).filter(p => p > 0);
+    const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+    const maxPrice = Math.max(...prices);
+
+    return items.map((r, i) => {
+      const price = Number(r.price);
+      const flags = [];
+
+      // Flag if price is more than 4x the average — likely an extended price
+      if (price > avgPrice * 4 && items.length > 2) {
+        flags.push("Price seems too high — may be extended total, not unit price");
+      }
+
+      // Flag if price looks like it could be qty × another item's price
+      const otherPrices = prices.filter((_, j) => j !== i);
+      const couldBeExtended = otherPrices.some(p => {
+        for (let qty = 2; qty <= 10; qty++) {
+          if (Math.abs(price - p * qty) < 0.5) return true;
+        }
+        return false;
+      });
+      if (couldBeExtended && price > avgPrice * 1.5) {
+        flags.push("Might be qty × unit price — double check this one");
+      }
+
+      // Flag suspiciously low prices for meat/dairy
+      const name = (r.name || "").toLowerCase();
+      if ((name.includes("beef") || name.includes("chicken") || name.includes("pork") || name.includes("bacon") || name.includes("steak")) && price < 5) {
+        flags.push("Price seems very low for a meat item — check case price vs unit price");
+      }
+      if ((name.includes("cheese") || name.includes("cream") || name.includes("butter")) && price < 3) {
+        flags.push("Price seems very low for a dairy item — verify");
+      }
+
+      // Flag missing case size
+      if (!r.case_size || Number(r.case_size) === 0) {
+        flags.push("Missing case size — unit cost can't be calculated");
+      }
+
+      return { ...r, _flags: flags };
+    });
+  };
+
+  const flaggedResults = results ? flagSuspiciousItems(results) : null;
+  const flagCount = flaggedResults ? flaggedResults.filter(r => r._flags && r._flags.length > 0).length : 0;
+
   const confirmImport = () => {
     onIngredientsFound(results.map((r) => ({ ...r, price: Number(r.price), case_size: r.case_size ? Number(r.case_size) : null })));
     onClose();
@@ -760,27 +808,45 @@ Example output:
         {results && (
           <div>
             <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 6 }}>✓ Found {results.length} items — review and edit below</div>
-            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>Units normalized for recipe use (eggs = each egg, lbs → oz). Tap any field to correct.</div>
+            {flagCount > 0 && (
+              <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>⚠</span>
+                <span style={{ fontSize: 12, color: T.warn, fontFamily: T.body }}>
+                  <strong>{flagCount} item{flagCount > 1 ? "s" : ""} flagged for review</strong> — check highlighted items before importing
+                </span>
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>Units normalized for recipe use. Tap any field to correct.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
-              {results.map((r, i) => (
-                <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "12px 14px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 70px", gap: 6 }}>
-                    <input value={r.name} onChange={(e) => updateResult(i, "name", e.target.value)}
-                      style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
-                    <input value={r.price} onChange={(e) => updateResult(i, "price", e.target.value)} placeholder="Price"
-                      style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.accent, fontSize: 12, fontFamily: T.body, outline: "none" }} />
-                    <input value={r.case_size || ""} onChange={(e) => updateResult(i, "case_size", e.target.value)} placeholder="Size"
-                      style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
-                    <select value={r.case_unit || "oz"} onChange={(e) => updateResult(i, "case_unit", e.target.value)}
-                      style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }}>
-                      {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                    </select>
+              {(flaggedResults || results).map((r, i) => {
+                const hasFlags = r._flags && r._flags.length > 0;
+                return (
+                  <div key={i} style={{ background: hasFlags ? T.warnDim : T.faint, border: `1px solid ${hasFlags ? T.warn + "66" : "transparent"}`, borderRadius: 8, padding: "12px 14px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 70px", gap: 6 }}>
+                      <input value={r.name} onChange={(e) => updateResult(i, "name", e.target.value)}
+                        style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
+                      <input value={r.price} onChange={(e) => updateResult(i, "price", e.target.value)} placeholder="Price"
+                        style={{ background: T.card, border: `1px solid ${hasFlags ? T.warn + "88" : T.border}`, borderRadius: 5, padding: "6px 10px", color: hasFlags ? T.warn : T.accent, fontSize: 12, fontFamily: T.body, outline: "none", fontWeight: hasFlags ? 700 : 400 }} />
+                      <input value={r.case_size || ""} onChange={(e) => updateResult(i, "case_size", e.target.value)} placeholder="Size"
+                        style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
+                      <select value={r.case_unit || "oz"} onChange={(e) => updateResult(i, "case_unit", e.target.value)}
+                        style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }}>
+                        {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                      </select>
+                    </div>
+                    {hasFlags && r._flags.map((flag, fi) => (
+                      <div key={fi} style={{ fontSize: 10, color: T.warn, fontFamily: T.body, marginTop: 5, display: "flex", alignItems: "center", gap: 4 }}>
+                        ⚠ {flag}
+                      </div>
+                    ))}
+                    {!hasFlags && (
+                      <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body, marginTop: 5 }}>
+                        {r.case_size ? `Unit cost: $${(r.price / r.case_size).toFixed(4)} per ${r.case_unit}` : "⚠ Add case size to auto-calculate unit cost"}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body, marginTop: 5 }}>
-                    {r.case_size ? `Unit cost: $${(r.price / r.case_size).toFixed(4)} per ${r.case_unit}` : "⚠ Add case size to auto-calculate unit cost"}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 8 }}>Columns: Name · Case Price · Case Size · Unit</div>
           </div>
