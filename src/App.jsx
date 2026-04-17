@@ -970,7 +970,7 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                   <div style={{ marginBottom: 8 }}>
                     <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 5 }}>
                       Current price: <strong style={{ color: T.warn }}>${Number(r.price).toFixed(2)}</strong>
-                      {r._col5 && r._col6 && <span> · col5: ${r._col5?.toFixed(2)} · col6: ${r._col6?.toFixed(2)}</span>}
+                      {r._col5 && r._col6 && <span style={{ color: T.muted }}> · suggested corrections based on invoice row</span>}
                       {" "}— tap to correct:
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -995,15 +995,26 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                     <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Case size:</div>
                     <input value={r.case_size || ""} onChange={(e) => updateResult(r._id, "case_size", e.target.value)} placeholder="e.g. 15"
-                      style={{ width: 70, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
-                    <div style={{ display: "flex", gap: 4 }}>
-                      {["lb", "oz", "each", "gallon"].map(u => (
-                        <button key={u} onClick={() => updateResult(r._id, "case_unit", u)}
-                          style={{ background: r.case_unit === u ? T.accent : T.faint, border: `1px solid ${r.case_unit === u ? T.accent : T.border}`, borderRadius: 5, padding: "4px 8px", fontSize: 11, color: r.case_unit === u ? "#0f1410" : T.muted, fontFamily: T.body, cursor: "pointer", fontWeight: r.case_unit === u ? 700 : 400 }}>
-                          {u}
-                        </button>
-                      ))}
-                    </div>
+                      style={{ width: 64, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
+                    {/* Common case size presets based on unit */}
+                    {(r.case_unit === "lb" ? [10, 15, 20, 25, 30] :
+                      r.case_unit === "oz" ? [16, 32, 64, 128] :
+                      r.case_unit === "each" ? [12, 24, 36, 48, 180] :
+                      []).map(preset => (
+                      <button key={preset} onClick={() => updateResult(r._id, "case_size", String(preset))}
+                        style={{ background: Number(r.case_size) === preset ? T.accent : T.faint, border: `1px solid ${Number(r.case_size) === preset ? T.accent : T.border}`, borderRadius: 5, padding: "4px 8px", fontSize: 11, color: Number(r.case_size) === preset ? "#0f1410" : T.muted, fontFamily: T.body, cursor: "pointer" }}>
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginRight: 2 }}>Unit:</div>
+                    {["lb", "oz", "each", "gallon"].map(u => (
+                      <button key={u} onClick={() => updateResult(r._id, "case_unit", u)}
+                        style={{ background: r.case_unit === u ? T.accent : T.faint, border: `1px solid ${r.case_unit === u ? T.accent : T.border}`, borderRadius: 5, padding: "4px 8px", fontSize: 11, color: r.case_unit === u ? "#0f1410" : T.muted, fontFamily: T.body, cursor: "pointer", fontWeight: r.case_unit === u ? 700 : 400 }}>
+                        {u}
+                      </button>
+                    ))}
                   </div>
                 </div>
               );
