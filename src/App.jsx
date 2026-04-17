@@ -691,14 +691,18 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
     setScanning(true); setError(null);
     try {
       const enhanced = await enhanceInvoiceImage(imageBase64);
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const apiHeaders = {
+        "Content-Type": "application/json",
+        "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      };
+
+      // ── PASS 1: Raw reading — Claude only looks at the image and reads what it sees ──
+      // No interpretation, no normalization, no JSON. Just a plain text table of raw values.
+      const pass1 = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
+        headers: apiHeaders,
         body: JSON.stringify({
           model: "claude-opus-4-5",
           max_tokens: 2048,
@@ -706,82 +710,90 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
             role: "user",
             content: [
               { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
-              { type: "text", text: `You are a restaurant invoice parser. Analyze this supplier invoice image and extract every product line item.
+              { type: "text", text: `You are an invoice OCR reader. Your ONLY job is to read this invoice image and output a plain text table of exactly what you see. Do not interpret, normalize, calculate, or guess anything.
 
-Return ONLY a raw JSON array. No markdown, no backticks, no explanation, no preamble.
+For every product line item on this invoice output one row with these pipe-separated columns:
+ROW_NUM | ITEM_NUM | DESCRIPTION_RAW | PACK_SIZE_RAW | QTY_ORDERED | QTY_SHIPPED | COL5_VALUE | COL6_VALUE | SUPPLIER_NAME | INVOICE_DATE
 
-For each line item extract:
-- name: See NAME NORMALIZATION RULES below
-- price: the UNIT price per case — see PRICE RULES below, this is the most error-prone field
-- case_size: the quantity inside one case/unit. Look for formats like "4/5LB" (case_size=20), "2/10LB" (case_size=20), "24CT" (case_size=24), "12/1LB" (case_size=12). Multiply the two numbers — never concatenate.
-- case_unit: "lb", "oz", "each", "case", "pack", or "bag"
-- unit: same as case_unit
-- supplier: vendor name from invoice header (or "Unknown")
-- date: invoice date YYYY-MM-DD (use ${today()} if not visible)
+Rules:
+- DESCRIPTION_RAW: copy the description text exactly as printed, ALL CAPS included, no changes
+- PACK_SIZE_RAW: copy the pack/size field exactly as printed (e.g. "4/5LB", "2/10LB", "24CT", "3 5LB")
+- COL5_VALUE: copy the value in the 5th numeric column exactly as printed (this is usually unit price)
+- COL6_VALUE: copy the value in the 6th numeric column exactly as printed (this is usually extended price)
+- QTY_ORDERED and QTY_SHIPPED: copy exactly as printed, use 0 if not visible
+- SUPPLIER_NAME: from the invoice header
+- INVOICE_DATE: from the invoice header, YYYY-MM-DD format
+- If a field is not visible write NULL
+- Do not skip any rows that have an item number
+- Do not add any explanation before or after the table
+- First line must be the header row exactly as shown above
 
-PRICE RULES — read every word of this:
-
-Sysco and US Foods invoices have these columns in this exact order:
-Item# | Description | Pack/Size | QTY Ordered | QTY Shipped | UNIT PRICE | EXTENDED PRICE
-
-UNIT PRICE = the price for ONE case. This is what you want.
-EXTENDED PRICE = UNIT PRICE × QTY. This is what you NEVER want.
-
-The UNIT PRICE column comes BEFORE the EXTENDED PRICE column. It is always the smaller number.
-The EXTENDED PRICE is always larger because it multiplies by quantity.
-
-CRITICAL — PRICE BELONGS TO ITS OWN ROW ONLY:
-- Each row's price must come from that exact row — never borrow a price from an adjacent row
-- Process each row completely and independently before moving to the next
-- If you see two items stacked close together, each has its own unit price — do not swap them
-- Work left to right on each row: find the Item#, then Description, then Pack/Size, then skip QTY columns, then take the UNIT PRICE (first price column), ignore EXTENDED PRICE (last price column)
-
-SANITY CHECK — before finalizing each item ask yourself:
-- Is this price reasonable for this ingredient? Creamer should not cost $80. Cheese should not cost $4.
-- Is this price smaller than the adjacent price in the same row? If yes it is probably the unit price. If no, double check.
-- Would this price multiplied by the QTY equal the extended price shown? If yes you have the right number.
-
-CASE SIZE OCR — watch for spacing errors:
-- "3 5LB" means 3×5=15 lbs → case_size=15, NOT 35
-- "2 10LB" means 2×10=20 lbs → case_size=20, NOT 210
-- "3/5LB" means 3×5=15 — slash equals multiplication
-- NEVER concatenate — always multiply
-
-CRITICAL PARSING RULES:
-
-A. ONE LINE ITEM = ONE JSON OBJECT. Each physical row with its own Item# is a separate object. Never combine rows, never split a row.
-
-B. NON-FOOD SUPPLIES — include as-is with case_unit "each"
-
-NAME NORMALIZATION RULES — follow exactly:
-1. FORMAT: "Base Ingredient + Descriptor(s)" — ingredient type first, descriptors after
-   - "SLICED BACON 18/14-16CT" → "Bacon Sliced"
-   - "SWEET ITALIAN SAUSAGE LINKS" → "Sausage Italian Sweet"
-   - "SHREDDED CHEDDAR JACK CHEESE" → "Cheese Cheddar Jack Shredded"
-   - "GROUND BEEF 80/20" → "Beef Ground 80/20"
-   - "HALF AND HALF CREAMER" → "Creamer Half And Half"
-   - "CHICKEN BREAST BNLS SKNLS FZN" → "Chicken Breast Boneless"
-
-2. STRIP: brand names, SKUs, item codes, pack/size specs already in case_size
-
-3. KEEP: flavor/style descriptors (Sweet, Hot, Italian, Smoked), size grades (Large, Jumbo), fat ratios (80/20)
-
-4. Title Case always. Never ALL CAPS.
-
-Invoice layout: Sysco/US Foods → Item# | Description | Pack/Size | QTY | Unit Price | Extended Price
-Count rows with item numbers — output array must have exactly that many objects.
-
-Example output:
-[{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Creamer Half And Half","price":18.00,"case_size":24,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"},{"name":"Cheese Cheddar Shredded","price":28.00,"case_size":4,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Eggs Large","price":52.00,"case_size":180,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"}]` }
+Output ONLY the pipe-separated table. Nothing else.` }
             ]
           }]
         })
       });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      let text = data.content[0].text.trim();
-      // Strip markdown code fences if model accidentally includes them
-      text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const pass1Data = await pass1.json();
+      if (pass1Data.error) throw new Error(pass1Data.error.message);
+      const rawTable = pass1Data.content[0].text.trim();
+      if (!rawTable || rawTable.split("\n").length < 2) throw new Error("Could not read invoice rows");
+
+      // ── PASS 2: Interpretation — Claude receives the text table only, no image ──
+      // Applies naming, case size math, unit assignment, price selection, sanity checks.
+      const pass2 = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: apiHeaders,
+        body: JSON.stringify({
+          model: "claude-opus-4-5",
+          max_tokens: 2048,
+          messages: [{
+            role: "user",
+            content: [{ type: "text", text: `You are a restaurant food cost data processor. I will give you a raw pipe-separated table extracted from a supplier invoice. Your job is to convert it to clean structured JSON.
+
+RAW TABLE:
+${rawTable}
+
+Column meanings:
+- COL5_VALUE = UNIT PRICE (price for ONE case — what you want)
+- COL6_VALUE = EXTENDED PRICE (unit price × qty — never use this)
+- UNIT PRICE is always the smaller of the two price columns
+- EXTENDED PRICE = UNIT PRICE × QTY_SHIPPED — you can verify this
+
+PRICE RULE: Always use COL5_VALUE as the price. If COL5_VALUE × QTY_SHIPPED ≈ COL6_VALUE, you have confirmed COL5 is unit price. If COL5_VALUE × QTY_SHIPPED does NOT equal COL6_VALUE but COL6_VALUE ÷ QTY_SHIPPED ≈ COL5_VALUE, then use that result as the price. The smaller number is always the unit price.
+
+CASE SIZE RULES:
+- "4/5LB" → case_size=20, case_unit="lb" (multiply: 4×5)
+- "2/10LB" → case_size=20, case_unit="lb"
+- "24CT" → case_size=24, case_unit="each"
+- "3 5LB" → case_size=15, case_unit="lb" (space = multiply)
+- "12/1LB" → case_size=12, case_unit="lb"
+- Always multiply — never concatenate numbers
+
+NAME NORMALIZATION:
+- Format: "Base Ingredient + Descriptors" (ingredient type first)
+- "SLICED BACON 18/14-16CT" → "Bacon Sliced"
+- "SWEET ITALIAN SAUSAGE LINKS" → "Sausage Italian Sweet"
+- "HALF AND HALF CREAMER" → "Creamer Half And Half"
+- "SHREDDED CHEDDAR JACK CHEESE" → "Cheese Cheddar Jack Shredded"
+- "GROUND BEEF 80/20" → "Beef Ground 80/20"
+- "CHICKEN BREAST BNLS SKNLS FZN" → "Chicken Breast Boneless"
+- Strip: brand names (Hormel, Tyson, Perdue, Kraft, Sysco, Swift, Pilgrim's), SKUs, item codes
+- Strip: pack/size specs already captured in case_size
+- Keep: flavor (Sweet, Hot, Italian, Smoked), size grades (Large, Jumbo), fat ratios (80/20)
+- Title Case always
+
+Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
+Each object: { name, price, case_size, case_unit, unit, supplier, date }
+- unit = same as case_unit
+- date = YYYY-MM-DD from table, or ${today()} if NULL
+
+Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"}]` }]
+          }]
+        })
+      });
+      const pass2Data = await pass2.json();
+      if (pass2Data.error) throw new Error(pass2Data.error.message);
+      let text = pass2Data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No items found");
       setResults(parsed.map(r => normalizeIngredient(r)));
@@ -922,7 +934,7 @@ Example output:
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           {!results
-            ? <Btn onClick={scan} disabled={!imageBase64 || scanning} variant="ai">{scanning ? "⏳ Scanning..." : "🔍 Scan Invoice"}</Btn>
+            ? <Btn onClick={scan} disabled={!imageBase64 || scanning} variant="ai">{scanning ? "⏳ Reading invoice..." : "🔍 Scan Invoice"}</Btn>
             : <>
                 <Btn variant="ghost" onClick={() => { setResults(null); setImage(null); setImageBase64(null); }}>Rescan</Btn>
                 <Btn onClick={confirmImport}>✓ Import {results.length} Items</Btn>
@@ -4062,39 +4074,56 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
     setScanning(true); setScanError(null);
     try {
       const enhanced = await enhanceInvoiceImage(scanImageBase64);
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      const apiHeaders = { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
+
+      // Pass 1 — Raw reading only
+      const pass1 = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: apiHeaders,
         body: JSON.stringify({
           model: "claude-opus-4-5", max_tokens: 2048,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
-            { type: "text", text: `You are a restaurant food cost calculator. Extract only FOOD and BEVERAGE ingredients from this supplier invoice.
+            { type: "text", text: `You are an invoice OCR reader. Read this invoice image and output a plain text pipe-separated table of exactly what you see. Do not interpret, normalize, or calculate anything.
 
-STRICT RULES — skip these entirely, do not include them:
-- Fuel surcharges, delivery fees, service charges, environmental fees
-- Cleaning supplies (soap, bleach, sanitizer, disinfectant)  
-- Paper products (napkins, towels, bags, boxes, containers)
-- Janitorial supplies (mops, brooms, dispensers, gloves)
-- Any non-food, non-beverage item
-- Line items with $0 price or that are clearly fees/adjustments
+Output one row per product line item with these columns:
+ROW_NUM | ITEM_NUM | DESCRIPTION_RAW | PACK_SIZE_RAW | QTY_ORDERED | QTY_SHIPPED | COL5_VALUE | COL6_VALUE | SUPPLIER_NAME | INVOICE_DATE
 
-Only include: meats, seafood, produce, dairy, eggs, bread/bakery, dry goods, oils, sauces, beverages, and other actual food ingredients.
-
-Sysco/US Foods column order: Item# | Description | Pack/Size | QTY | UNIT PRICE | EXTENDED PRICE
-UNIT PRICE = price for one case (what you want). EXTENDED PRICE = unit price × qty (never use this).
-Unit price is always smaller and comes before extended price. Process each row independently — never borrow a price from an adjacent row.
-Case size: "4/5LB" = 4×5=20, "2/10LB" = 2×10=20 — always multiply, never concatenate.
-
-Return ONLY a raw JSON array. For each food item: name (noun-first, no SKUs), price (unit price NOT extended total), case_size, case_unit (lb/oz/each/pack/bag), unit (same as case_unit), supplier (from header), date (YYYY-MM-DD, use ${today()} if missing).
-
-Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"},{"name":"Creamer Half And Half","price":18.00,"case_size":24,"case_unit":"each","unit":"each","supplier":"Sysco","date":"${today()}"}]` }
+- Copy all text exactly as printed, ALL CAPS included
+- COL5_VALUE and COL6_VALUE: copy the two rightmost numeric columns exactly
+- Write NULL for any field not visible
+- First line must be the header row
+- Output ONLY the table, nothing else` }
           ]}]
         })
       });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      let text = data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const pass1Data = await pass1.json();
+      if (pass1Data.error) throw new Error(pass1Data.error.message);
+      const rawTable = pass1Data.content[0].text.trim();
+      if (!rawTable || rawTable.split("\n").length < 2) throw new Error("No invoice rows found");
+
+      // Pass 2 — Interpretation only (food items only for onboarding)
+      const pass2 = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: apiHeaders,
+        body: JSON.stringify({
+          model: "claude-opus-4-5", max_tokens: 2048,
+          messages: [{ role: "user", content: [{ type: "text", text: `You are a restaurant food cost processor. Convert this raw invoice table to clean JSON. Include ONLY food and beverage items — skip fees, cleaning supplies, paper products, and non-food items.
+
+RAW TABLE:
+${rawTable}
+
+PRICE RULE: COL5_VALUE = UNIT PRICE (use this). COL6_VALUE = EXTENDED PRICE (never use). Unit price is always the smaller number. Verify: COL5 × QTY_SHIPPED ≈ COL6.
+
+CASE SIZE: "4/5LB"→20lb, "2/10LB"→20lb, "24CT"→24each, "3 5LB"→15lb. Always multiply.
+
+NAME FORMAT: "Base Ingredient + Descriptors" in Title Case. Strip brands (Hormel, Tyson, Sysco, etc), SKUs, size specs. Keep flavor/grade descriptors.
+
+Return ONLY a raw JSON array: [{name, price, case_size, case_unit, unit, supplier, date}]
+Date format YYYY-MM-DD, use ${today()} if NULL.` }] }]
+        })
+      });
+      const pass2Data = await pass2.json();
+      if (pass2Data.error) throw new Error(pass2Data.error.message);
+      let text = pass2Data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No food items found");
       setScanResults(parsed.map(r => normalizeIngredient(r)));
