@@ -740,7 +740,7 @@ function enhanceInvoiceImage(base64) {
 }
 
 // ─── Invoice Scanner ──────────────────────────────────────────────────────────
-function InvoiceScanner({ onIngredientsFound, onClose, userId, onAliasSaved }) {
+function InvoiceScanner({ onIngredientsFound, onClose, userId, onAliasSaved, ingredientProfiles = [] }) {
   const [image, setImage] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
   const [scanning, setScanning] = useState(false);
@@ -906,19 +906,35 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
     if (!items || items.length === 0) return [];
     const prices = items.map(r => Number(r.price)).filter(p => p > 0);
     const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-    const maxPrice = Math.max(...prices);
 
-    return items.map((r, i) => {
+    return items.map((r) => {
       const price = Number(r.price);
       const flags = [];
 
-      // Flag if price is more than 4x the average — likely an extended price
+      // Check profile memory first — if this is a known item with expected price, auto-confirm
+      const profile = ingredientProfiles.find(p =>
+        tokenSimilarity(normalizeNameForGrouping(p.canonical_name), normalizeNameForGrouping(r.name)) >= 0.8
+      );
+
+      if (profile && profile.scan_count >= 2) {
+        // Known item — check if price is within 50% of historical average
+        const avgKnown = Number(profile.avg_price);
+        const priceDeviation = avgKnown > 0 ? Math.abs(price - avgKnown) / avgKnown : 1;
+        if (priceDeviation <= 0.5) {
+          // Price looks normal for this known item — no flags, mark as profile-confirmed
+          return { ...r, _flags: [], _profileConfirmed: true, _profileName: profile.canonical_name };
+        } else {
+          // Known item but price is way off — flag it
+          flags.push(`Price differs significantly from usual $${avgKnown.toFixed(2)} — verify this is correct`);
+          return { ...r, _flags: flags, _profileConfirmed: false };
+        }
+      }
+
+      // New item — run standard flag detection
       if (price > avgPrice * 4 && items.length > 2) {
         flags.push("Price seems too high — may be extended total, not unit price");
       }
-
-      // Flag if price looks like it could be qty × another item's price
-      const otherPrices = prices.filter((_, j) => j !== i);
+      const otherPrices = prices.filter(p => Math.abs(p - price) > 0.01);
       const couldBeExtended = otherPrices.some(p => {
         for (let qty = 2; qty <= 10; qty++) {
           if (Math.abs(price - p * qty) < 0.5) return true;
@@ -928,8 +944,6 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
       if (couldBeExtended && price > avgPrice * 1.5) {
         flags.push("Might be qty × unit price — double check this one");
       }
-
-      // Flag suspiciously low prices for meat/dairy
       const name = (r.name || "").toLowerCase();
       if ((name.includes("beef") || name.includes("chicken") || name.includes("pork") || name.includes("bacon") || name.includes("steak")) && price < 5) {
         flags.push("Price seems very low for a meat item — check case price vs unit price");
@@ -937,13 +951,11 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
       if ((name.includes("cheese") || name.includes("cream") || name.includes("butter")) && price < 3) {
         flags.push("Price seems very low for a dairy item — verify");
       }
-
-      // Flag missing case size
       if (!r.case_size || Number(r.case_size) === 0) {
         flags.push("Missing case size — unit cost can't be calculated");
       }
 
-      return { ...r, _flags: flags };
+      return { ...r, _flags: flags, _profileConfirmed: false };
     });
   };
 
@@ -1030,6 +1042,11 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>
                 ✓ {results.length} items found
+                {flaggedResults.filter(r => r._profileConfirmed).length > 0 && (
+                  <span style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 400, marginLeft: 8 }}>
+                    · {flaggedResults.filter(r => r._profileConfirmed).length} recognised from previous invoices
+                  </span>
+                )}
               </div>
               {flagCount > 0 && (
                 <div style={{ fontSize: 12, color: T.warn, fontFamily: T.body, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 20, padding: "3px 10px" }}>
@@ -1114,6 +1131,11 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                   style={{ width: "100%", background: "none", border: "none", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
                   <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>
                     ✓ {flaggedResults.filter(r => !r._flags || r._flags.length === 0).length} items look correct
+                    {flaggedResults.filter(r => r._profileConfirmed).length > 0 && (
+                      <span style={{ fontSize: 11, color: T.muted, fontFamily: T.body, fontWeight: 400, marginLeft: 6 }}>
+                        ({flaggedResults.filter(r => r._profileConfirmed).length} from memory)
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{safeExpanded ? "▲ collapse" : "▼ review anyway"}</div>
                 </button>
@@ -1383,7 +1405,7 @@ function SuppliesSection({ items, renderRow }) {
   );
 }
 
-function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuItems, onPriceChange, aliases, setAliases }) {
+function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuItems, onPriceChange, aliases, setAliases, ingredientProfiles, setIngredientProfiles }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", supplier: "", date: today(), price: "", case_size: "", case_unit: "lb" });
   const [editId, setEditId] = useState(null);
@@ -1565,6 +1587,33 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
       if (changes.some(c => Math.abs(c.pct) >= 8)) {
         await sendPriceAlertEmail(userEmail, changes, menuItems, newIngredients);
       }
+
+      // Update ingredient profiles — upsert each imported item into user's profile memory
+      if (userId && setIngredientProfiles) {
+        const profileRows = items.map(r => ({
+          user_id: userId,
+          canonical_name: r.name,
+          supplier: r.supplier || null,
+          scan_count: 1,
+          avg_price: r.price,
+          last_price: r.price,
+          last_seen: r.date || today(),
+          case_unit: r.case_unit || r.unit,
+          is_supply: detectIsSupply(r.name),
+        }));
+        supabase.from("user_ingredient_profiles")
+          .upsert(profileRows, { onConflict: "user_id,canonical_name" })
+          .select()
+          .then(({ data: updatedProfiles }) => {
+            if (updatedProfiles) {
+              setIngredientProfiles(prev => {
+                const map = Object.fromEntries(prev.map(p => [p.canonical_name, p]));
+                updatedProfiles.forEach(p => { map[p.canonical_name] = p; });
+                return Object.values(map);
+              });
+            }
+          });
+      }
     }
     setSaving(false);
   };
@@ -1678,7 +1727,7 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
         </div>
       )}
 
-      {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} userId={userId} onAliasSaved={(newAliases) => setAliases && setAliases(prev => [...prev.filter(a => !newAliases.find(n => n.raw_name === a.raw_name)), ...newAliases])} />}
+      {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} userId={userId} ingredientProfiles={ingredientProfiles} onAliasSaved={(newAliases) => setAliases && setAliases(prev => [...prev.filter(a => !newAliases.find(n => n.raw_name === a.raw_name)), ...newAliases])} />}
 
       {modal === "form" && (
         <Modal title={editId ? "Edit Ingredient" : "Add Ingredient"} onClose={() => setModal(null)}>
@@ -5130,6 +5179,7 @@ function KitchenIQApp() {
   const [ingredients, setIngredients] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [aliases, setAliases] = useState([]);
+  const [ingredientProfiles, setIngredientProfiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [priceNotif, setPriceNotif] = useState(null);
   const [isRecovery, setIsRecovery] = useState(false);
@@ -5172,14 +5222,16 @@ function KitchenIQApp() {
     if (!session) return;
     const load = async () => {
       setLoading(true);
-      const [{ data: ings }, { data: menus }, { data: als }] = await Promise.all([
+      const [{ data: ings }, { data: menus }, { data: als }, { data: profs }] = await Promise.all([
         supabase.from("ingredients").select("*").order("created_at", { ascending: false }),
         supabase.from("menu_items").select("*").order("created_at", { ascending: false }),
         supabase.from("ingredient_aliases").select("*").eq("user_id", session.user.id),
+        supabase.from("user_ingredient_profiles").select("*").eq("user_id", session.user.id),
       ]);
       setIngredients(ings || []);
       setMenuItems(menus || []);
       setAliases(als || []);
+      setIngredientProfiles(profs || []);
       setLoading(false);
     };
     load();
@@ -5318,7 +5370,7 @@ function KitchenIQApp() {
             ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
             : <>
               {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} tier={profile?.subscription_tier} aliases={aliases} />}
-              {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} aliases={aliases} setAliases={setAliases} />}
+              {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} aliases={aliases} setAliases={setAliases} ingredientProfiles={ingredientProfiles} setIngredientProfiles={setIngredientProfiles} />}
               {tab === 2 && (profile?.subscription_tier === "tracker"
                 ? <TrackerUpgradeGate feature="Menu Items & Margin Calculations" />
                 : <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} session={session} profile={profile} aliases={aliases} />
