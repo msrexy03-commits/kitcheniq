@@ -752,8 +752,7 @@ function InvoiceScanner({ onIngredientsFound, onClose, userId, onAliasSaved }) {
         "anthropic-dangerous-direct-browser-access": "true",
       };
 
-      // ── PASS 1: Raw reading — Claude only looks at the image and reads what it sees ──
-      // No interpretation, no normalization, no JSON. Just a plain text table of raw values.
+      // ── PASS 1: Raw reading — describe what you see, no strict format required ──
       const pass1 = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: apiHeaders,
@@ -764,44 +763,48 @@ function InvoiceScanner({ onIngredientsFound, onClose, userId, onAliasSaved }) {
             role: "user",
             content: [
               { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
-              { type: "text", text: `You are an invoice OCR reader. Your ONLY job is to read this invoice image and output a plain text table of exactly what you see. Do not interpret, normalize, calculate, or guess anything.
+              { type: "text", text: `You are reading a supplier invoice image. For every product line item you can see, output one line in this format:
 
-For every product line item on this invoice output one row with these pipe-separated columns:
-ROW_NUM | ITEM_NUM | DESCRIPTION_RAW | PACK_SIZE_RAW | QTY_ORDERED | QTY_SHIPPED | COL5_VALUE | COL6_VALUE | SUPPLIER_NAME | INVOICE_DATE
+ITEM: [description exactly as printed] | PACK: [pack/size exactly as printed] | QTY: [quantity shipped] | PRICE1: [first price column value] | PRICE2: [second price column value]
 
 Rules:
-- DESCRIPTION_RAW: copy the description text exactly as printed, ALL CAPS included, no changes
-- PACK_SIZE_RAW: copy the pack/size field exactly as printed (e.g. "4/5LB", "2/10LB", "24CT", "3 5LB")
-- COL5_VALUE: copy the value in the 5th numeric column exactly as printed (this is usually unit price)
-- COL6_VALUE: copy the value in the 6th numeric column exactly as printed (this is usually extended price)
-- QTY_ORDERED and QTY_SHIPPED: copy exactly as printed, use 0 if not visible
-- SUPPLIER_NAME: from the invoice header
-- INVOICE_DATE: from the invoice header, YYYY-MM-DD format
-- If a field is not visible write NULL
-- Do not skip any rows that have an item number
-- Do not add any explanation before or after the table
-- First line must be the header row exactly as shown above
-
-Output ONLY the pipe-separated table. Nothing else.` }
+- Copy text exactly as it appears — ALL CAPS, abbreviations, everything
+- PRICE1 is the leftmost price column (usually unit price), PRICE2 is the rightmost (usually extended total)
+- If you can only see one price column, put it in PRICE1 and write NULL for PRICE2
+- If a field is unclear or missing write NULL
+- Include every row that has a product description and at least one price
+- Do not skip rows just because they are hard to read — do your best
+- Output supplier name on the first line as: SUPPLIER: [name]
+- Output invoice date on the second line as: DATE: [YYYY-MM-DD or NULL]
+- Then output all item lines
+- Do not add any other text` }
             ]
           }]
         })
       });
       const pass1Data = await pass1.json();
       if (pass1Data.error) throw new Error(pass1Data.error.message);
-      const rawTable = pass1Data.content[0].text.trim();
-      if (!rawTable || rawTable.split("\n").length < 2) throw new Error("Could not read invoice rows");
-      setRawRows(rawTable);
+      const rawText = pass1Data.content[0].text.trim();
 
-      // Parse col5/col6 from raw table to use as price suggestion context in review screen
-      const rawLines = rawTable.split("\n").slice(1); // skip header
-      const parsedCols = rawLines.map(line => {
-        const cols = line.split("|").map(c => c.trim());
-        return { col5: parseFloat(cols[6]) || null, col6: parseFloat(cols[7]) || null, qty: parseFloat(cols[5]) || 1 };
+      // Pass 1 only fails if it returns nothing at all
+      const itemLines = rawText.split("\n").filter(l => l.trim().startsWith("ITEM:"));
+      if (itemLines.length === 0) throw new Error("PASS1_NO_ITEMS");
+
+      setRawRows(rawText);
+
+      // Parse price columns from raw text for suggestion context
+      const parsedCols = itemLines.map(line => {
+        const p1 = line.match(/PRICE1:\s*([\d.]+)/)?.[1];
+        const p2 = line.match(/PRICE2:\s*([\d.]+)/)?.[1];
+        const qty = line.match(/QTY:\s*(\d+)/)?.[1];
+        return {
+          col5: p1 ? parseFloat(p1) : null,
+          col6: p2 ? parseFloat(p2) : null,
+          qty: qty ? parseFloat(qty) : 1
+        };
       });
 
-      // ── PASS 2: Interpretation — Claude receives the text table only, no image ──
-      // Applies naming, case size math, unit assignment, price selection, sanity checks.
+      // ── PASS 2: Interpretation — text description → structured JSON ──
       const pass2 = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: apiHeaders,
@@ -810,44 +813,41 @@ Output ONLY the pipe-separated table. Nothing else.` }
           max_tokens: 2048,
           messages: [{
             role: "user",
-            content: [{ type: "text", text: `You are a restaurant food cost data processor. I will give you a raw pipe-separated table extracted from a supplier invoice. Your job is to convert it to clean structured JSON.
+            content: [{ type: "text", text: `You are a restaurant food cost data processor. Convert this raw invoice reading into clean structured JSON.
 
-RAW TABLE:
-${rawTable}
+RAW INVOICE READING:
+${rawText}
 
-Column meanings:
-- COL5_VALUE = UNIT PRICE (price for ONE case — what you want)
-- COL6_VALUE = EXTENDED PRICE (unit price × qty — never use this)
-- UNIT PRICE is always the smaller of the two price columns
-- EXTENDED PRICE = UNIT PRICE × QTY_SHIPPED — you can verify this
+PRICE RULE:
+- PRICE1 = unit price (price for ONE case) — use this
+- PRICE2 = extended price (PRICE1 × QTY) — never use this as the price
+- Unit price is always the SMALLER number
+- Verify: if PRICE1 × QTY ≈ PRICE2, you have the right one
+- If only one price is given, use it
 
-PRICE RULE: Always use COL5_VALUE as the price. If COL5_VALUE × QTY_SHIPPED ≈ COL6_VALUE, you have confirmed COL5 is unit price. If COL5_VALUE × QTY_SHIPPED does NOT equal COL6_VALUE but COL6_VALUE ÷ QTY_SHIPPED ≈ COL5_VALUE, then use that result as the price. The smaller number is always the unit price.
-
-CASE SIZE RULES:
-- "4/5LB" → case_size=20, case_unit="lb" (multiply: 4×5)
+CASE SIZE RULES (from PACK field):
+- "4/5LB" → case_size=20, case_unit="lb" (multiply 4×5)
 - "2/10LB" → case_size=20, case_unit="lb"
 - "24CT" → case_size=24, case_unit="each"
-- "3 5LB" → case_size=15, case_unit="lb" (space = multiply)
+- "3 5LB" → case_size=15, case_unit="lb"
 - "12/1LB" → case_size=12, case_unit="lb"
-- Always multiply — never concatenate numbers
+- Always multiply the two numbers — never concatenate
 
-NAME NORMALIZATION:
-- Format: "Base Ingredient + Descriptors" (ingredient type first)
+NAME FORMAT: "Base Ingredient + Descriptors" in Title Case
 - "SLICED BACON 18/14-16CT" → "Bacon Sliced"
 - "SWEET ITALIAN SAUSAGE LINKS" → "Sausage Italian Sweet"
 - "HALF AND HALF CREAMER" → "Creamer Half And Half"
 - "SHREDDED CHEDDAR JACK CHEESE" → "Cheese Cheddar Jack Shredded"
 - "GROUND BEEF 80/20" → "Beef Ground 80/20"
 - "CHICKEN BREAST BNLS SKNLS FZN" → "Chicken Breast Boneless"
-- Strip: brand names (Hormel, Tyson, Perdue, Kraft, Sysco, Swift, Pilgrim's), SKUs, item codes
-- Strip: pack/size specs already captured in case_size
+- Strip: brands (Hormel, Tyson, Perdue, Kraft, Sysco, Swift), SKUs, item codes, size specs in case_size
 - Keep: flavor (Sweet, Hot, Italian, Smoked), size grades (Large, Jumbo), fat ratios (80/20)
-- Title Case always
 
-Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
-Each object: { name, price, case_size, case_unit, unit, supplier, date }
+Return ONLY a raw JSON array — no markdown, no backticks, no explanation:
+[{ name, price, case_size, case_unit, unit, supplier, date }]
 - unit = same as case_unit
-- date = YYYY-MM-DD from table, or ${today()} if NULL
+- supplier = from SUPPLIER line, or "Unknown"
+- date = from DATE line in YYYY-MM-DD, or ${today()} if NULL
 
 Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"}]` }]
           }]
@@ -858,18 +858,21 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
       let text = pass2Data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No items found");
-      // Assign stable temp IDs immediately — used by review screen to track rows without name+price collisions
       const withIds = parsed.map((r, i) => ({
         ...normalizeIngredient(r),
         _id: `row_${i}_${Date.now()}`,
-        _originalName: r.name, // store original AI name to detect user corrections
+        _originalName: r.name,
         _col5: parsedCols[i]?.col5 || null,
         _col6: parsedCols[i]?.col6 || null,
         _qty: parsedCols[i]?.qty || 1,
       }));
       setResults(withIds);
     } catch (e) {
-      setError("Couldn't read the invoice. Try a clearer photo with good lighting.");
+      if (e.message === "PASS1_NO_ITEMS") {
+        setError("Couldn't find any line items on this invoice. Make sure the invoice is fully visible in the frame and try again.");
+      } else {
+        setError("Scan failed — please try again. If the problem persists, make sure the invoice is flat and fully in frame.");
+      }
     }
     setScanning(false);
   };
@@ -4263,49 +4266,48 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
       const enhanced = await enhanceInvoiceImage(scanImageBase64);
       const apiHeaders = { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
 
-      // Pass 1 — Raw reading only
+      // Pass 1 — Lenient free-form reading
       const pass1 = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST", headers: apiHeaders,
         body: JSON.stringify({
           model: "claude-opus-4-5", max_tokens: 2048,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
-            { type: "text", text: `You are an invoice OCR reader. Read this invoice image and output a plain text pipe-separated table of exactly what you see. Do not interpret, normalize, or calculate anything.
+            { type: "text", text: `You are reading a supplier invoice image. For every product line item you can see, output one line:
 
-Output one row per product line item with these columns:
-ROW_NUM | ITEM_NUM | DESCRIPTION_RAW | PACK_SIZE_RAW | QTY_ORDERED | QTY_SHIPPED | COL5_VALUE | COL6_VALUE | SUPPLIER_NAME | INVOICE_DATE
+ITEM: [description exactly as printed] | PACK: [pack/size] | QTY: [qty shipped] | PRICE1: [first/smaller price] | PRICE2: [second/larger price]
 
-- Copy all text exactly as printed, ALL CAPS included
-- COL5_VALUE and COL6_VALUE: copy the two rightmost numeric columns exactly
-- Write NULL for any field not visible
-- First line must be the header row
-- Output ONLY the table, nothing else` }
+- Copy text exactly — ALL CAPS, abbreviations, everything
+- PRICE1 = unit price (smaller), PRICE2 = extended total (larger)
+- Write NULL for missing fields
+- Include every row with a product and at least one price — do your best even on hard-to-read rows
+- First two lines: SUPPLIER: [name] and DATE: [YYYY-MM-DD or NULL]
+- No other text` }
           ]}]
         })
       });
       const pass1Data = await pass1.json();
       if (pass1Data.error) throw new Error(pass1Data.error.message);
-      const rawTable = pass1Data.content[0].text.trim();
-      if (!rawTable || rawTable.split("\n").length < 2) throw new Error("No invoice rows found");
+      const rawText = pass1Data.content[0].text.trim();
+      const itemLines = rawText.split("\n").filter(l => l.trim().startsWith("ITEM:"));
+      if (itemLines.length === 0) throw new Error("PASS1_NO_ITEMS");
 
-      // Pass 2 — Interpretation only (food items only for onboarding)
+      // Pass 2 — Food items only
       const pass2 = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST", headers: apiHeaders,
         body: JSON.stringify({
           model: "claude-opus-4-5", max_tokens: 2048,
-          messages: [{ role: "user", content: [{ type: "text", text: `You are a restaurant food cost processor. Convert this raw invoice table to clean JSON. Include ONLY food and beverage items — skip fees, cleaning supplies, paper products, and non-food items.
+          messages: [{ role: "user", content: [{ type: "text", text: `Convert this invoice reading to JSON. Include ONLY food and beverage items — skip fees, cleaning supplies, paper products.
 
-RAW TABLE:
-${rawTable}
+RAW READING:
+${rawText}
 
-PRICE RULE: COL5_VALUE = UNIT PRICE (use this). COL6_VALUE = EXTENDED PRICE (never use). Unit price is always the smaller number. Verify: COL5 × QTY_SHIPPED ≈ COL6.
-
+PRICE RULE: PRICE1 = unit price (use this). PRICE2 = extended total (never use). Unit price is always smaller. Verify: PRICE1 × QTY ≈ PRICE2.
 CASE SIZE: "4/5LB"→20lb, "2/10LB"→20lb, "24CT"→24each, "3 5LB"→15lb. Always multiply.
-
-NAME FORMAT: "Base Ingredient + Descriptors" in Title Case. Strip brands (Hormel, Tyson, Sysco, etc), SKUs, size specs. Keep flavor/grade descriptors.
+NAME FORMAT: "Base Ingredient + Descriptors" in Title Case. Strip brands/SKUs. Keep flavor/grade.
 
 Return ONLY a raw JSON array: [{name, price, case_size, case_unit, unit, supplier, date}]
-Date format YYYY-MM-DD, use ${today()} if NULL.` }] }]
+Date: YYYY-MM-DD, use ${today()} if NULL.` }] }]
         })
       });
       const pass2Data = await pass2.json();
@@ -4315,7 +4317,9 @@ Date format YYYY-MM-DD, use ${today()} if NULL.` }] }]
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No food items found");
       setScanResults(parsed.map(r => normalizeIngredient(r)));
     } catch (e) {
-      setScanError("Couldn't read that invoice. Try a clearer photo with good lighting.");
+      setScanError(e.message === "PASS1_NO_ITEMS"
+        ? "Couldn't find any line items. Make sure the invoice is fully visible in the frame."
+        : "Scan failed — please try again.");
     }
     setScanning(false);
   };
