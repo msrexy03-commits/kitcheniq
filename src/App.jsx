@@ -215,7 +215,24 @@ function normalizeIngredient(raw) {
   return { ...raw, case_size, case_unit, unit: case_unit };
 }
 
-// ─── Ingredient Matching ──────────────────────────────────────────────────────
+// ─── Supply Detection ─────────────────────────────────────────────────────────
+// Automatically detects non-food supply items based on name keywords
+const SUPPLY_KEYWORDS = [
+  "napkin", "towel", "cup", "bag", "box", "glove", "cleaner", "sanitizer",
+  "soap", "bleach", "surcharge", "fuel surcharge", "delivery fee", "picks",
+  "frill pick", "straw", "foil", "container", "lid", "utensil", "tissue",
+  "paper plate", "spoon", "fork", "knife set", "tray liner", "pan liner",
+  "trash", "garbage", "waste", "mop", "broom", "sponge", "scrubber",
+  "detergent", "degreaser", "disinfectant"
+];
+
+function detectIsSupply(name) {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  return SUPPLY_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+
 const BRAND_NAMES = ["hormel", "sysco", "tyson", "perdue", "foster farms", "pilgrims", "swift", "cargill", "kraft", "heinz", "hunts", "dole", "del monte", "land o lakes", "dean", "saputo", "prairie fresh"];
 const DESCRIPTOR_WORDS = [
   "link", "links", "patty", "patties", "sliced", "slice", "fresh", "frozen",
@@ -1154,9 +1171,9 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
       return () => clearInterval(interval);
     }
   }, []);
-  const alerts = getPriceAlerts(ingredients);
+  const alerts = getPriceAlerts(ingredients.filter(i => !i.is_supply));
 
-  const ingredientNames = [...new Set(ingredients.map(i => i.name))].sort();
+  const ingredientNames = [...new Set(ingredients.filter(i => !i.is_supply).map(i => i.name))].sort();
   const [selectedIngredient, setSelectedIngredient] = useState(ingredientNames[0] || "");
   const priceHistory = ingredients
     .filter(i => i.name === selectedIngredient)
@@ -1341,6 +1358,31 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
 }
 
 // ─── Ingredients ──────────────────────────────────────────────────────────────
+// ─── Supplies Section ─────────────────────────────────────────────────────────
+function SuppliesSection({ items, renderRow }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <button onClick={() => setExpanded(e => !e)} style={{ width: "100%", background: "none", border: "none", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 15 }}>🧹</span>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.font, fontWeight: 700 }}>Supplies & Non-Food Items</div>
+          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, background: T.border, borderRadius: 10, padding: "2px 8px" }}>{items.length}</div>
+        </div>
+        <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{expanded ? "▲ collapse" : "▼ show"}</div>
+      </button>
+      {expanded && (
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 8, padding: "8px 4px", borderTop: `1px solid ${T.border}` }}>
+            These items are excluded from recipe costing and menu margins
+          </div>
+          {items.map(renderRow)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuItems, onPriceChange, aliases, setAliases }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", supplier: "", date: today(), price: "", case_size: "", case_unit: "lb" });
@@ -1446,7 +1488,17 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
     }
 
     setSaving(true);
-    const rows = items.map((r) => ({ name: r.name, supplier: r.supplier, date: r.date, price: r.price, case_size: r.case_size || null, case_unit: r.case_unit || r.unit, unit: r.unit, user_id: userId }));
+    const rows = items.map((r) => ({
+      name: r.name,
+      supplier: r.supplier,
+      date: r.date,
+      price: r.price,
+      case_size: r.case_size || null,
+      case_unit: r.case_unit || r.unit,
+      unit: r.unit,
+      user_id: userId,
+      is_supply: detectIsSupply(r.name),
+    }));
     const { data, error } = await supabase.from("ingredients").insert(rows).select();
     if (!error) {
       // Crowdsource: anonymously write pricing data to supplier_pricing for swap recommendations
@@ -1485,7 +1537,7 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
       const newIngredients = [...ingredients, ...data];
       setIngredients(newIngredients);
       const changes = [];
-      items.forEach(item => {
+      items.filter(item => !item.is_supply).forEach(item => {
         const existing = ingredients.filter(i => i.name.toLowerCase() === item.name.toLowerCase())
           .sort((a, b) => new Date(b.date) - new Date(a.date));
         if (existing.length > 0) {
@@ -1537,55 +1589,72 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
       )}
 
       {ingredients.length > 0 && (() => {
-        const grouped = {};
-        ingredients.forEach(ing => {
-          const key = ing.date || "Unknown Date";
-          if (!grouped[key]) grouped[key] = [];
-          grouped[key].push(ing);
-        });
-        const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-        sortedDates.forEach(date => { grouped[date].sort((a, b) => a.name.localeCompare(b.name)); });
+        const foodIngredients = ingredients.filter(i => !i.is_supply);
+        const supplyItems = ingredients.filter(i => i.is_supply);
+
+        const buildGrouped = (items) => {
+          const grouped = {};
+          items.forEach(ing => {
+            const key = ing.date || "Unknown Date";
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(ing);
+          });
+          const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+          sortedDates.forEach(date => { grouped[date].sort((a, b) => a.name.localeCompare(b.name)); });
+          return { grouped, sortedDates };
+        };
+
+        const renderIngredientRow = (ing) => {
+          const uc = getUnitCost(ing);
+          return (
+            <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>{ing.case_size ? `${ing.case_size} ${ing.case_unit} per case` : "No case size"}</div>
+                {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
+                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
+                </div>
+                <Btn small variant="ghost" onClick={() => openEdit(ing)}>Edit</Btn>
+                {confirmDeleteId === ing.id ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: T.warn, fontFamily: T.body }}>Sure?</span>
+                    <Btn small variant="danger" onClick={() => del(ing.id)}>Yes</Btn>
+                    <Btn small variant="ghost" onClick={() => setConfirmDeleteId(null)}>No</Btn>
+                  </div>
+                ) : (
+                  <Btn small variant="danger" onClick={() => setConfirmDeleteId(ing.id)}>Del</Btn>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        const { grouped: foodGrouped, sortedDates: foodDates } = buildGrouped(foodIngredients);
+
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            {sortedDates.map(date => (
+            {/* Food ingredients — main section */}
+            {foodDates.map(date => (
               <div key={date}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
                   <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>📄 {date}</div>
                   <div style={{ flex: 1, height: 1, background: T.border }} />
-                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{grouped[date].length} items · {grouped[date][0]?.supplier || ""}</div>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{foodGrouped[date].length} items · {foodGrouped[date][0]?.supplier || ""}</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {grouped[date].map(ing => {
-                    const uc = getUnitCost(ing);
-                    return (
-                      <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div>
-                          <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
-                          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>{ing.case_size ? `${ing.case_size} ${ing.case_unit} per case` : "No case size"}</div>
-                          {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
-                            <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
-                          </div>
-                          <Btn small variant="ghost" onClick={() => openEdit(ing)}>Edit</Btn>
-                          {confirmDeleteId === ing.id ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ fontSize: 11, color: T.warn, fontFamily: T.body }}>Sure?</span>
-                              <Btn small variant="danger" onClick={() => del(ing.id)}>Yes</Btn>
-                              <Btn small variant="ghost" onClick={() => setConfirmDeleteId(null)}>No</Btn>
-                            </div>
-                          ) : (
-                            <Btn small variant="danger" onClick={() => setConfirmDeleteId(ing.id)}>Del</Btn>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {foodGrouped[date].map(renderIngredientRow)}
                 </div>
               </div>
             ))}
+
+            {/* Supplies — collapsed section at bottom */}
+            {supplyItems.length > 0 && (
+              <SuppliesSection items={supplyItems} onEdit={openEdit} onDelete={(id) => setConfirmDeleteId(id)} confirmDeleteId={confirmDeleteId} onConfirmDelete={del} onCancelDelete={() => setConfirmDeleteId(null)} renderRow={renderIngredientRow} />
+            )}
           </div>
         );
       })()}
@@ -1793,13 +1862,15 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId, session, profi
   const [swapResults, setSwapResults] = useState([]);
   const [swapLoading, setSwapLoading] = useState(false);
 
-  // Deduplicated ingredient list — one entry per unique name, using most recent price
+  // Deduplicated food ingredient list — excludes supplies, one entry per unique name, most recent price
   const uniqueIngredients = Object.values(
-    ingredients.reduce((acc, ing) => {
-      const key = ing.name.toLowerCase();
-      if (!acc[key] || new Date(ing.date) > new Date(acc[key].date)) acc[key] = ing;
-      return acc;
-    }, {})
+    ingredients
+      .filter(ing => !ing.is_supply) // never show supplies in recipe builder
+      .reduce((acc, ing) => {
+        const key = ing.name.toLowerCase();
+        if (!acc[key] || new Date(ing.date) > new Date(acc[key].date)) acc[key] = ing;
+        return acc;
+      }, {})
   ).sort((a, b) => a.name.localeCompare(b.name));
 
   const [skippedDupes, setSkippedDupes] = useState(0);
@@ -2417,7 +2488,7 @@ Return ONLY raw JSON, no markdown, no backticks:
 
 // ─── Price Alerts + Supplier Swap ─────────────────────────────────────────────
 function AlertsView({ ingredients, session, profile }) {
-  const alerts = getPriceAlerts(ingredients);
+  const alerts = getPriceAlerts(ingredients.filter(i => !i.is_supply));
   const [swapModal, setSwapModal] = useState(null); // { name, newPrice }
   const [swapResults, setSwapResults] = useState([]);
   const [swapLoading, setSwapLoading] = useState(false);
@@ -4327,7 +4398,7 @@ Date: YYYY-MM-DD, use ${today()} if NULL.` }] }]
   const confirmScan = async () => {
     if (!scanResults) return;
     setSaving(true);
-    const rows = scanResults.map(r => ({ ...r, price: Number(r.price), case_size: r.case_size ? Number(r.case_size) : null, user_id: session.user.id }));
+    const rows = scanResults.map(r => ({ ...r, price: Number(r.price), case_size: r.case_size ? Number(r.case_size) : null, user_id: session.user.id, is_supply: detectIsSupply(r.name) }));
     const { data, error } = await supabase.from("ingredients").insert(rows).select();
     if (!error) setIngredients(prev => [...prev, ...data]);
     setSaving(false);
