@@ -675,11 +675,12 @@ function InvoiceScanner({ onIngredientsFound, onClose }) {
   const [imageBase64, setImageBase64] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [results, setResults] = useState(null);
+  const [rawRows, setRawRows] = useState(null);
   const [error, setError] = useState(null);
 
   const handleFile = (file) => {
     if (!file) return;
-    setResults(null); setError(null);
+    setResults(null); setRawRows(null); setError(null);
     setImage(URL.createObjectURL(file));
     const reader = new FileReader();
     reader.onload = (e) => setImageBase64(e.target.result.split(",")[1]);
@@ -737,6 +738,14 @@ Output ONLY the pipe-separated table. Nothing else.` }
       if (pass1Data.error) throw new Error(pass1Data.error.message);
       const rawTable = pass1Data.content[0].text.trim();
       if (!rawTable || rawTable.split("\n").length < 2) throw new Error("Could not read invoice rows");
+      setRawRows(rawTable);
+
+      // Parse col5/col6 from raw table to use as price suggestion context in review screen
+      const rawLines = rawTable.split("\n").slice(1); // skip header
+      const parsedCols = rawLines.map(line => {
+        const cols = line.split("|").map(c => c.trim());
+        return { col5: parseFloat(cols[6]) || null, col6: parseFloat(cols[7]) || null, qty: parseFloat(cols[5]) || 1 };
+      });
 
       // ── PASS 2: Interpretation — Claude receives the text table only, no image ──
       // Applies naming, case size math, unit assignment, price selection, sanity checks.
@@ -796,15 +805,27 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
       let text = pass2Data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No items found");
-      setResults(parsed.map(r => normalizeIngredient(r)));
+      // Assign stable temp IDs immediately — used by review screen to track rows without name+price collisions
+      const withIds = parsed.map((r, i) => ({
+        ...normalizeIngredient(r),
+        _id: `row_${i}_${Date.now()}`,
+        _col5: parsedCols[i]?.col5 || null,
+        _col6: parsedCols[i]?.col6 || null,
+        _qty: parsedCols[i]?.qty || 1,
+      }));
+      setResults(withIds);
     } catch (e) {
       setError("Couldn't read the invoice. Try a clearer photo with good lighting.");
     }
     setScanning(false);
   };
 
-  const updateResult = (i, field, val) => {
-    setResults(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+  const updateResult = (id, field, val) => {
+    setResults(prev => prev.map(r => r._id === id ? { ...r, [field]: val } : r));
+  };
+
+  const removeResult = (id) => {
+    setResults(prev => prev.filter(r => r._id !== id));
   };
 
   const flagSuspiciousItems = (items) => {
@@ -855,29 +876,40 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
   const flaggedResults = results ? flagSuspiciousItems(results) : null;
   const flagCount = flaggedResults ? flaggedResults.filter(r => r._flags && r._flags.length > 0).length : 0;
   const [safeExpanded, setSafeExpanded] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
   const confirmImport = () => {
-    onIngredientsFound(results.map((r) => ({ ...r, price: Number(r.price), case_size: r.case_size ? Number(r.case_size) : null })));
+    onIngredientsFound(results.map(({ _id, _flags, _col5, _col6, _qty, ...r }) => ({
+      ...r, price: Number(r.price), case_size: r.case_size ? Number(r.case_size) : null
+    })));
     onClose();
   };
 
-  const removeResult = (i) => {
-    setResults(prev => prev.filter((_, idx) => idx !== i));
-    if (flaggedResults) flaggedResults.splice(i, 1);
-  };
-
-  // Generate two most-likely price suggestions for flagged items
-  const getPriceSuggestions = (r, allItems) => {
-    const price = Number(r.price);
-    const prices = allItems.map(x => Number(x.price)).filter(p => p > 0 && Math.abs(p - price) > 0.01);
-    const qty = Number(r._qty) || 1;
+  // Generate price suggestions from real Pass 1 column context
+  const getPriceSuggestions = (r) => {
     const suggestions = new Set();
-    // Divided by common quantities
-    [2, 3, 4, 5].forEach(q => suggestions.add((price / q).toFixed(2)));
-    // Other item prices that are close
-    prices.slice(0, 3).forEach(p => suggestions.add(p.toFixed(2)));
-    return [...suggestions].slice(0, 3).filter(s => Number(s) > 0 && Number(s) !== price);
+    const price = Number(r.price);
+    const col5 = r._col5;
+    const col6 = r._col6;
+    const qty = r._qty || 1;
+
+    // If col6 is the extended price, col6/qty is the real unit price
+    if (col6 && qty > 1) {
+      const derived = parseFloat((col6 / qty).toFixed(2));
+      if (derived > 0 && Math.abs(derived - price) > 0.01) suggestions.add(derived.toFixed(2));
+    }
+    // If col5 exists and differs from current price, offer it
+    if (col5 && Math.abs(col5 - price) > 0.01) suggestions.add(col5.toFixed(2));
+    // If col6 exists and differs, offer it (in case col6 is actually the unit price)
+    if (col6 && Math.abs(col6 - price) > 0.01 && col6 < price) suggestions.add(col6.toFixed(2));
+    // Fallback: divide by common quantities if no column context
+    if (suggestions.size === 0) {
+      [2, 3, 4].forEach(q => {
+        const s = parseFloat((price / q).toFixed(2));
+        if (s > 0) suggestions.add(s.toFixed(2));
+      });
+    }
+    return [...suggestions].slice(0, 3);
   };
 
   return (
@@ -920,51 +952,53 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
             </div>
 
             {/* Flagged items — shown first, expanded */}
-            {flaggedResults.filter(r => r._flags && r._flags.length > 0).map((r, fi) => {
-              const realIndex = results.findIndex(x => x === r || (x.name === r.name && x.price === r.price));
-              const suggestions = getPriceSuggestions(r, results);
-              const isEditing = editingIndex === realIndex;
+            {flaggedResults.filter(r => r._flags && r._flags.length > 0).map((r) => {
+              const suggestions = getPriceSuggestions(r);
+              const isEditing = editingId === r._id;
               return (
-                <div key={fi} style={{ background: T.warnDim, border: `1px solid ${T.warn}66`, borderRadius: 10, padding: "14px 16px" }}>
+                <div key={r._id} style={{ background: T.warnDim, border: `1px solid ${T.warn}66`, borderRadius: 10, padding: "14px 16px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 700, flex: 1, marginRight: 8 }}>{r.name}</div>
-                    <button onClick={() => removeResult(realIndex)} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: "0 4px", flexShrink: 0 }}>×</button>
+                    <button onClick={() => removeResult(r._id)} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: "0 4px", flexShrink: 0 }}>×</button>
                   </div>
 
-                  {/* Flag messages */}
                   {r._flags.map((flag, fli) => (
                     <div key={fli} style={{ fontSize: 11, color: T.warn, fontFamily: T.body, marginBottom: 8 }}>⚠ {flag}</div>
                   ))}
 
-                  {/* Price fix — tap buttons */}
+                  {/* Price fix — tap buttons from real column context */}
                   <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 5 }}>Current price: <strong style={{ color: T.warn }}>${Number(r.price).toFixed(2)}</strong> — tap to correct:</div>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 5 }}>
+                      Current price: <strong style={{ color: T.warn }}>${Number(r.price).toFixed(2)}</strong>
+                      {r._col5 && r._col6 && <span> · col5: ${r._col5?.toFixed(2)} · col6: ${r._col6?.toFixed(2)}</span>}
+                      {" "}— tap to correct:
+                    </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {suggestions.map((s, si) => (
-                        <button key={si} onClick={() => updateResult(realIndex, "price", s)}
+                        <button key={si} onClick={() => updateResult(r._id, "price", s)}
                           style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 12px", fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
                           ${s}
                         </button>
                       ))}
-                      <button onClick={() => setEditingIndex(isEditing ? null : realIndex)}
+                      <button onClick={() => setEditingId(isEditing ? null : r._id)}
                         style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 12px", fontSize: 12, color: T.muted, fontFamily: T.body, cursor: "pointer" }}>
                         ✏ Enter manually
                       </button>
                     </div>
                     {isEditing && (
-                      <input autoFocus value={r.price} onChange={(e) => updateResult(realIndex, "price", e.target.value)}
+                      <input autoFocus value={r.price} onChange={(e) => updateResult(r._id, "price", e.target.value)}
                         style={{ marginTop: 8, width: "100%", background: T.card, border: `1px solid ${T.warn}88`, borderRadius: 6, padding: "8px 12px", color: T.warn, fontSize: 14, fontFamily: T.body, outline: "none", boxSizing: "border-box" }} />
                     )}
                   </div>
 
-                  {/* Case size + unit */}
+                  {/* Case size + unit tap buttons */}
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                     <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Case size:</div>
-                    <input value={r.case_size || ""} onChange={(e) => updateResult(realIndex, "case_size", e.target.value)} placeholder="e.g. 15"
+                    <input value={r.case_size || ""} onChange={(e) => updateResult(r._id, "case_size", e.target.value)} placeholder="e.g. 15"
                       style={{ width: 70, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
                     <div style={{ display: "flex", gap: 4 }}>
                       {["lb", "oz", "each", "gallon"].map(u => (
-                        <button key={u} onClick={() => updateResult(realIndex, "case_unit", u)}
+                        <button key={u} onClick={() => updateResult(r._id, "case_unit", u)}
                           style={{ background: r.case_unit === u ? T.accent : T.faint, border: `1px solid ${r.case_unit === u ? T.accent : T.border}`, borderRadius: 5, padding: "4px 8px", fontSize: 11, color: r.case_unit === u ? "#0f1410" : T.muted, fontFamily: T.body, cursor: "pointer", fontWeight: r.case_unit === u ? 700 : 400 }}>
                           {u}
                         </button>
@@ -987,21 +1021,18 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
                 </button>
                 {safeExpanded && (
                   <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-                    {flaggedResults.filter(r => !r._flags || r._flags.length === 0).map((r, si) => {
-                      const realIndex = results.findIndex(x => x === r || (x.name === r.name && x.price === r.price));
-                      return (
-                        <div key={si} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{r.name}</div>
-                            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 2 }}>
-                              ${Number(r.price).toFixed(2)} · {r.case_size} {r.case_unit}
-                              {r.case_size ? ` · $${(r.price / r.case_size).toFixed(4)}/unit` : ""}
-                            </div>
+                    {flaggedResults.filter(r => !r._flags || r._flags.length === 0).map((r) => (
+                      <div key={r._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{r.name}</div>
+                          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 2 }}>
+                            ${Number(r.price).toFixed(2)} · {r.case_size} {r.case_unit}
+                            {r.case_size ? ` · $${(r.price / r.case_size).toFixed(4)}/unit` : ""}
                           </div>
-                          <button onClick={() => removeResult(realIndex)} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: "0 4px" }}>×</button>
                         </div>
-                      );
-                    })}
+                        <button onClick={() => removeResult(r._id)} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: "0 4px" }}>×</button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1014,7 +1045,7 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
           {!results
             ? <Btn onClick={scan} disabled={!imageBase64 || scanning} variant="ai">{scanning ? "⏳ Reading invoice..." : "🔍 Scan Invoice"}</Btn>
             : <>
-                <Btn variant="ghost" onClick={() => { setResults(null); setImage(null); setImageBase64(null); setSafeExpanded(false); setEditingIndex(null); }}>Rescan</Btn>
+                <Btn variant="ghost" onClick={() => { setResults(null); setRawRows(null); setImage(null); setImageBase64(null); setSafeExpanded(false); setEditingId(null); }}>Rescan</Btn>
                 <Btn onClick={confirmImport}>✓ Import {results.length} Items</Btn>
               </>}
         </div>
