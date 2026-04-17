@@ -215,28 +215,7 @@ function normalizeIngredient(raw) {
   return { ...raw, case_size, case_unit, unit: case_unit };
 }
 
-function calcRecipeCost(row, ingredients) {
-  const rowKey = normalizeNameForGrouping(row.ingredient_name || "");
-  const matches = ingredients.filter(i => normalizeNameForGrouping(i.name) === rowKey);
-  const ing = matches.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  if (!ing) return Number(row.cost) || 0;
-  const unitCost = getUnitCost(ing);
-  if (!unitCost) return Number(row.cost) || 0;
-  const qty = Number(row.qty) || 0;
-  const converted = convertUnits(qty, row.qty_unit, ing.case_unit);
-  return unitCost * converted;
-}
-
-function calcMenuStats(item, ingredients = []) {
-  const cost = (item.ingredients || []).reduce((s, row) => s + calcRecipeCost(row, ingredients), 0);
-  const profit = Number(item.sale_price) - cost;
-  const margin = item.sale_price > 0 ? (profit / item.sale_price) * 100 : 0;
-  return { cost, profit, margin };
-}
-
-// Normalize ingredient name for fuzzy grouping —
-// strips brand names, trailing 's', collapses whitespace, lowercases
-// so "Hormel Bacon Layout Applewood" and "Bacon Layout Applewood Hormel" group together
+// ─── Ingredient Matching ──────────────────────────────────────────────────────
 const BRAND_NAMES = ["hormel", "sysco", "tyson", "perdue", "foster farms", "pilgrims", "swift", "cargill", "kraft", "heinz", "hunts", "dole", "del monte", "land o lakes", "dean", "saputo", "prairie fresh"];
 const DESCRIPTOR_WORDS = [
   "link", "links", "patty", "patties", "sliced", "slice", "fresh", "frozen",
@@ -246,6 +225,13 @@ const DESCRIPTOR_WORDS = [
   "cut", "cuts", "pack", "package", "bag", "box", "can", "jar", "bottle",
   "bulk", "retail", "foodservice", "portion", "portions", "serving", "servings"
 ];
+
+// Ingredient-type tokens weighted higher in similarity scoring
+const HIGH_WEIGHT_TOKENS = new Set([
+  "beef", "chicken", "pork", "bacon", "ham", "turkey", "sausage", "egg",
+  "cheese", "butter", "cream", "milk", "fish", "shrimp", "salmon", "tuna",
+  "bread", "flour", "sugar", "oil", "potato", "tomato", "onion", "pepper"
+]);
 
 function normalizeNameForGrouping(name) {
   let n = name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -258,12 +244,77 @@ function normalizeNameForGrouping(name) {
     .trim();
 }
 
-function getPriceAlerts(ingredients) {
+// Token-overlap similarity — high-weight ingredient tokens count double
+// Returns 0.0 to 1.0
+function tokenSimilarity(a, b) {
+  if (!a || !b) return 0;
+  const tokA = new Set(a.split(" ").filter(Boolean));
+  const tokB = new Set(b.split(" ").filter(Boolean));
+  if (!tokA.size || !tokB.size) return 0;
+  let shared = 0, total = 0;
+  new Set([...tokA, ...tokB]).forEach(t => {
+    const w = HIGH_WEIGHT_TOKENS.has(t) ? 2 : 1;
+    total += w;
+    if (tokA.has(t) && tokB.has(t)) shared += w;
+  });
+  return total > 0 ? shared / total : 0;
+}
+
+// Find best ingredient match using: alias → exact normalized → fuzzy (>=0.75)
+function findBestIngredientMatch(rawName, ingredients, aliases = []) {
+  if (!rawName || !ingredients?.length) return null;
+  // 1. Alias lookup
+  const alias = aliases.find(a => a.raw_name.toLowerCase() === rawName.toLowerCase());
+  if (alias) {
+    const m = ingredients.filter(i => i.name.toLowerCase() === alias.canonical_name.toLowerCase())
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+    if (m) return { ingredient: m, confidence: 1.0, method: "alias" };
+  }
+  const normRaw = normalizeNameForGrouping(rawName);
+  // 2. Exact normalized
+  const exact = ingredients.filter(i => normalizeNameForGrouping(i.name) === normRaw)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+  if (exact) return { ingredient: exact, confidence: 1.0, method: "exact" };
+  // 3. Token-overlap fuzzy
+  let best = 0, bestIng = null;
+  ingredients.forEach(ing => {
+    const score = tokenSimilarity(normRaw, normalizeNameForGrouping(ing.name));
+    if (score > best) { best = score; bestIng = ing; }
+  });
+  if (best >= 0.75) return { ingredient: bestIng, confidence: best, method: "fuzzy" };
+  return null;
+}
+
+function calcRecipeCost(row, ingredients, aliases = []) {
+  const match = findBestIngredientMatch(row.ingredient_name || "", ingredients, aliases);
+  if (!match) return Number(row.cost) || 0;
+  const unitCost = getUnitCost(match.ingredient);
+  if (!unitCost) return Number(row.cost) || 0;
+  const qty = Number(row.qty) || 0;
+  const converted = convertUnits(qty, row.qty_unit, match.ingredient.case_unit);
+  return unitCost * converted;
+}
+
+function calcMenuStats(item, ingredients = [], aliases = []) {
+  const cost = (item.ingredients || []).reduce((s, row) => s + calcRecipeCost(row, ingredients, aliases), 0);
+  const profit = Number(item.sale_price) - cost;
+  const margin = item.sale_price > 0 ? (profit / item.sale_price) * 100 : 0;
+  return { cost, profit, margin };
+}
+
+function getPriceAlerts(ingredients, aliases = []) {
   const grouped = {};
   ingredients.forEach((ing) => {
-    const key = normalizeNameForGrouping(ing.name);
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(ing);
+    const normKey = normalizeNameForGrouping(ing.name);
+    let placed = false;
+    for (const existingKey of Object.keys(grouped)) {
+      if (tokenSimilarity(normKey, existingKey) >= 0.8) {
+        grouped[existingKey].push(ing);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) grouped[normKey] = [ing];
   });
   const alerts = [];
   Object.values(grouped).forEach((entries) => {
@@ -278,6 +329,8 @@ function getPriceAlerts(ingredients) {
   });
   return alerts.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
 }
+
+
 
 function exportCSV(ingredients, menuItems) {
   const rows = [["Type", "Name", "Supplier", "Date", "Case Price", "Case Size", "Case Unit", "Unit Cost", "Sale Price", "Food Cost", "Margin"]];
@@ -670,7 +723,7 @@ function enhanceInvoiceImage(base64) {
 }
 
 // ─── Invoice Scanner ──────────────────────────────────────────────────────────
-function InvoiceScanner({ onIngredientsFound, onClose }) {
+function InvoiceScanner({ onIngredientsFound, onClose, userId, onAliasSaved }) {
   const [image, setImage] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
   const [scanning, setScanning] = useState(false);
@@ -809,6 +862,7 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
       const withIds = parsed.map((r, i) => ({
         ...normalizeIngredient(r),
         _id: `row_${i}_${Date.now()}`,
+        _originalName: r.name, // store original AI name to detect user corrections
         _col5: parsedCols[i]?.col5 || null,
         _col6: parsedCols[i]?.col6 || null,
         _qty: parsedCols[i]?.qty || 1,
@@ -878,10 +932,23 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
   const [safeExpanded, setSafeExpanded] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const confirmImport = () => {
-    onIngredientsFound(results.map(({ _id, _flags, _col5, _col6, _qty, ...r }) => ({
+  const confirmImport = async () => {
+    const cleaned = results.map(({ _id, _flags, _col5, _col6, _qty, _originalName, ...r }) => ({
       ...r, price: Number(r.price), case_size: r.case_size ? Number(r.case_size) : null
-    })));
+    }));
+    // Save aliases for any items where the user changed the name
+    if (userId && onAliasSaved) {
+      const aliasRows = results
+        .filter(r => r._originalName && r._originalName.toLowerCase() !== r.name.toLowerCase())
+        .map(r => ({ user_id: userId, raw_name: r._originalName, canonical_name: r.name }));
+      if (aliasRows.length > 0) {
+        const { data } = await supabase.from("ingredient_aliases")
+          .upsert(aliasRows, { onConflict: "user_id,raw_name" })
+          .select();
+        if (data) onAliasSaved(data);
+      }
+    }
+    onIngredientsFound(cleaned);
     onClose();
   };
 
@@ -1066,7 +1133,7 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlash, chartOpacity: externalChartOpacity, tier }) {
+function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlash, chartOpacity: externalChartOpacity, tier, aliases = [] }) {
   const [internalFlash, setInternalFlash] = useState(null);
   const [chartOpacity, setChartOpacity] = useState(externalChartOpacity ?? 0);
   const flashCard = externalFlash ?? internalFlash;
@@ -1271,7 +1338,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
 }
 
 // ─── Ingredients ──────────────────────────────────────────────────────────────
-function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuItems, onPriceChange }) {
+function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuItems, onPriceChange, aliases, setAliases }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", supplier: "", date: today(), price: "", case_size: "", case_unit: "lb" });
   const [editId, setEditId] = useState(null);
@@ -1539,7 +1606,7 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
         </div>
       )}
 
-      {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} />}
+      {showScanner && <InvoiceScanner onIngredientsFound={handleScanned} onClose={() => setShowScanner(false)} userId={userId} onAliasSaved={(newAliases) => setAliases && setAliases(prev => [...prev.filter(a => !newAliases.find(n => n.raw_name === a.raw_name)), ...newAliases])} />}
 
       {modal === "form" && (
         <Modal title={editId ? "Edit Ingredient" : "Add Ingredient"} onClose={() => setModal(null)}>
@@ -1707,7 +1774,7 @@ Example output:
 }
 
 // ─── Menu Items ───────────────────────────────────────────────────────────────
-function MenuView({ menuItems, setMenuItems, ingredients, userId, session, profile }) {
+function MenuView({ menuItems, setMenuItems, ingredients, userId, session, profile, aliases = [] }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ name: "", salePrice: "", ingredients: [{ ingredient_name: "", qty: "", qty_unit: "oz" }] });
   const [editId, setEditId] = useState(null);
@@ -4987,6 +5054,7 @@ function KitchenIQApp() {
   const [tab, setTab] = useState(0);
   const [ingredients, setIngredients] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const [aliases, setAliases] = useState([]);
   const [loading, setLoading] = useState(false);
   const [priceNotif, setPriceNotif] = useState(null);
   const [isRecovery, setIsRecovery] = useState(false);
@@ -5029,12 +5097,14 @@ function KitchenIQApp() {
     if (!session) return;
     const load = async () => {
       setLoading(true);
-      const [{ data: ings }, { data: menus }] = await Promise.all([
+      const [{ data: ings }, { data: menus }, { data: als }] = await Promise.all([
         supabase.from("ingredients").select("*").order("created_at", { ascending: false }),
         supabase.from("menu_items").select("*").order("created_at", { ascending: false }),
+        supabase.from("ingredient_aliases").select("*").eq("user_id", session.user.id),
       ]);
       setIngredients(ings || []);
       setMenuItems(menus || []);
+      setAliases(als || []);
       setLoading(false);
     };
     load();
@@ -5172,13 +5242,13 @@ function KitchenIQApp() {
           {loading
             ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
             : <>
-              {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} tier={profile?.subscription_tier} />}
-              {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} />}
+              {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} tier={profile?.subscription_tier} aliases={aliases} />}
+              {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} aliases={aliases} setAliases={setAliases} />}
               {tab === 2 && (profile?.subscription_tier === "tracker"
                 ? <TrackerUpgradeGate feature="Menu Items & Margin Calculations" />
-                : <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} session={session} profile={profile} />
+                : <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} session={session} profile={profile} aliases={aliases} />
               )}
-              {tab === 3 && <AlertsView ingredients={ingredients} session={session} profile={profile} />}
+              {tab === 3 && <AlertsView ingredients={ingredients} session={session} profile={profile} aliases={aliases} />}
               {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
               {tab === 5 && <SupportView session={session} />}
               {tab === 99 && profile?.is_admin && <AdminView />}
