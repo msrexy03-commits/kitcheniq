@@ -854,10 +854,30 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
 
   const flaggedResults = results ? flagSuspiciousItems(results) : null;
   const flagCount = flaggedResults ? flaggedResults.filter(r => r._flags && r._flags.length > 0).length : 0;
+  const [safeExpanded, setSafeExpanded] = useState(false);
+  const [editingIndex, setEditingIndex] = useState(null);
 
   const confirmImport = () => {
     onIngredientsFound(results.map((r) => ({ ...r, price: Number(r.price), case_size: r.case_size ? Number(r.case_size) : null })));
     onClose();
+  };
+
+  const removeResult = (i) => {
+    setResults(prev => prev.filter((_, idx) => idx !== i));
+    if (flaggedResults) flaggedResults.splice(i, 1);
+  };
+
+  // Generate two most-likely price suggestions for flagged items
+  const getPriceSuggestions = (r, allItems) => {
+    const price = Number(r.price);
+    const prices = allItems.map(x => Number(x.price)).filter(p => p > 0 && Math.abs(p - price) > 0.01);
+    const qty = Number(r._qty) || 1;
+    const suggestions = new Set();
+    // Divided by common quantities
+    [2, 3, 4, 5].forEach(q => suggestions.add((price / q).toFixed(2)));
+    // Other item prices that are close
+    prices.slice(0, 3).forEach(p => suggestions.add(p.toFixed(2)));
+    return [...suggestions].slice(0, 3).filter(s => Number(s) > 0 && Number(s) !== price);
   };
 
   return (
@@ -884,50 +904,108 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
         {image && !results && <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, textAlign: "center" }}>✓ Image loaded — click Scan to extract ingredients</div>}
         {error && <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 6, padding: "10px 14px", fontSize: 13, color: T.warn, fontFamily: T.body }}>⚠ {error}</div>}
 
-        {results && (
-          <div>
-            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 6 }}>✓ Found {results.length} items — review and edit below</div>
-            {flagCount > 0 && (
-              <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>⚠</span>
-                <span style={{ fontSize: 12, color: T.warn, fontFamily: T.body }}>
-                  <strong>{flagCount} item{flagCount > 1 ? "s" : ""} flagged for review</strong> — check highlighted items before importing
-                </span>
+        {results && flaggedResults && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 420, overflowY: "auto" }}>
+
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>
+                ✓ {results.length} items found
               </div>
-            )}
-            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 10 }}>Units normalized for recipe use. Tap any field to correct.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
-              {(flaggedResults || results).map((r, i) => {
-                const hasFlags = r._flags && r._flags.length > 0;
-                return (
-                  <div key={i} style={{ background: hasFlags ? T.warnDim : T.faint, border: `1px solid ${hasFlags ? T.warn + "66" : "transparent"}`, borderRadius: 8, padding: "12px 14px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 70px", gap: 6 }}>
-                      <input value={r.name} onChange={(e) => updateResult(i, "name", e.target.value)}
-                        style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
-                      <input value={r.price} onChange={(e) => updateResult(i, "price", e.target.value)} placeholder="Price"
-                        style={{ background: T.card, border: `1px solid ${hasFlags ? T.warn + "88" : T.border}`, borderRadius: 5, padding: "6px 10px", color: hasFlags ? T.warn : T.accent, fontSize: 12, fontFamily: T.body, outline: "none", fontWeight: hasFlags ? 700 : 400 }} />
-                      <input value={r.case_size || ""} onChange={(e) => updateResult(i, "case_size", e.target.value)} placeholder="Size"
-                        style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
-                      <select value={r.case_unit || "oz"} onChange={(e) => updateResult(i, "case_unit", e.target.value)}
-                        style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "6px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }}>
-                        {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                      </select>
+              {flagCount > 0 && (
+                <div style={{ fontSize: 12, color: T.warn, fontFamily: T.body, background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 20, padding: "3px 10px" }}>
+                  ⚠ {flagCount} need review
+                </div>
+              )}
+            </div>
+
+            {/* Flagged items — shown first, expanded */}
+            {flaggedResults.filter(r => r._flags && r._flags.length > 0).map((r, fi) => {
+              const realIndex = results.findIndex(x => x === r || (x.name === r.name && x.price === r.price));
+              const suggestions = getPriceSuggestions(r, results);
+              const isEditing = editingIndex === realIndex;
+              return (
+                <div key={fi} style={{ background: T.warnDim, border: `1px solid ${T.warn}66`, borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 700, flex: 1, marginRight: 8 }}>{r.name}</div>
+                    <button onClick={() => removeResult(realIndex)} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: "0 4px", flexShrink: 0 }}>×</button>
+                  </div>
+
+                  {/* Flag messages */}
+                  {r._flags.map((flag, fli) => (
+                    <div key={fli} style={{ fontSize: 11, color: T.warn, fontFamily: T.body, marginBottom: 8 }}>⚠ {flag}</div>
+                  ))}
+
+                  {/* Price fix — tap buttons */}
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginBottom: 5 }}>Current price: <strong style={{ color: T.warn }}>${Number(r.price).toFixed(2)}</strong> — tap to correct:</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {suggestions.map((s, si) => (
+                        <button key={si} onClick={() => updateResult(realIndex, "price", s)}
+                          style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 12px", fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+                          ${s}
+                        </button>
+                      ))}
+                      <button onClick={() => setEditingIndex(isEditing ? null : realIndex)}
+                        style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 12px", fontSize: 12, color: T.muted, fontFamily: T.body, cursor: "pointer" }}>
+                        ✏ Enter manually
+                      </button>
                     </div>
-                    {hasFlags && r._flags.map((flag, fi) => (
-                      <div key={fi} style={{ fontSize: 10, color: T.warn, fontFamily: T.body, marginTop: 5, display: "flex", alignItems: "center", gap: 4 }}>
-                        ⚠ {flag}
-                      </div>
-                    ))}
-                    {!hasFlags && (
-                      <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body, marginTop: 5 }}>
-                        {r.case_size ? `Unit cost: $${(r.price / r.case_size).toFixed(4)} per ${r.case_unit}` : "⚠ Add case size to auto-calculate unit cost"}
-                      </div>
+                    {isEditing && (
+                      <input autoFocus value={r.price} onChange={(e) => updateResult(realIndex, "price", e.target.value)}
+                        style={{ marginTop: 8, width: "100%", background: T.card, border: `1px solid ${T.warn}88`, borderRadius: 6, padding: "8px 12px", color: T.warn, fontSize: 14, fontFamily: T.body, outline: "none", boxSizing: "border-box" }} />
                     )}
                   </div>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 8 }}>Columns: Name · Case Price · Case Size · Unit</div>
+
+                  {/* Case size + unit */}
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>Case size:</div>
+                    <input value={r.case_size || ""} onChange={(e) => updateResult(realIndex, "case_size", e.target.value)} placeholder="e.g. 15"
+                      style={{ width: 70, background: T.card, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }} />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {["lb", "oz", "each", "gallon"].map(u => (
+                        <button key={u} onClick={() => updateResult(realIndex, "case_unit", u)}
+                          style={{ background: r.case_unit === u ? T.accent : T.faint, border: `1px solid ${r.case_unit === u ? T.accent : T.border}`, borderRadius: 5, padding: "4px 8px", fontSize: 11, color: r.case_unit === u ? "#0f1410" : T.muted, fontFamily: T.body, cursor: "pointer", fontWeight: r.case_unit === u ? 700 : 400 }}>
+                          {u}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Safe items — collapsed */}
+            {flaggedResults.filter(r => !r._flags || r._flags.length === 0).length > 0 && (
+              <div style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }}>
+                <button onClick={() => setSafeExpanded(e => !e)}
+                  style={{ width: "100%", background: "none", border: "none", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+                  <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>
+                    ✓ {flaggedResults.filter(r => !r._flags || r._flags.length === 0).length} items look correct
+                  </div>
+                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{safeExpanded ? "▲ collapse" : "▼ review anyway"}</div>
+                </button>
+                {safeExpanded && (
+                  <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {flaggedResults.filter(r => !r._flags || r._flags.length === 0).map((r, si) => {
+                      const realIndex = results.findIndex(x => x === r || (x.name === r.name && x.price === r.price));
+                      return (
+                        <div key={si} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{r.name}</div>
+                            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 2 }}>
+                              ${Number(r.price).toFixed(2)} · {r.case_size} {r.case_unit}
+                              {r.case_size ? ` · $${(r.price / r.case_size).toFixed(4)}/unit` : ""}
+                            </div>
+                          </div>
+                          <button onClick={() => removeResult(realIndex)} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: "0 4px" }}>×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -936,7 +1014,7 @@ Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","
           {!results
             ? <Btn onClick={scan} disabled={!imageBase64 || scanning} variant="ai">{scanning ? "⏳ Reading invoice..." : "🔍 Scan Invoice"}</Btn>
             : <>
-                <Btn variant="ghost" onClick={() => { setResults(null); setImage(null); setImageBase64(null); }}>Rescan</Btn>
+                <Btn variant="ghost" onClick={() => { setResults(null); setImage(null); setImageBase64(null); setSafeExpanded(false); setEditingIndex(null); }}>Rescan</Btn>
                 <Btn onClick={confirmImport}>✓ Import {results.length} Items</Btn>
               </>}
         </div>
