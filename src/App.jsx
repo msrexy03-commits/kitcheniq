@@ -1122,6 +1122,7 @@ Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit"
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlash, chartOpacity: externalChartOpacity, tier, aliases = [] }) {
+  const isMobile = useIsMobile();
   const [internalFlash, setInternalFlash] = useState(null);
   const [chartOpacity, setChartOpacity] = useState(externalChartOpacity ?? 0);
   const flashCard = externalFlash ?? internalFlash;
@@ -1174,14 +1175,14 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
     <div onClick={onClick} style={{
       background: T.card,
       border: `1px solid ${warn ? T.warn + "88" : accent ? T.accentMid : T.border}`,
-      borderRadius: 10, padding: "16px 18px",
+      borderRadius: 10, padding: isMobile ? "12px 14px" : "16px 18px",
       animation: flashCard === k ? "cardFlash 0.9s ease" : "none",
       cursor: onClick ? "pointer" : "default",
       transition: "border-color 0.3s ease",
     }}>
-      <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 28, color: warn ? T.warn : accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: warn ? T.warn : T.muted, marginTop: 5, fontFamily: T.body }}>{sub}</div>}
+      <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: isMobile ? 24 : 28, color: warn ? T.warn : accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, color: warn ? T.warn : T.muted, marginTop: 4, fontFamily: T.body }}>{sub}</div>}
     </div>
   );
 
@@ -1213,7 +1214,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
       )}
 
       {/* ── TOP ROW: 2×2 stat grid + spike alerts + margin leaders ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
 
         {/* 2×2 stat grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 10 }}>
@@ -1264,7 +1265,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
       </div>
 
       {/* ── MIDDLE ROW: Menu suggestions + charts ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
 
         {/* Menu suggestions — left */}
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column" }}>
@@ -1319,7 +1320,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 18px" }}>
             <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 12 }}>Menu Item Margins</div>
             {marginData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={140}>
+              <ResponsiveContainer width="100%" height={isMobile ? 120 : 140}>
                 <BarChart data={marginData}>
                   <XAxis dataKey="name" tick={{ fill: T.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: T.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -1352,7 +1353,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
                       </div>
                     : <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>No data yet</div>}
                 </div>
-              : <ResponsiveContainer width="100%" height={120}>
+              : <ResponsiveContainer width="100%" height={isMobile ? 100 : 120}>
                   <LineChart data={priceHistory}>
                     <XAxis dataKey="date" tick={{ fill: T.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: T.muted, fontSize: 9 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
