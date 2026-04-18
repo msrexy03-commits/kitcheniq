@@ -1195,12 +1195,12 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
   }, []);
   const alerts = getPriceAlerts(ingredients.filter(i => !i.is_supply));
 
-  // Value caught this month — dollar value of all price increases caught by alerts
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
-  const spikesCaughtThisMonth = alerts.filter(a => a.pct > 0 && a.date >= monthStart);
-  const valueCaught = spikesCaughtThisMonth.reduce((sum, a) => sum + (a.newPrice - a.oldPrice), 0);
-  const biggestSpike = spikesCaughtThisMonth.length
-    ? spikesCaughtThisMonth.reduce((a, b) => Math.abs(b.pct) > Math.abs(a.pct) ? b : a)
+  // Value caught — dollar value of price increases detected in the last 12 months
+  const yearStart = new Date(new Date().getFullYear() - 1, new Date().getMonth(), new Date().getDate()).toISOString().split("T")[0];
+  const spikesCaught = alerts.filter(a => a.pct > 0 && a.date >= yearStart);
+  const valueCaught = spikesCaught.reduce((sum, a) => sum + (a.newPrice - a.oldPrice), 0);
+  const biggestSpike = spikesCaught.length
+    ? spikesCaught.reduce((a, b) => Math.abs(b.pct) > Math.abs(a.pct) ? b : a)
     : null;
 
   const ingredientNames = [...new Set(ingredients.filter(i => !i.is_supply).map(i => i.name))].sort();
@@ -1224,7 +1224,7 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
           { key: "menu", label: "Menu Items", value: menuItems.length, accent: false },
           { key: "margin", label: "Avg Margin", value: fmtPct(avgMargin), sub: avgMargin > 60 ? "Healthy ✓" : avgMargin > 40 ? "Watch closely" : "⚠ Low margins", accent: avgMargin > 60, warn: avgMargin < 50 },
           { key: "alerts", label: "Price Alerts", value: alerts.length, sub: alerts.length ? alerts[0].name : "All stable", accent: alerts.length === 0, warn: alerts.length > 0 },
-          { key: "caught", label: "Caught This Month", value: valueCaught > 0 ? fmt$2(valueCaught) : "—", sub: biggestSpike ? `↑ ${biggestSpike.name.split(" ").slice(0, 2).join(" ")} +${biggestSpike.pct.toFixed(0)}%` : spikesCaughtThisMonth.length === 0 ? "No spikes yet" : `${spikesCaughtThisMonth.length} spike${spikesCaughtThisMonth.length > 1 ? "s" : ""} caught`, accent: valueCaught === 0, warn: valueCaught > 0 },
+          { key: "caught", label: "Caught (12 Months)", value: valueCaught > 0 ? fmt$2(valueCaught) : "—", sub: biggestSpike ? `↑ ${biggestSpike.name.split(" ").slice(0, 2).join(" ")} +${biggestSpike.pct.toFixed(0)}%` : "No spikes detected", accent: valueCaught === 0, warn: valueCaught > 0 },
         ].map(card => (
           <div key={card.key} style={{
             background: T.card,
