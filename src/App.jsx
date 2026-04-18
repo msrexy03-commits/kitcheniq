@@ -680,13 +680,19 @@ function enhanceInvoiceImage(base64) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
+      // Cap dimensions to 1600px on longest edge — iPhone photos are 4032×3024 which exceeds API 5MB limit
+      const MAX = 1600;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const imageData = ctx.getImageData(0, 0, w, h);
       const data = imageData.data;
 
       // Step 1 — Grayscale
@@ -695,7 +701,7 @@ function enhanceInvoiceImage(base64) {
         data[i] = data[i + 1] = data[i + 2] = gray;
       }
 
-      // Step 2 — Auto contrast: find min/max brightness and stretch range
+      // Step 2 — Auto contrast
       let min = 255, max = 0;
       for (let i = 0; i < data.length; i += 4) {
         if (data[i] < min) min = data[i];
@@ -707,14 +713,13 @@ function enhanceInvoiceImage(base64) {
         data[i] = data[i + 1] = data[i + 2] = Math.min(255, Math.max(0, stretched));
       }
 
-      // Step 3 — Sharpen using unsharp mask kernel
+      // Step 3 — Sharpen
       ctx.putImageData(imageData, 0, 0);
-      const sharpened = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const sharpened = ctx.getImageData(0, 0, w, h);
       const src = imageData.data;
       const dst = sharpened.data;
-      const w = canvas.width;
       const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-      for (let y = 1; y < canvas.height - 1; y++) {
+      for (let y = 1; y < h - 1; y++) {
         for (let x = 1; x < w - 1; x++) {
           let val = 0;
           for (let ky = -1; ky <= 1; ky++) {
@@ -731,8 +736,8 @@ function enhanceInvoiceImage(base64) {
       }
       ctx.putImageData(sharpened, 0, 0);
 
-      // Return enhanced image as base64 JPEG
-      const enhanced = canvas.toDataURL("image/jpeg", 0.92).split(",")[1];
+      // Export at 0.82 quality — keeps file well under 5MB API limit
+      const enhanced = canvas.toDataURL("image/jpeg", 0.82).split(",")[1];
       resolve(enhanced);
     };
     img.src = `data:image/jpeg;base64,${base64}`;
