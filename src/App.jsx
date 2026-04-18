@@ -1193,15 +1193,12 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
       return () => clearInterval(interval);
     }
   }, []);
-  const alerts = getPriceAlerts(ingredients.filter(i => !i.is_supply));
 
-  // Value caught — dollar value of price increases detected in the last 12 months
+  const alerts = getPriceAlerts(ingredients.filter(i => !i.is_supply));
   const yearStart = new Date(new Date().getFullYear() - 1, new Date().getMonth(), new Date().getDate()).toISOString().split("T")[0];
   const spikesCaught = alerts.filter(a => a.pct > 0 && a.date >= yearStart);
   const valueCaught = spikesCaught.reduce((sum, a) => sum + (a.newPrice - a.oldPrice), 0);
-  const biggestSpike = spikesCaught.length
-    ? spikesCaught.reduce((a, b) => Math.abs(b.pct) > Math.abs(a.pct) ? b : a)
-    : null;
+  const biggestSpike = spikesCaught.length ? spikesCaught.reduce((a, b) => Math.abs(b.pct) > Math.abs(a.pct) ? b : a) : null;
 
   const ingredientNames = [...new Set(ingredients.filter(i => !i.is_supply).map(i => i.name))].sort();
   const [selectedIngredient, setSelectedIngredient] = useState(ingredientNames[0] || "");
@@ -1215,179 +1212,192 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
   const avgMargin = menuStats.length ? menuStats.reduce((s, m) => s + m.margin, 0) / menuStats.length : 0;
   const marginData = menuStats.slice(0, 8).map((m) => ({ name: m.name.slice(0, 10), margin: parseFloat(m.margin.toFixed(1)) }));
 
+  // Menu suggestions — items with spikes or low margins
+  const suggestions = tier !== "tracker" ? menuStats.map(m => {
+    const issues = [];
+    if (m.margin < 50 && m.cost > 0) {
+      const suggestedPrice = m.cost / (1 - 0.65);
+      issues.push({ type: "price", label: "Low Margin", message: `Raise to ${fmt$2(suggestedPrice)} to hit 65%` });
+    }
+    const spike = alerts.find(a => (m.ingredients || []).some(r => r.ingredient_name?.toLowerCase() === a.name?.toLowerCase()));
+    if (spike) issues.push({ type: "spike", label: "Price Spike", message: `${spike.name.split(" ").slice(0,2).join(" ")} changed` });
+    return issues.length > 0 ? { ...m, issues } : null;
+  }).filter(Boolean) : [];
+
+  const StatCard = ({ k, label, value, sub, accent, warn, onClick }) => (
+    <div onClick={onClick} style={{
+      background: T.card,
+      border: `1px solid ${warn ? T.warn + "88" : accent ? T.accentMid : T.border}`,
+      borderRadius: 10, padding: "16px 18px",
+      animation: flashCard === k ? "cardFlash 0.9s ease" : "none",
+      cursor: onClick ? "pointer" : "default",
+      transition: "border-color 0.3s ease",
+    }}>
+      <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 28, color: warn ? T.warn : accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: warn ? T.warn : T.muted, marginTop: 5, fontFamily: T.body }}>{sub}</div>}
+    </div>
+  );
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <style>{`@keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: #1e2b1f; } }`}</style>
       <OnboardingBanner ingredients={ingredients} menuItems={menuItems} onNavigate={onNavigate} tier={tier} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
-        {[
-          { key: "ingredients", label: "Ingredients Tracked", value: ingredients.length, accent: true },
-          { key: "menu", label: "Menu Items", value: menuItems.length, accent: false },
-          { key: "margin", label: "Avg Margin", value: fmtPct(avgMargin), sub: avgMargin > 60 ? "Healthy ✓" : avgMargin > 40 ? "Watch closely" : "⚠ Low margins", accent: avgMargin > 60, warn: avgMargin < 50 },
-          { key: "alerts", label: "Price Alerts", value: alerts.length, sub: alerts.length ? alerts[0].name : "All stable", accent: alerts.length === 0, warn: alerts.length > 0 },
-          { key: "caught", label: "Caught (12 Months)", value: valueCaught > 0 ? fmt$2(valueCaught) : "—", sub: biggestSpike ? `↑ ${biggestSpike.name.split(" ").slice(0, 2).join(" ")} +${biggestSpike.pct.toFixed(0)}%` : "No spikes detected", accent: valueCaught === 0, warn: valueCaught > 0 },
-        ].map(card => (
-          <div key={card.key} style={{
-            background: T.card,
-            border: `1px solid ${card.warn ? T.warn + "88" : card.accent ? T.accentMid : T.border}`,
-            borderRadius: 10, padding: "16px 20px",
-            animation: flashCard === card.key ? "cardFlash 0.9s ease" : "none",
-            transition: "border-color 0.3s ease",
-          }}>
-            <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>{card.label}</div>
-            <div style={{ fontSize: 32, color: card.warn ? T.warn : card.accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{card.value}</div>
-            {card.sub && <div style={{ fontSize: 12, color: card.warn ? T.warn : T.muted, marginTop: 6, fontFamily: T.body }}>{card.sub}</div>}
-          </div>
-        ))}
-      </div>
 
-      {/* ── Menu Suggestions Panel ── */}
-      {tier === "tracker" ? (
-        <div style={{ background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "20px 24px", display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ fontSize: 28 }}>🔒</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>Menu margins & recipe costing are on the Full plan</div>
-            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>You're on Tracker — upgrade to see your real food cost % on every dish.</div>
-          </div>
-          <a href="/#/paywall" style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>Upgrade →</a>
+      {/* ── TOP ROW: 2×2 stat grid + spike alerts + margin leaders ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+
+        {/* 2×2 stat grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 10 }}>
+          <StatCard k="ingredients" label="Ingredients" value={ingredients.filter(i => !i.is_supply).length} accent onClick={() => onNavigate(1)} />
+          <StatCard k="menu" label="Menu Items" value={menuItems.length} onClick={() => onNavigate(2)} />
+          <StatCard k="margin" label="Avg Margin" value={fmtPct(avgMargin)} sub={avgMargin > 60 ? "Healthy ✓" : avgMargin > 40 ? "Watch closely" : "⚠ Low"} accent={avgMargin > 60} warn={avgMargin < 50} onClick={() => onNavigate(2)} />
+          <StatCard k="caught" label="Caught (12mo)" value={valueCaught > 0 ? fmt$2(valueCaught) : "—"} sub={biggestSpike ? `↑ ${biggestSpike.name.split(" ").slice(0,2).join(" ")} +${biggestSpike.pct.toFixed(0)}%` : "No spikes"} warn={valueCaught > 0} accent={valueCaught === 0} onClick={() => onNavigate(3)} />
         </div>
-      ) : menuStats.length > 0 && (() => {
-        const suggestions = menuStats.map(m => {
-          const issues = [];
-          if (m.margin < 50 && m.cost > 0) {
-            const suggestedPrice = m.cost / (1 - 0.65);
-            const diff = suggestedPrice - m.sale_price;
-            issues.push({ type: "price", label: "Low Margin", color: T.warn, bg: T.warnDim, border: `${T.warn}44`, icon: "💰", message: `Raise to ${fmt$2(suggestedPrice)} (+${fmt$2(diff)}) to hit 65% margin`, urgency: 2 });
-          }
-          // Check if any ingredient spiked recently (within last 30 days)
-          const recentSpikes = alerts.filter(a =>
-            (m.ingredients || []).some(r => r.ingredient_name?.toLowerCase() === a.name?.toLowerCase())
-          );
-          if (recentSpikes.length > 0) {
-            const spike = recentSpikes[0];
-            issues.push({ type: "spike", label: "Price Spike", color: "#e8c84a", bg: "#e8c84a11", border: "#e8c84a44", icon: "⚡", message: `${spike.name} changed — review your margin`, urgency: 1 });
-          }
-          return issues.length > 0 ? { ...m, issues } : null;
-        }).filter(Boolean).sort((a, b) => Math.max(...b.issues.map(i => i.urgency)) - Math.max(...a.issues.map(i => i.urgency)));
 
-        if (suggestions.length === 0) return (
-          <div style={{ background: T.card, border: `1px solid ${T.accentMid}`, borderRadius: 12, padding: "20px 24px" }}>
-            <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>Menu Suggestions</div>
-            <div style={{ fontSize: 14, color: T.accent, fontFamily: T.body }}>✓ All menu items are looking healthy — no action needed right now.</div>
+        {/* Price Spike Alerts widget */}
+        <div style={{ background: T.card, border: `1px solid ${alerts.length > 0 ? T.warn + "55" : T.border}`, borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>Price Spike Alerts</div>
+            {alerts.length > 0 && <button onClick={() => onNavigate(3)} style={{ background: "none", border: "none", color: T.accent, fontSize: 11, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>View all →</button>}
           </div>
-        );
-
-        return (
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>Menu Suggestions</div>
-              <div style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>{suggestions.length} item{suggestions.length > 1 ? "s" : ""} need attention</div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {suggestions.map((m, idx) => (
-                <div key={idx} style={{ background: T.faint, borderRadius: 10, padding: "14px 18px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ fontSize: 16, color: m.margin < 50 ? T.warn : "#e8c84a", fontFamily: T.font, fontWeight: 800 }}>{fmtPct(m.margin)}</div>
-                      <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>margin</div>
+          {alerts.length === 0
+            ? <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, flex: 1, display: "flex", alignItems: "center" }}>✓ All prices stable</div>
+            : <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                {alerts.slice(0, 4).map((a, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: 12, color: T.text, fontFamily: T.body, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: 8 }}>{a.name}</div>
+                    <div style={{ fontSize: 12, fontFamily: T.font, fontWeight: 700, color: a.pct > 0 ? T.warn : T.accent, flexShrink: 0 }}>
+                      {a.pct > 0 ? "▲" : "▼"} {Math.abs(a.pct).toFixed(1)}%
                     </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {m.issues.map((issue, i) => (
-                      <div key={i} style={{ background: issue.bg, border: `1px solid ${issue.border}`, borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 16 }}>{issue.icon}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 11, color: issue.color, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>{issue.label}</div>
-                          <div style={{ fontSize: 13, color: T.text, fontFamily: T.body }}>{issue.message}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => onNavigate(2)} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, fontFamily: T.body, cursor: "pointer", marginTop: 12, textDecoration: "underline", padding: 0 }}>
-              View all menu items →
-            </button>
-          </div>
-        );
-      })()}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>Price History</div>
-            {ingredientNames.length > 0 && (
-              <select value={selectedIngredient} onChange={(e) => setSelectedIngredient(e.target.value)}
-                style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 10px", color: T.text, fontSize: 12, fontFamily: T.body, outline: "none" }}>
-                {ingredientNames.map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            )}
-          </div>
-          {priceHistory.length === 0
-            ? <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13, fontFamily: T.body }}>Add ingredients to see price history</div>
-            : priceHistory.length === 1
-            ? <div style={{ height: 160, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <div style={{ fontSize: 28, color: T.accent, fontFamily: T.font, fontWeight: 800 }}>${priceHistory[0].price}</div>
-                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Only one price recorded — scan another invoice to see trend</div>
-              </div>
-            : <ResponsiveContainer width="100%" height={160}>
-                <LineChart data={priceHistory}>
-                  <XAxis dataKey="date" tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
-                  <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.body, fontSize: 12 }}
-                    formatter={(v) => [`$${Number(v).toFixed(2)}`, "Price"]} />
-                  <Line type="monotone" dataKey="price" stroke={T.accent} strokeWidth={2} dot={{ fill: T.accent, r: 4 }} activeDot={{ r: 6 }} />
-                </LineChart>
-              </ResponsiveContainer>}
+                ))}
+              </div>}
         </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Menu Item Margins</div>
-          {marginData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={marginData}>
-                <XAxis dataKey="name" tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: T.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.body, fontSize: 12 }} formatter={(v) => [`${v}%`, "Margin"]} />
-                <Bar dataKey="margin" radius={[4, 4, 0, 0]}>
-                  {marginData.map((entry, i) => (<Cell key={i} fill={entry.margin > 60 ? T.accent : entry.margin > 40 ? "#e8c84a" : T.warn} opacity={entry.margin < 40 ? 1 : 0.85} />))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13, fontFamily: T.body }}>Add menu items to see chart</div>}
+
+        {/* Margin Leaders widget */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column" }}>
+          <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 12 }}>Margin Leaders</div>
+          {best ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+              <div>
+                <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body, marginBottom: 3 }}>🏆 Best</div>
+                <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{best.name}</div>
+                <div style={{ fontSize: 18, color: T.accent, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(best.margin)}</div>
+              </div>
+              <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 10 }}>
+                <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body, marginBottom: 3 }}>⚠ Worst</div>
+                <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>{worst.name}</div>
+                <div style={{ fontSize: 18, color: T.warn, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(worst.margin)}</div>
+              </div>
+            </div>
+          ) : <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>No menu items yet</div>}
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Margin Leaders</div>
-          {best ? (<>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>🏆 Best</span>
-              <span style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 600 }}>{best.name} — {fmtPct(best.margin)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>⚠ Worst</span>
-              <span style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 600 }}>{worst.name} — {fmtPct(worst.margin)}</span>
-            </div>
-          </>) : <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>No menu items yet</div>}
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "20px 24px" }}>
-          <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 16 }}>Price Spike Alerts</div>
-          {alerts.length === 0
-            ? <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>No price changes detected yet</div>
-            : alerts.slice(0, 3).map((a, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: T.text, fontFamily: T.body }}>{a.name}</span>
-                <span style={{ fontSize: 13, fontFamily: T.font, fontWeight: 600, color: a.pct > 0 ? T.warn : T.accent }}>
-                  {a.pct > 0 ? "▲" : "▼"} {Math.abs(a.pct).toFixed(1)}%
-                </span>
+
+      {/* ── MIDDLE ROW: Menu suggestions + charts ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+        {/* Menu suggestions — left */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column" }}>
+          {tier === "tracker" ? (
+            <>
+              <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 12 }}>Menu Suggestions</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                <div style={{ fontSize: 24 }}>🔒</div>
+                <div>
+                  <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>Full plan feature</div>
+                  <a href="/#/paywall" style={{ fontSize: 12, color: T.accent, fontFamily: T.font, fontWeight: 600 }}>Upgrade to unlock →</a>
+                </div>
               </div>
-            ))}
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>Menu Suggestions</div>
+                {suggestions.length > 0 && <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>{suggestions.length} need attention</div>}
+              </div>
+              {suggestions.length === 0
+                ? <div style={{ fontSize: 13, color: T.accent, fontFamily: T.body, flex: 1, display: "flex", alignItems: "center" }}>✓ All menu items healthy</div>
+                : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {suggestions.map((m, idx) => (
+                      <div key={idx} style={{ background: T.faint, borderRadius: 8, padding: "12px 14px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
+                          <div style={{ fontSize: 14, color: m.margin < 50 ? T.warn : "#e8c84a", fontFamily: T.font, fontWeight: 800 }}>{fmtPct(m.margin)}</div>
+                        </div>
+                        {m.issues.map((issue, ii) => (
+                          <div key={ii} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: issue.type === "spike" ? "#e8c84a11" : T.warnDim, border: `1px solid ${issue.type === "spike" ? "#e8c84a44" : T.warn + "44"}`, borderRadius: 6, padding: "6px 10px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 10, color: issue.type === "spike" ? "#e8c84a" : T.warn, fontFamily: T.font, fontWeight: 700 }}>⚡ {issue.label}</span>
+                              <span style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>{issue.message}</span>
+                            </div>
+                            <button onClick={() => onNavigate(2)} style={{ background: issue.type === "spike" ? "#e8c84a22" : T.warnDim, border: `1px solid ${issue.type === "spike" ? "#e8c84a88" : T.warn + "88"}`, color: issue.type === "spike" ? "#e8c84a" : T.warn, borderRadius: 5, padding: "3px 10px", fontSize: 10, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              REVIEW
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    <button onClick={() => onNavigate(2)} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer", textAlign: "left", padding: "4px 0" }}>View all menu items →</button>
+                  </div>}
+            </>
+          )}
+        </div>
+
+        {/* Charts — right column stacked */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Menu Item Margins bar chart */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 18px" }}>
+            <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 12 }}>Menu Item Margins</div>
+            {marginData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={140}>
+                <BarChart data={marginData}>
+                  <XAxis dataKey="name" tick={{ fill: T.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: T.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.body, fontSize: 11 }} formatter={(v) => [`${v}%`, "Margin"]} />
+                  <Bar dataKey="margin" radius={[3, 3, 0, 0]}>
+                    {marginData.map((entry, i) => (<Cell key={i} fill={entry.margin > 60 ? T.accent : entry.margin > 40 ? "#e8c84a" : T.warn} opacity={0.9} />))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div style={{ height: 140, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 12, fontFamily: T.body }}>Add menu items to see chart</div>}
+          </div>
+
+          {/* Price History line chart */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>Price History</div>
+              {ingredientNames.length > 0 && (
+                <select value={selectedIngredient} onChange={e => setSelectedIngredient(e.target.value)}
+                  style={{ background: T.faint, border: `1px solid ${T.border}`, borderRadius: 5, padding: "3px 8px", color: T.text, fontSize: 11, fontFamily: T.body, outline: "none" }}>
+                  {ingredientNames.map(n => <option key={n} value={n}>{n.slice(0, 24)}</option>)}
+                </select>
+              )}
+            </div>
+            {priceHistory.length < 2
+              ? <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {priceHistory.length === 1
+                    ? <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 22, color: T.accent, fontFamily: T.font, fontWeight: 800 }}>${priceHistory[0].price}</div>
+                        <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 4 }}>Scan another invoice to see trend</div>
+                      </div>
+                    : <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>No data yet</div>}
+                </div>
+              : <ResponsiveContainer width="100%" height={120}>
+                  <LineChart data={priceHistory}>
+                    <XAxis dataKey="date" tick={{ fill: T.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: T.muted, fontSize: 9 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+                    <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.body, fontSize: 11 }} formatter={(v) => [`$${Number(v).toFixed(2)}`, "Price"]} />
+                    <Line type="monotone" dataKey="price" stroke={T.accent} strokeWidth={2} dot={{ fill: T.accent, r: 3 }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>}
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
 // ─── Ingredients ──────────────────────────────────────────────────────────────
 // ─── Supplies Section ─────────────────────────────────────────────────────────
 function SuppliesSection({ items, renderRow }) {
@@ -5357,6 +5367,7 @@ const ADMIN_ICON = "🛡";
 
 function KitchenIQApp() {
   const { route, navigate } = useRoute();
+  const isMobile = useIsMobile();
   const [session, setSession] = useState(undefined);
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -5486,85 +5497,109 @@ function KitchenIQApp() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
-      <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
+    <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+      {/* Top header bar */}
+      <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card, flexShrink: 0 }}>
+        <div style={{ maxWidth: isMobile ? "100%" : "none", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
-            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+            <div style={{ width: 30, height: 30, borderRadius: 7, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>⬡</div>
+            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 17, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>{session.user.email}</span>
-            <button onClick={() => exportCSV(ingredients, menuItems)} style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>↓ CSV</button>
-            <button onClick={signOut} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "7px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{session.user.email}</span>
+            <button onClick={() => exportCSV(ingredients, menuItems)} style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "6px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>↓ CSV</button>
+            <button onClick={signOut} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "6px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
           </div>
         </div>
       </div>
-      <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", overflowX: "auto" }}>
-          {TABS.map((t, i) => {
-            const alertCount = i === 3 ? getPriceAlerts(ingredients).length : 0;
-            return (
-              <button key={i} onClick={() => setTab(i)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`, color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-                {ICONS[i]} {t}
-                {alertCount > 0 && <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{alertCount}</span>}
+
+      {/* Body — sidebar + content on desktop, stack on mobile */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+
+        {/* Left sidebar — desktop only */}
+        {!isMobile && (
+          <div style={{ width: 200, flexShrink: 0, background: T.card, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", padding: "16px 0" }}>
+            {TABS.map((t, i) => {
+              const alertCount = i === 3 ? getPriceAlerts(ingredients.filter(x => !x.is_supply)).length : 0;
+              const isActive = tab === i;
+              return (
+                <button key={i} onClick={() => setTab(i)} style={{
+                  background: isActive ? T.accentDim : "none",
+                  border: "none",
+                  borderLeft: `3px solid ${isActive ? T.accent : "transparent"}`,
+                  color: isActive ? T.accent : T.muted,
+                  padding: "11px 20px",
+                  fontSize: 13, fontFamily: T.font, fontWeight: isActive ? 700 : 500,
+                  cursor: "pointer", transition: "all 0.15s",
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+                }}>
+                  <span style={{ fontSize: 15 }}>{ICONS[i]}</span>
+                  {t}
+                  {alertCount > 0 && <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, marginLeft: "auto" }}>{alertCount}</span>}
+                </button>
+              );
+            })}
+            {profile?.is_admin && (
+              <button onClick={() => setTab(99)} style={{ background: tab === 99 ? T.accentDim : "none", border: "none", borderLeft: `3px solid ${tab === 99 ? T.accent : "transparent"}`, color: tab === 99 ? T.accent : T.muted, padding: "11px 20px", fontSize: 13, fontFamily: T.font, fontWeight: tab === 99 ? 700 : 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left" }}>
+                <span style={{ fontSize: 15 }}>{ADMIN_ICON}</span>{ADMIN_TAB}
               </button>
-            );
-          })}
-          {profile?.is_admin && (
-            <button onClick={() => setTab(99)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === 99 ? T.accent : "transparent"}`, color: tab === 99 ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-              {ADMIN_ICON} {ADMIN_TAB}
-            </button>
-          )}
-        </div>
-      </div>
-      {priceNotif && priceNotif.length > 0 && (
-        <div style={{ padding: "0 16px", marginTop: 12 }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", gap: 8 }}>
-            {priceNotif.map((c, idx) => (
-              <div key={idx} style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "flex-start", gap: 12, animation: "slideInDown 0.4s ease" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}`, marginTop: 5 }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>
-                    ⚠ {c.name} {c.pct > 0 ? "increased" : "decreased"} {Math.abs(c.pct).toFixed(0)}% — ${Number(c.oldPrice).toFixed(2)} → ${Number(c.newPrice).toFixed(2)}
-                  </div>
-                  {c.affectedDishes && c.affectedDishes.length > 0 ? (
-                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
-                      {c.affectedDishes.map((d, i) => (
-                        <div key={i} style={{ fontSize: 12, color: d.impact > 0 ? T.warn : T.accent, fontFamily: T.body }}>
-                          {d.impact > 0 ? "↑" : "↓"} {d.dish} costs {d.impact > 0 ? "+" : ""}{fmt$2(d.impact)} more per plate
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>No menu items affected</div>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <button onClick={() => { setTab(3); setPriceNotif(null); }} style={{ background: T.warn, color: "#0f1410", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: T.font, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>View Alerts →</button>
-                  <button onClick={() => setPriceNotif(null)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: "0 4px" }}>×</button>
-                </div>
-              </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
-      <div style={{ width: "100%", padding: "24px 16px", boxSizing: "border-box" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          {loading
-            ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
-            : <>
-              {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} tier={profile?.subscription_tier} aliases={aliases} />}
-              {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} aliases={aliases} setAliases={setAliases} ingredientProfiles={ingredientProfiles} setIngredientProfiles={setIngredientProfiles} />}
-              {tab === 2 && (profile?.subscription_tier === "tracker"
-                ? <TrackerUpgradeGate feature="Menu Items & Margin Calculations" />
-                : <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} session={session} profile={profile} aliases={aliases} />
-              )}
-              {tab === 3 && <AlertsView ingredients={ingredients} session={session} profile={profile} aliases={aliases} />}
-              {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
-              {tab === 5 && <SupportView session={session} />}
-              {tab === 99 && profile?.is_admin && <AdminView />}
-            </>}
+        )}
+
+        {/* Main content */}
+        <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
+          {/* Mobile tab bar */}
+          {isMobile && (
+            <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card, display: "flex", overflowX: "auto", flexShrink: 0 }}>
+              {TABS.map((t, i) => {
+                const alertCount = i === 3 ? getPriceAlerts(ingredients.filter(x => !x.is_supply)).length : 0;
+                return (
+                  <button key={i} onClick={() => setTab(i)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`, color: tab === i ? T.accent : T.muted, padding: "12px 16px", fontSize: 12, fontFamily: T.font, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+                    {ICONS[i]} {t}
+                    {alertCount > 0 && <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 9, padding: "2px 5px", fontFamily: T.font, fontWeight: 700 }}>{alertCount}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {priceNotif && priceNotif.length > 0 && (
+            <div style={{ padding: "12px 20px 0" }}>
+              {priceNotif.map((c, idx) => (
+                <div key={idx} style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 8, animation: "slideInDown 0.4s ease" }}>
+                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}`, marginTop: 5 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ {c.name} {c.pct > 0 ? "increased" : "decreased"} {Math.abs(c.pct).toFixed(0)}% — ${Number(c.oldPrice).toFixed(2)} → ${Number(c.newPrice).toFixed(2)}</div>
+                    {c.affectedDishes?.length > 0 && c.affectedDishes.map((d, i) => (
+                      <div key={i} style={{ fontSize: 11, color: d.impact > 0 ? T.warn : T.accent, fontFamily: T.body, marginTop: 3 }}>{d.impact > 0 ? "↑" : "↓"} {d.dish} costs {d.impact > 0 ? "+" : ""}{fmt$2(d.impact)} more per plate</div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => { setTab(3); setPriceNotif(null); }} style={{ background: T.warn, color: "#0f1410", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>View →</button>
+                    <button onClick={() => setPriceNotif(null)} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer" }}>×</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ padding: "20px", flex: 1, boxSizing: "border-box" }}>
+            {loading
+              ? <div style={{ textAlign: "center", color: T.muted, fontFamily: T.body, padding: 60 }}>Loading your data...</div>
+              : <>
+                {tab === 0 && <Dashboard ingredients={ingredients} menuItems={menuItems} onNavigate={setTab} tier={profile?.subscription_tier} aliases={aliases} />}
+                {tab === 1 && <IngredientsView ingredients={ingredients} setIngredients={setIngredients} userId={session.user.id} userEmail={session.user.email} menuItems={menuItems} onPriceChange={(changes) => { setPriceNotif(changes); setTimeout(() => setPriceNotif(null), 12000); }} aliases={aliases} setAliases={setAliases} ingredientProfiles={ingredientProfiles} setIngredientProfiles={setIngredientProfiles} />}
+                {tab === 2 && (profile?.subscription_tier === "tracker"
+                  ? <TrackerUpgradeGate feature="Menu Items & Margin Calculations" />
+                  : <MenuView menuItems={menuItems} setMenuItems={setMenuItems} ingredients={ingredients} userId={session.user.id} session={session} profile={profile} aliases={aliases} />
+                )}
+                {tab === 3 && <AlertsView ingredients={ingredients} session={session} profile={profile} aliases={aliases} />}
+                {tab === 4 && <AccountView session={session} profile={profile} onProfileUpdate={setProfile} onSignOut={signOut} />}
+                {tab === 5 && <SupportView session={session} />}
+                {tab === 99 && profile?.is_admin && <AdminView />}
+              </>}
+          </div>
         </div>
       </div>
     </div>
