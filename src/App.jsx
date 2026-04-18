@@ -682,15 +682,30 @@ function enhanceInvoiceImage(base64) {
     img.onload = () => {
       // Cap dimensions to 1600px on longest edge — iPhone photos are 4032×3024 which exceeds API 5MB limit
       const MAX = 1600;
-      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
+
+      // If image is wider than tall it's likely a sideways phone photo of a portrait invoice — rotate 90°
+      const needsRotation = img.width > img.height;
+      const naturalW = needsRotation ? img.height : img.width;
+      const naturalH = needsRotation ? img.width : img.height;
+
+      const scale = Math.min(1, MAX / Math.max(naturalW, naturalH));
+      const w = Math.round(naturalW * scale);
+      const h = Math.round(naturalH * scale);
 
       const canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, w, h);
+
+      if (needsRotation) {
+        ctx.translate(w, 0);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(img, 0, 0, h, w); // draw rotated
+        ctx.rotate(-Math.PI / 2);
+        ctx.translate(-w, 0);
+      } else {
+        ctx.drawImage(img, 0, 0, w, h);
+      }
 
       const imageData = ctx.getImageData(0, 0, w, h);
       const data = imageData.data;
@@ -786,33 +801,48 @@ function InvoiceScanner({ onIngredientsFound, onClose, userId, onAliasSaved, ing
               { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
               { type: "text", text: `You are a restaurant invoice parser. Extract every product line item from this supplier invoice image.
 
+IMPORTANT: The invoice may be rotated — read it in whatever orientation makes the text readable.
+
 Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
 
-For each line item:
-- name: ingredient type first, descriptors after, Title Case, no brands/SKUs
-  Examples: "SLICED BACON 18/14-16CT" → "Bacon Sliced", "SWEET ITALIAN SAUSAGE" → "Sausage Italian Sweet", "HALF AND HALF CREAMER" → "Creamer Half And Half", "SHREDDED CHEDDAR JACK" → "Cheese Cheddar Jack Shredded", "GROUND BEEF 80/20" → "Beef Ground 80/20", "CHICKEN BREAST BNLS SKNLS" → "Chicken Breast Boneless"
-  Strip: brand names (Hormel, Tyson, Perdue, Kraft, Sysco, Swift, Pilgrim's), item codes, SKUs
-  Keep: flavor descriptors, fat ratios, size grades
+WHAT TO SKIP — do not create items for these:
+- Section group headers like "*** FROZEN MEATS ***", "*** POULTRY ***", "*** PAPER & DISPOSABLE ***"
+- Group total lines like "GROUP TOTAL****" or "ORDER SUMMARY"
+- Any row that does not have its own item code/number
+- Summary, subtotal, tax, invoice total lines
 
-- price: the UNIT price for ONE case — always the SMALLER of the two price columns
-  Sysco/US Foods column order: Item# | Description | Pack | QTY Ordered | QTY Shipped | UNIT PRICE | EXTENDED PRICE
-  UNIT PRICE × QTY = EXTENDED PRICE — you want UNIT PRICE (smaller number, appears first)
-  Never use the extended/total price. Verify: if price × qty shipped ≈ the larger number, you have the right price.
+SYSCO INVOICE LAYOUT for this invoice type:
+QTY | PACK | SIZE | ITEM DESCRIPTION | ITEM CODE | UNIT PRICE | PAST DUE AMT | EXTENDED PRICE
 
-- case_size: multiply pack numbers — "4/5LB"→20, "2/10LB"→20, "24CT"→24, "3 5LB"→15, "12/1LB"→12
-  NEVER concatenate. Always multiply.
+- UNIT PRICE is the price per case (what you want)
+- EXTENDED PRICE = UNIT PRICE × QTY (never use this)
+- Each real product line has its own 7-digit ITEM CODE number
+- If a row has no item code, it is a header or total — skip it
 
-- case_unit: "lb", "oz", "each", "gallon", or "pack"
+For each real product line item:
+- name: ingredient type first, Title Case, no brands/SKUs
+  "SYS CLS CHICKEN TNDR BRD ORIG FLAT SM" → "Chicken Tender Breaded Original Flat"
+  "SYS CLS LONGINI SAUSAGE ITALIAN SWEET BULK" → "Sausage Italian Sweet"
+  "SYS CLS SAUSAGE PORK INK MAPLE SYRUP" → "Sausage Pork Maple Syrup"
+  "SYS CLS SAUSAGE PORK PATTY CKD CN NAT" → "Sausage Pork Patty Cooked"
+  "SYS CLS STEAK STRIP VEIN FRZN" → "Steak Strip Vein Frozen"
+  "BHB/NPM JONES D SAUSAGE" → "Sausage Jones"
+  "CTVCLS COFFEE GRND HSE BLEND MED W/F" → "Coffee Ground House Blend Medium"
+  "SYS REL GLOVE VINYL FDSVC PF XL" → "Glove Vinyl Foodservice"
+  Strip: SYS, CLS, BHB, NPM, REL, CTVCLS prefixes; brand codes; item codes
+  Keep: flavor, grade, fat ratio descriptors
+
+- price: UNIT PRICE column value — the smaller number per row
+- case_size: the SIZE column value — multiply if it shows "4/5LB" style. Do NOT use ORDER SUMMARY totals.
+- case_unit: "lb", "oz", "each", "gallon", or "cs"
 - unit: same as case_unit
-- supplier: vendor name from invoice header
+- supplier: from invoice header
 - date: invoice date YYYY-MM-DD, use ${today()} if not visible
+- is_supply: true for gloves, paper, cleaning items, fuel surcharge, fees; false for food
 
-Non-food items (napkins, cups, cleaning supplies, delivery fees, fuel surcharges) — include them, mark with is_supply: true.
-Food/beverage items — mark with is_supply: false.
+One JSON object per item code. Never merge two rows into one item.
 
-If a row is unclear, make your best guess rather than skipping it.
-
-Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit":"lb","supplier":"...","date":"${today()}","is_supply":false}]` }
+Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}","is_supply":false}]` }
             ]
           }]
         })
