@@ -5195,9 +5195,9 @@ function AdminView() {
   const load = async () => {
     setLoading(true);
     const [{ data: profiles }, { data: ingredients }, { data: menuItems }, { data: swapRequests }] = await Promise.all([
-      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-      supabase.from("ingredients").select("user_id, name, supplier, created_at, price, case_size"),
-      supabase.from("menu_items").select("user_id, created_at, ingredients"),
+      supabase.rpc("admin_get_all_profiles"),
+      supabase.rpc("admin_get_all_ingredients"),
+      supabase.rpc("admin_get_all_menu_items"),
       supabase.from("swap_requests").select("*").order("created_at", { ascending: false }),
     ]);
 
