@@ -902,11 +902,11 @@ Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit"
         tokenSimilarity(normalizeNameForGrouping(p.canonical_name), normalizeNameForGrouping(r.name)) >= 0.8
       );
 
-      if (profile && profile.scan_count >= 2) {
-        // Known item — check if price is within 50% of historical average
+      if (profile && profile.scan_count >= 3) {
+        // Known item — only auto-confirm if price is within 20% of historical average
         const avgKnown = Number(profile.avg_price);
         const priceDeviation = avgKnown > 0 ? Math.abs(price - avgKnown) / avgKnown : 1;
-        if (priceDeviation <= 0.5) {
+        if (priceDeviation <= 0.20) {
           // Price looks normal for this known item — no flags, mark as profile-confirmed
           return { ...r, _flags: [], _profileConfirmed: true, _profileName: profile.canonical_name };
         } else {
@@ -1616,31 +1616,24 @@ function IngredientsView({ ingredients, setIngredients, userId, userEmail, menuI
         await sendPriceAlertEmail(userEmail, changes, menuItems, newIngredients);
       }
 
-      // Update ingredient profiles — upsert each imported item into user's profile memory
+      // Update ingredient profiles — use RPC to properly increment scan_count and roll avg_price
       if (userId && setIngredientProfiles) {
-        const profileRows = items.map(r => ({
-          user_id: userId,
-          canonical_name: r.name,
-          supplier: r.supplier || null,
-          scan_count: 1,
-          avg_price: r.price,
-          last_price: r.price,
-          last_seen: r.date || today(),
-          case_unit: r.case_unit || r.unit,
-          is_supply: detectIsSupply(r.name),
-        }));
-        supabase.from("user_ingredient_profiles")
-          .upsert(profileRows, { onConflict: "user_id,canonical_name" })
-          .select()
-          .then(({ data: updatedProfiles }) => {
-            if (updatedProfiles) {
-              setIngredientProfiles(prev => {
-                const map = Object.fromEntries(prev.map(p => [p.canonical_name, p]));
-                updatedProfiles.forEach(p => { map[p.canonical_name] = p; });
-                return Object.values(map);
-              });
-            }
-          });
+        Promise.all(items.map(r =>
+          supabase.rpc("upsert_ingredient_profile", {
+            p_user_id: userId,
+            p_canonical_name: r.name,
+            p_supplier: r.supplier || null,
+            p_price: r.price,
+            p_last_seen: r.date || today(),
+            p_case_unit: r.case_unit || r.unit,
+            p_is_supply: detectIsSupply(r.name),
+          })
+        )).then(() => {
+          // Reload profiles after update
+          supabase.from("user_ingredient_profiles")
+            .select("*").eq("user_id", userId)
+            .then(({ data }) => { if (data && setIngredientProfiles) setIngredientProfiles(data); });
+        });
       }
     }
     setSaving(false);
