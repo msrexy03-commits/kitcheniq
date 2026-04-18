@@ -1970,19 +1970,16 @@ function MenuView({ menuItems, setMenuItems, ingredients, userId, session, profi
     setSwapResults([]);
     setSwapLoading(true);
     try {
-      const userState = profile?.state || null;
-      const { data } = await supabase
-        .from("supplier_pricing")
-        .select("*")
-        .ilike("ingredient_name", `%${ingredientName.split(" ")[0]}%`)
-        .order("unit_price", { ascending: true })
-        .limit(10);
-      const filtered = (data || []).filter(row => {
-        if (row.supplier_type === "national" || row.state_code === "NATIONAL") return true;
-        if (row.supplier_type === "local" && userState && row.state_code === userState) return true;
-        return false;
+      // Find the ingredient's case_unit for unit compatibility filtering
+      const ing = ingredients.find(i => i.name.toLowerCase() === ingredientName.toLowerCase());
+      const caseUnit = ing?.case_unit || ing?.unit || null;
+      const { data } = await supabase.rpc("find_swap_alternatives", {
+        p_ingredient_name: ingredientName,
+        p_case_unit: caseUnit,
+        p_state_code: profile?.state || null,
+        p_limit: 8,
       });
-      setSwapResults(filtered);
+      setSwapResults(data || []);
     } catch (e) {
       console.error("Swap error:", e);
     } finally {
@@ -2588,22 +2585,13 @@ function AlertsView({ ingredients, session, profile }) {
     setSwapResults([]);
     setSwapLoading(true);
     try {
-      const userState = profile?.state || null;
-      const firstWord = alert.name.split(" ")[0];
-      const { data } = await supabase
-        .from("supplier_pricing")
-        .select("*")
-        .ilike("ingredient_name", `%${firstWord}%`)
-        .order("unit_price", { ascending: true })
-        .limit(10);
-
-      const filtered = (data || []).filter(row => {
-        if (row.supplier_type === "national" || row.state_code === "NATIONAL") return true;
-        if (row.supplier_type === "local" && userState && row.state_code === userState) return true;
-        return false;
+      const { data } = await supabase.rpc("find_swap_alternatives", {
+        p_ingredient_name: alert.name,
+        p_case_unit: alert.unit || null,
+        p_state_code: profile?.state || null,
+        p_limit: 8,
       });
-
-      setSwapResults(filtered);
+      setSwapResults(data || []);
     } catch (e) {
       console.error("Swap fetch error:", e);
     } finally {
