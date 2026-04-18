@@ -3300,17 +3300,66 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
         {tab === 0 && (
           <div>
             <style>{`
-              @keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: #1e2b1f; } }
-              @keyframes slideIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+              @keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 12px #4eca6e22; } 100% { border-color: #1e2b1f; } }
+              @keyframes toastSlide { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
               @keyframes tourPulse { 0%,100% { box-shadow: 0 0 0 0 #4eca6e33; } 50% { box-shadow: 0 0 0 8px #4eca6e00; } }
             `}</style>
+
+            {/* Subtle toast pill — not a full alert box */}
             {liveAlertVisible && (
-              <div style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 8, padding: "8px 10px", marginBottom: 10, animation: "slideIn 0.4s ease" }}>
-                <div style={{ fontSize: 10, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ Eggs Large +38%</div>
-                <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body, marginTop: 1 }}>$38.40 → $52.80 · Affects 3 menu items</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.faint, border: `1px solid ${T.warn}33`, borderRadius: 20, padding: "5px 10px", marginBottom: 10, animation: "toastSlide 0.3s ease" }}>
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: T.warn, flexShrink: 0 }} />
+                <div style={{ fontSize: 9, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>Eggs +38%</div>
+                <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body }}>$38.40 → $52.80</div>
               </div>
             )}
-            <Dashboard ingredients={DEMO_INGREDIENTS} menuItems={DEMO_MENU_ITEMS} onNavigate={setTab} flashCard={flashCard} chartOpacity={chartOpacity} />
+
+            {/* Lean stat cards — no full Dashboard component */}
+            {(() => {
+              const demoAlerts = getPriceAlerts(DEMO_INGREDIENTS);
+              const demoStats = DEMO_MENU_ITEMS.map(m => calcMenuStats(m, DEMO_INGREDIENTS));
+              const avgMargin = demoStats.length ? demoStats.reduce((s, m) => s + m.margin, 0) / demoStats.length : 0;
+              const cards = [
+                { key: "ingredients", label: "Tracked", value: DEMO_INGREDIENTS.length, accent: true },
+                { key: "menu", label: "Menu Items", value: DEMO_MENU_ITEMS.length },
+                { key: "margin", label: "Avg Margin", value: fmtPct(avgMargin), accent: avgMargin > 60, warn: avgMargin < 50 },
+                { key: "alerts", label: "Alerts", value: demoAlerts.length, warn: demoAlerts.length > 0, accent: demoAlerts.length === 0 },
+              ];
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
+                  {cards.map(card => (
+                    <div key={card.key} style={{
+                      background: T.card,
+                      border: `1px solid ${card.warn ? T.warn + "55" : card.accent ? T.accentMid : T.border}`,
+                      borderRadius: 8, padding: "10px 10px",
+                      animation: flashCard === card.key ? "cardFlash 0.9s ease" : "none",
+                    }}>
+                      <div style={{ fontSize: 8, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 4 }}>{card.label}</div>
+                      <div style={{ fontSize: 20, color: card.warn ? T.warn : card.accent ? T.accent : T.text, fontFamily: T.font, fontWeight: 800, lineHeight: 1 }}>{card.value}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Mini price history sparkline */}
+            {(() => {
+              const alerts = getPriceAlerts(DEMO_INGREDIENTS);
+              if (!alerts.length) return null;
+              return (
+                <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 9, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, marginBottom: 8 }}>Recent Price Changes</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {alerts.slice(0, 3).map((a, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontSize: 10, color: T.text, fontFamily: T.font, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: 8 }}>{a.name}</div>
+                        <div style={{ fontSize: 10, color: a.pct > 0 ? T.warn : T.accent, fontFamily: T.font, fontWeight: 700, flexShrink: 0 }}>{a.pct > 0 ? "+" : ""}{a.pct.toFixed(0)}%</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
         {tab === 1 && (
@@ -3358,20 +3407,16 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
               {DEMO_MENU_ITEMS.map(m => {
                 const { cost, profit, margin } = calcMenuStats(m, DEMO_INGREDIENTS);
                 const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
-                const isBad = margin < 50;
                 return (
-                  <div key={m.id} style={{ background: T.card, border: `1px solid ${isBad ? T.warn + "66" : T.border}`, borderRadius: 8, padding: "10px 12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
-                        {isBad && <div style={{ fontSize: 9, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 2 }}>⚠ Raise your price</div>}
-                      </div>
-                      <div style={{ fontSize: 18, color, fontFamily: T.font, fontWeight: 800, marginLeft: 8 }}>{fmtPct(margin)}</div>
+                  <div key={m.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ fontSize: 11, color: T.text, fontFamily: T.font, fontWeight: 700, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: 8 }}>{m.name}</div>
+                      <div style={{ fontSize: 18, color, fontFamily: T.font, fontWeight: 800, flexShrink: 0 }}>{fmtPct(margin)}</div>
                     </div>
-                    <div style={{ display: "flex", gap: 10, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.faint}` }}>
+                    <div style={{ display: "flex", gap: 10, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${T.faint}` }}>
                       <span style={{ fontSize: 9, color: T.muted }}>Sale: <strong style={{ color: T.text }}>{fmt$2(m.sale_price)}</strong></span>
-                      <span style={{ fontSize: 9, color: T.muted }}>Cost: <strong style={{ color: isBad ? T.warn : T.text }}>{fmt$2(cost)}</strong></span>
-                      <span style={{ fontSize: 9, color: T.muted }}>Profit: <strong style={{ color: isBad ? T.warn : T.accent }}>{fmt$2(profit)}</strong></span>
+                      <span style={{ fontSize: 9, color: T.muted }}>Cost: <strong style={{ color: T.text }}>{fmt$2(cost)}</strong></span>
+                      <span style={{ fontSize: 9, color: T.muted }}>Profit: <strong style={{ color }}>{fmt$2(profit)}</strong></span>
                     </div>
                   </div>
                 );
@@ -3381,15 +3426,10 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
         )}
         {tab === 3 && (
           <div>
-            <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 12px", marginBottom: 10 }}>
-              <div style={{ fontSize: 10, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 2 }}>⚠ Jan → Feb price changes</div>
-              <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body }}>The owner never noticed. Margins dropped silently for weeks.</div>
+            <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body, marginBottom: 10, lineHeight: 1.5, opacity: 0.8 }}>
+              Jan → Feb price changes the sample restaurant never noticed. Margins dropped silently for weeks.
             </div>
             <AlertsView ingredients={DEMO_INGREDIENTS} />
-            <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
-              <div style={{ fontSize: 10, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 2 }}>✓ KitchenIQ catches this automatically</div>
-              <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body }}>You'd get an email the moment you scan that invoice.</div>
-            </div>
           </div>
         )}
       </div>
