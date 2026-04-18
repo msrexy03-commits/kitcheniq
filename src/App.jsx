@@ -3195,11 +3195,14 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
   const [flashCard, setFlashCard] = useState(null);
   const [liveAlertVisible, setLiveAlertVisible] = useState(false);
   const [chartOpacity, setChartOpacity] = useState(0);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Tour fires immediately — no scroll detection needed since demo is its own page
-    setTimeout(() => setTourStep(1), 600);
-    setTimeout(() => setChartOpacity(1), 400);
+    setTimeout(() => setVisible(true), 80);
+    setTimeout(() => setTourStep(1), 700);
+    setTimeout(() => setChartOpacity(1), 500);
+    setTimeout(() => setLiveAlertVisible(true), 4000);
+    setTimeout(() => setLiveAlertVisible(false), 8500);
     const cards = ["ingredients", "menu", "margin", "alerts"];
     let cardIdx = 0;
     const cardFlash = setInterval(() => {
@@ -3207,33 +3210,27 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
       cardIdx++;
       setTimeout(() => setFlashCard(null), 900);
     }, 3500);
-    setTimeout(() => setLiveAlertVisible(true), 5000);
-    setTimeout(() => setLiveAlertVisible(false), 9500);
-    const interval = setInterval(() => setPulse(p => !p), 2000);
-    return () => { clearInterval(interval); clearInterval(cardFlash); };
+    const iv = setInterval(() => setPulse(p => !p), 2200);
+    return () => { clearInterval(iv); clearInterval(cardFlash); };
   }, []);
 
   const [tourStepDone, setTourStepDone] = useState(false);
   const [demoScanCompleted, setDemoScanCompleted] = useState(false);
-  const [questionVisible, setQuestionVisible] = useState(true);
 
   const TOUR_STEPS = [
     { tab: 0, text: "👋 This is your Dashboard — margins and price alerts at a glance.", action: null },
-    { tab: 1, text: "📸 Tap 'Scan Invoice' above — AI reads your invoice automatically. Try it!", action: "scan" },
+    { tab: 1, text: "📸 Tap 'Scan Invoice' — AI reads your invoice automatically. Try it!", action: "scan" },
     { tab: 3, text: "⚡ Every price change shows up here with exact dollar impact per dish.", action: null },
     { tab: 2, text: "🍽 Your real food cost % on every dish — updates automatically.", action: null },
   ];
   const currentTour = TOUR_STEPS[tourStep - 1];
 
-  // Mark step done when user completes the required action
   useEffect(() => {
     if (!currentTour) return;
-    // Step 1 (dashboard) and steps without actions are auto-complete
     if (!currentTour.action) setTourStepDone(true);
     else setTourStepDone(false);
   }, [tourStep]);
 
-  // When demo scan is fully completed on step 2, mark it done
   useEffect(() => {
     if (tourStep === 2 && demoScanCompleted) setTourStepDone(true);
   }, [demoScanCompleted, tourStep]);
@@ -3250,253 +3247,374 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
     }
   };
 
-  return (
-    <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
+  const fadeIn = (delay = 0) => ({
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateY(0)" : "translateY(18px)",
+    transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms`,
+  });
 
-      {/* Demo header */}
-      <div style={{ borderBottom: `1px solid ${T.border}`, background: T.card }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {onBack && (
-              <button onClick={onBack} style={{ background: "none", border: "none", color: T.muted, fontSize: 13, fontFamily: T.body, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}>← Back</button>
-            )}
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
-            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.text }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
-            <span style={{ fontSize: 11, background: T.warnDim, color: T.warn, border: `1px solid ${T.warn}44`, borderRadius: 4, padding: "2px 8px", fontFamily: T.font, fontWeight: 700, letterSpacing: "0.05em" }}>DEMO</span>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={onLogin} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "8px 16px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Log In</button>
-            <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>Connect My Restaurant →</button>
-          </div>
+  // Phone dimensions — iPhone 15 proportions
+  const phoneW = isMobile ? Math.min(window.innerWidth - 32, 340) : 340;
+  const phoneH = Math.round(phoneW * 2.16); // iPhone 15 aspect ratio
+  const innerW = phoneW - 20; // 10px bezel each side
+  const innerH = phoneH - 80; // top/bottom bezel
+
+  // Phone app content scaled to fit
+  const DEMO_TABS = ["Dashboard", "Ingredients", "Menu Items", "Alerts"];
+  const DEMO_TAB_ICONS = ["◈", "📦", "🍽", "⚡"];
+
+  const phoneContent = (
+    <div style={{ width: innerW, height: innerH, background: T.bg, overflowY: "auto", overflowX: "hidden", fontFamily: T.body }}>
+      {/* Phone status bar */}
+      <div style={{ height: 44, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
+        <div style={{ fontSize: 11, color: T.text, fontFamily: T.font, fontWeight: 700 }}>9:41</div>
+        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+          <div style={{ fontSize: 9, color: T.text }}>●●●●</div>
+          <div style={{ fontSize: 9, color: T.text }}>WiFi</div>
+          <div style={{ fontSize: 9, color: T.text }}>🔋</div>
         </div>
       </div>
 
-      {/* Demo mode warning */}
-      <div style={{ background: "#1a0a00", borderBottom: `1px solid ${T.warn}44`, padding: "8px 24px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ DEMO MODE</span>
-          <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>— You are viewing sample data. Click "Connect My Restaurant" to get started with your real restaurant.</span>
-        </div>
-      </div>
-
-      <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", background: T.card, overflowX: "auto" }}>
-        {TABS.filter(t => t !== "Account" && t !== "Support").map((t, i) => {
+      {/* Tab bar */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, background: T.card, flexShrink: 0 }}>
+        {DEMO_TABS.map((t, i) => {
           const alertCount = i === 3 ? getPriceAlerts(DEMO_INGREDIENTS).length : 0;
           return (
-            <button key={i} onClick={() => setTab(i)} style={{ background: "none", border: "none", borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`, color: tab === i ? T.accent : T.muted, padding: "14px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer", transition: "color 0.15s", letterSpacing: "0.03em", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-              {ICONS[i]} {t}
-              {alertCount > 0 && <span style={{ background: T.warn, color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontFamily: T.font, fontWeight: 700, lineHeight: 1 }}>{alertCount}</span>}
+            <button key={i} onClick={() => setTab(i)} style={{
+              flex: 1, background: "none", border: "none",
+              borderBottom: `2px solid ${tab === i ? T.accent : "transparent"}`,
+              color: tab === i ? T.accent : T.muted,
+              padding: "10px 2px 8px", fontSize: 9, fontFamily: T.font, fontWeight: 600,
+              cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+            }}>
+              <span style={{ fontSize: 14 }}>{DEMO_TAB_ICONS[i]}</span>
+              <span>{t}</span>
+              {alertCount > 0 && <span style={{ background: T.warn, color: "#fff", borderRadius: 8, fontSize: 8, padding: "1px 4px", fontFamily: T.font, fontWeight: 700 }}>{alertCount}</span>}
             </button>
           );
         })}
       </div>
 
-      <div style={{ width: "100%", padding: "24px 16px", paddingBottom: isMobile && tourStep > 0 ? 160 : 24, boxSizing: "border-box" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          {tab === 0 && (
-            <div>
-              <style>{`
-                @keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: #1e2b1f; } }
-                @keyframes slideIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
-              `}</style>
-              {liveAlertVisible && (
-                <div style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 10, padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12, animation: "slideIn 0.4s ease" }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.warn, flexShrink: 0, boxShadow: `0 0 8px ${T.warn}` }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ Price Alert — Eggs Large Grade A increased 38%</div>
-                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 2 }}>$38.40 → $52.80 · Affects: Bacon & Eggs, Three Egg Omelette, Egg & Cheese Sandwich</div>
-                  </div>
-                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>just now</div>
-                </div>
-              )}
-              <Dashboard ingredients={DEMO_INGREDIENTS} menuItems={DEMO_MENU_ITEMS} onNavigate={setTab} flashCard={flashCard} chartOpacity={chartOpacity} />
-            </div>
-          )}
-          {tab === 1 && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-                <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_INGREDIENTS.length} ingredients tracked</div>
-                <button onClick={() => setShowDemoScanner(true)} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📸 Scan Invoice</button>
+      {/* Tab content */}
+      <div style={{ padding: "12px 10px", flex: 1 }}>
+        {tab === 0 && (
+          <div>
+            <style>{`
+              @keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: #1e2b1f; } }
+              @keyframes slideIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+              @keyframes tourPulse { 0%,100% { box-shadow: 0 0 0 0 #4eca6e33; } 50% { box-shadow: 0 0 0 8px #4eca6e00; } }
+            `}</style>
+            {liveAlertVisible && (
+              <div style={{ background: "#1a0a00", border: `1px solid ${T.warn}`, borderRadius: 8, padding: "8px 10px", marginBottom: 10, animation: "slideIn 0.4s ease" }}>
+                <div style={{ fontSize: 10, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚠ Eggs Large +38%</div>
+                <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body, marginTop: 1 }}>$38.40 → $52.80 · Affects 3 menu items</div>
               </div>
-              {(() => {
-                const grouped = {};
-                DEMO_INGREDIENTS.forEach(ing => {
-                  const key = ing.date || "Unknown Date";
-                  if (!grouped[key]) grouped[key] = [];
-                  grouped[key].push(ing);
-                });
-                const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+            )}
+            <Dashboard ingredients={DEMO_INGREDIENTS} menuItems={DEMO_MENU_ITEMS} onNavigate={setTab} flashCard={flashCard} chartOpacity={chartOpacity} />
+          </div>
+        )}
+        {tab === 1 && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_INGREDIENTS.length} tracked</div>
+              <button onClick={() => setShowDemoScanner(true)} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 12px", fontSize: 10, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📸 Scan Invoice</button>
+            </div>
+            {(() => {
+              const grouped = {};
+              DEMO_INGREDIENTS.forEach(ing => {
+                const key = ing.date || "Unknown";
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(ing);
+              });
+              return Object.keys(grouped).sort((a,b) => new Date(b)-new Date(a)).map(date => (
+                <div key={date} style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 9, color: T.accent, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600, marginBottom: 6 }}>📄 {date}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {grouped[date].sort((a,b) => a.name.localeCompare(b.name)).map(ing => {
+                      const uc = getUnitCost(ing);
+                      return (
+                        <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontSize: 11, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
+                            <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body }}>{ing.case_size} {ing.case_unit}</div>
+                            {uc && <div style={{ fontSize: 9, color: T.accent }}>${uc.toFixed(3)}/{ing.case_unit}</div>}
+                          </div>
+                          <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        )}
+        {tab === 2 && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_MENU_ITEMS.length} menu items</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {DEMO_MENU_ITEMS.map(m => {
+                const { cost, profit, margin } = calcMenuStats(m, DEMO_INGREDIENTS);
+                const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
+                const isBad = margin < 50;
                 return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                    {sortedDates.map(date => (
-                      <div key={date}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                          <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600 }}>📄 {date}</div>
-                          <div style={{ flex: 1, height: 1, background: T.border }} />
-                          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{grouped[date].length} items · {grouped[date][0]?.supplier || ""}</div>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {grouped[date].sort((a,b) => a.name.localeCompare(b.name)).map(ing => {
-                            const uc = getUnitCost(ing);
-                            return (
-                              <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                <div>
-                                  <div style={{ fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
-                                  <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 3 }}>{ing.case_size} {ing.case_unit} per case</div>
-                                  {uc && <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 2 }}>Unit cost: ${uc.toFixed(4)}/{ing.case_unit}</div>}
-                                </div>
-                                <div style={{ textAlign: "right" }}>
-                                  <div style={{ fontSize: 16, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
-                                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body }}>per case</div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                  <div key={m.id} style={{ background: T.card, border: `1px solid ${isBad ? T.warn + "66" : T.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
+                        {isBad && <div style={{ fontSize: 9, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 2 }}>⚠ Raise your price</div>}
                       </div>
-                    ))}
+                      <div style={{ fontSize: 18, color, fontFamily: T.font, fontWeight: 800, marginLeft: 8 }}>{fmtPct(margin)}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.faint}` }}>
+                      <span style={{ fontSize: 9, color: T.muted }}>Sale: <strong style={{ color: T.text }}>{fmt$2(m.sale_price)}</strong></span>
+                      <span style={{ fontSize: 9, color: T.muted }}>Cost: <strong style={{ color: isBad ? T.warn : T.text }}>{fmt$2(cost)}</strong></span>
+                      <span style={{ fontSize: 9, color: T.muted }}>Profit: <strong style={{ color: isBad ? T.warn : T.accent }}>{fmt$2(profit)}</strong></span>
+                    </div>
                   </div>
                 );
-              })()}
+              })}
             </div>
-          )}
-          {tab === 2 && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_MENU_ITEMS.length} menu items</div>
-                <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📷 Scan Your Menu</button>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {DEMO_MENU_ITEMS.map(m => {
-                  const { cost, profit, margin } = calcMenuStats(m, DEMO_INGREDIENTS);
-                  const color = margin > 65 ? T.accent : margin > 50 ? "#e8c84a" : T.warn;
-                  const isBad = margin < 50;
-                  return (
-                    <div key={m.id} style={{ background: T.card, border: `1px solid ${isBad ? T.warn + "66" : T.border}`, borderRadius: 10, padding: "16px 20px", boxShadow: isBad ? `0 0 16px ${T.warn}18` : "none" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 15, color: T.text, fontFamily: T.font, fontWeight: 700 }}>{m.name}</div>
-                          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body, marginTop: 4 }}>{(m.ingredients || []).map(i => `${i.qty}${i.qty_unit} ${i.ingredient_name}`).join(", ")}</div>
-                          {isBad && <div style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, marginTop: 6 }}>⚠ Below target — consider raising your price</div>}
-                        </div>
-                        <div style={{ textAlign: "right", marginLeft: 16 }}>
-                          <div style={{ fontSize: 22, color, fontFamily: T.font, fontWeight: 800 }}>{fmtPct(margin)}</div>
-                          {isBad && <div style={{ fontSize: 10, color: T.warn, fontFamily: T.body }}>needs attention</div>}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 20, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.faint}` }}>
-                        <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Sale: <strong style={{ color: T.text }}>{fmt$2(m.sale_price)}</strong></span>
-                        <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Food Cost: <strong style={{ color: isBad ? T.warn : T.text }}>{fmt$2(cost)}</strong></span>
-                        <span style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>Profit: <strong style={{ color: isBad ? T.warn : T.accent }}>{fmt$2(profit)}</strong></span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          </div>
+        )}
+        {tab === 3 && (
+          <div>
+            <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 8, padding: "10px 12px", marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 2 }}>⚠ Jan → Feb price changes</div>
+              <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body }}>The owner never noticed. Margins dropped silently for weeks.</div>
             </div>
-          )}
-          {tab === 3 && (
-            <div>
-              <div style={{ background: T.warnDim, border: `1px solid ${T.warn}44`, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
-                <div style={{ fontSize: 14, color: T.warn, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>⚠ These price changes happened between January and February</div>
-                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>The owner of this sample restaurant never noticed. Their margins dropped silently for weeks.</div>
-              </div>
-              <AlertsView ingredients={DEMO_INGREDIENTS} />
-              <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 10, padding: "16px 20px", marginTop: 16 }}>
-                <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>✓ KitchenIQ would have sent an email alert the moment you scanned that invoice</div>
-                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Subject: "⚠ KitchenIQ Alert — Eggs Large price increased 81%" — caught automatically, no manual work.</div>
-              </div>
+            <AlertsView ingredients={DEMO_INGREDIENTS} />
+            <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
+              <div style={{ fontSize: 10, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 2 }}>✓ KitchenIQ catches this automatically</div>
+              <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body }}>You'd get an email the moment you scan that invoice.</div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+    </div>
+  );
 
-      {tourStep > 0 && currentTour && (
-        isMobile ? (
-          // Mobile: compact bottom bar
-          <div style={{
-            position: "fixed", bottom: 0, left: 0, right: 0,
-            background: "#0f1a10", borderTop: `2px solid ${T.accent}`,
-            padding: "10px 14px 16px", zIndex: 200,
-            boxShadow: "0 -4px 24px #000000aa",
-          }}>
-            <div style={{ height: 3, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 8 }}>
-              <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontFamily: T.font, fontWeight: 800, whiteSpace: "nowrap" }}>{tourStep}/{TOUR_STEPS.length}</div>
-              <div style={{ flex: 1, fontSize: 13, color: T.text, fontFamily: T.body, lineHeight: 1.4, fontWeight: 500, opacity: questionVisible ? 1 : 0, transition: "opacity 0.2s ease" }}>{currentTour.text}</div>
-              <button onClick={nextTour} disabled={!tourStepDone} style={{
-                background: tourStepDone ? T.accent : T.faint,
-                color: tourStepDone ? "#0f1410" : T.muted,
-                border: "none", borderRadius: 8, padding: "10px 14px",
-                fontSize: 13, fontFamily: T.font, fontWeight: 800,
-                cursor: tourStepDone ? "pointer" : "not-allowed", whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}>
-                {tourStep < TOUR_STEPS.length ? "Next →" : "Done ✓"}
-              </button>
-            </div>
-            {currentTour.action && !tourStepDone && (
-              <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginTop: 6, textAlign: "center" }}>☝️ Complete the action above first</div>
+  return (
+    <div style={{ minHeight: "100vh", width: "100%", background: T.bg, fontFamily: T.body, color: T.text, boxSizing: "border-box", overflowX: "hidden" }}>
+      <style>{`
+        @keyframes phoneGlow { 0%,100% { box-shadow: 0 0 40px #4eca6e18, 0 40px 80px #00000066; } 50% { box-shadow: 0 0 60px #4eca6e28, 0 40px 80px #00000066; } }
+        @keyframes tourPulse { 0%,100% { box-shadow: 0 0 0 0 #4eca6e22; } 50% { box-shadow: 0 0 0 10px #4eca6e00; } }
+      `}</style>
+
+      {/* ── NAV — matches landing page exactly ── */}
+      <nav style={{ borderBottom: `1px solid ${T.border}`, background: "rgba(10,13,10,0.94)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ padding: `0 ${isMobile ? "20px" : "6%"}`, display: "flex", alignItems: "center", justifyContent: "space-between", height: isMobile ? 56 : 64 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            {onBack && (
+              <button onClick={onBack} style={{ background: "none", border: "none", color: T.muted, fontSize: 13, fontFamily: T.body, cursor: "pointer", marginRight: 4, padding: 0 }}>←</button>
             )}
-            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 11, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", display: "block", textAlign: "center", width: "100%", marginTop: 4 }}>
-              Skip
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accentDim, border: `1.5px solid ${T.accentMid}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⬡</div>
+            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: isMobile ? 17 : 19, color: T.text, letterSpacing: "-0.01em" }}>Kitchen<span style={{ color: T.accent }}>IQ</span></span>
+            <span style={{ fontSize: 10, background: T.warnDim, color: T.warn, border: `1px solid ${T.warn}33`, borderRadius: 4, padding: "2px 7px", fontFamily: T.font, fontWeight: 700, letterSpacing: "0.05em" }}>DEMO</span>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {!isMobile && <button onClick={onLogin} style={{ background: "transparent", border: "none", color: T.muted, fontSize: 14, fontFamily: T.body, fontWeight: 500, cursor: "pointer", padding: "8px 14px" }}>Log in</button>}
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 7, padding: isMobile ? "8px 14px" : "9px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
+              {isMobile ? "Free trial" : "Start free trial →"}
             </button>
           </div>
-        ) : (
-          // Desktop: right side panel
+        </div>
+      </nav>
+
+      {/* ── HERO TEXT ── */}
+      <div style={{ textAlign: "center", padding: isMobile ? "40px 20px 24px" : "64px 32px 32px", ...fadeIn(0) }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 100, padding: "5px 14px", marginBottom: 20 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.warn, opacity: pulse ? 1 : 0.45, transition: "opacity 0.6s" }} />
+          <span style={{ fontSize: 11, color: T.warn, fontFamily: T.font, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>Interactive demo</span>
+        </div>
+        <h1 className="landing-h1" style={{ marginBottom: 10, fontSize: isMobile ? 28 : 40 }}>See it working on a real restaurant</h1>
+        <p className="landing-body" style={{ fontSize: isMobile ? 14 : 16, maxWidth: 520, margin: "0 auto 8px", color: T.muted }}>
+          Live data, real invoices, actual food cost calculations. Follow the guided tour or explore on your own.
+        </p>
+      </div>
+
+      {/* ── PHONE + TOUR LAYOUT ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        gap: isMobile ? 0 : 48,
+        padding: isMobile ? "0 16px 40px" : "0 6% 80px",
+        flexDirection: isMobile ? "column" : "row",
+        ...fadeIn(150),
+      }}>
+
+        {/* Tour panel — left on desktop */}
+        {!isMobile && tourStep > 0 && currentTour && (
           <div style={{
-            position: "fixed", top: "50%", right: 16, transform: "translateY(-50%)",
-            background: "#0f1a10", border: `2px solid ${T.accent}`,
-            borderRadius: 16, padding: "28px 22px", zIndex: 200,
-            width: 240, boxShadow: "0 8px 40px #000000aa",
-            animation: "tourPulse 2s ease-in-out infinite",
+            width: 220, flexShrink: 0, position: "sticky", top: 100,
+            background: "#0c160d", border: `1.5px solid ${T.accentMid}`,
+            borderRadius: 16, padding: "24px 20px",
+            boxShadow: "0 8px 40px #000000aa",
+            animation: "tourPulse 3s ease-in-out infinite",
+            alignSelf: "flex-start",
+            marginTop: 40,
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
+            <div style={{ fontSize: 10, color: T.accent, fontFamily: T.font, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Guided Tour</div>
+            <div style={{ height: 3, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+              <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.4s ease" }} />
             </div>
-            <div style={{ height: 4, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
-              <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.3s ease" }} />
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+              {TOUR_STEPS.map((_, i) => (
+                <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i < tourStep ? T.accent : T.faint, transition: "background 0.3s" }} />
+              ))}
             </div>
-            <div style={{ opacity: questionVisible ? 1 : 0, transform: questionVisible ? "translateY(0)" : "translateY(8px)", transition: "opacity 0.2s ease, transform 0.2s ease" }}>
-              <div style={{ fontSize: 15, color: T.text, fontFamily: T.body, lineHeight: 1.7, marginBottom: 20, fontWeight: 500 }}>{currentTour.text}</div>
-              {currentTour.action && !tourStepDone && (
-                <div style={{ fontSize: 12, color: T.accent, fontFamily: T.body, marginBottom: 16, background: T.accentDim, borderRadius: 6, padding: "8px 12px", border: `1px solid ${T.accentMid}` }}>
-                  ☝️ Complete the action above to continue
-                </div>
-              )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <button onClick={nextTour} disabled={!tourStepDone} style={{
-                  background: tourStepDone ? T.accent : T.faint,
-                  color: tourStepDone ? "#0f1410" : T.muted,
-                  border: "none", borderRadius: 8,
-                  padding: "12px 16px", fontSize: 14, fontFamily: T.font, fontWeight: 800,
-                  cursor: tourStepDone ? "pointer" : "not-allowed", width: "100%",
-                  transition: "all 0.2s",
-                }}>
-                  {tourStep < TOUR_STEPS.length ? "Next →" : "Got it ✓"}
-                </button>
-                <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 12, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", textAlign: "center" }}>
-                  Skip tour
-                </button>
+            <div style={{ fontSize: 14, color: T.text, fontFamily: T.body, lineHeight: 1.7, marginBottom: 16, fontWeight: 500 }}>{currentTour.text}</div>
+            {currentTour.action && !tourStepDone && (
+              <div style={{ fontSize: 11, color: T.accent, fontFamily: T.body, marginBottom: 14, background: T.accentDim, borderRadius: 6, padding: "8px 10px", border: `1px solid ${T.accentMid}` }}>
+                ☝️ Complete the action in the phone first
               </div>
-            </div>
+            )}
+            <button onClick={nextTour} disabled={!tourStepDone} style={{
+              background: tourStepDone ? T.accent : T.faint,
+              color: tourStepDone ? "#0f1410" : T.muted,
+              border: "none", borderRadius: 8, padding: "11px 16px",
+              fontSize: 13, fontFamily: T.font, fontWeight: 800,
+              cursor: tourStepDone ? "pointer" : "not-allowed", width: "100%",
+              transition: "all 0.2s",
+            }}>
+              {tourStep < TOUR_STEPS.length ? `Next → Step ${tourStep + 1}` : "Done ✓"}
+            </button>
+            <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 11, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", display: "block", textAlign: "center", width: "100%", marginTop: 10 }}>
+              Skip tour
+            </button>
           </div>
-        )
+        )}
+
+        {/* iPhone frame */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{
+            width: phoneW,
+            height: phoneH,
+            background: "#111",
+            borderRadius: 44,
+            border: "2px solid #333",
+            padding: "10px",
+            boxSizing: "border-box",
+            position: "relative",
+            animation: "phoneGlow 4s ease-in-out infinite",
+            flexShrink: 0,
+          }}>
+            {/* Dynamic Island */}
+            <div style={{
+              position: "absolute",
+              top: 12,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 110,
+              height: 30,
+              background: "#000",
+              borderRadius: 20,
+              zIndex: 10,
+            }} />
+
+            {/* Screen */}
+            <div style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: 36,
+              overflow: "hidden",
+              background: T.bg,
+              position: "relative",
+            }}>
+              {phoneContent}
+            </div>
+
+            {/* Home indicator */}
+            <div style={{
+              position: "absolute",
+              bottom: 8,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 100,
+              height: 4,
+              background: "#444",
+              borderRadius: 2,
+            }} />
+          </div>
+
+          {/* Sign up nudge below phone */}
+          <div style={{ marginTop: 24, textAlign: "center" }}>
+            <button onClick={onSignUp} style={{
+              background: T.accent, color: "#0a0d0a", border: "none", borderRadius: 8,
+              padding: "13px 28px", fontSize: 14, fontFamily: T.font, fontWeight: 700,
+              cursor: "pointer", boxShadow: `0 0 24px ${T.accent}44`,
+            }}>
+              Connect my restaurant →
+            </button>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 8, opacity: 0.6 }}>7-day free trial · No commitment</div>
+          </div>
+        </div>
+
+        {/* Stats panel — right on desktop */}
+        {!isMobile && (
+          <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", gap: 12, alignSelf: "flex-start", marginTop: 40 }}>
+            {[
+              { num: "$3,400+", label: "Average annual loss from untracked price changes", icon: "📉" },
+              { num: "5 min", label: "Setup time — scan your first invoice and you're live", icon: "⚡" },
+              { num: "Any supplier", label: "Sysco, US Foods, local vendors", icon: "🔗" },
+            ].map((s, i) => (
+              <div key={i} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "16px 18px" }}>
+                <div style={{ fontSize: 20, marginBottom: 6 }}>{s.icon}</div>
+                <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 20, color: T.accent, marginBottom: 4, letterSpacing: "-0.02em" }}>{s.num}</div>
+                <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, lineHeight: 1.5 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile tour bar */}
+      {isMobile && tourStep > 0 && currentTour && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0,
+          background: "#0c160d", borderTop: `2px solid ${T.accent}`,
+          padding: "10px 16px 20px", zIndex: 200,
+          boxShadow: "0 -4px 24px #000000aa",
+        }}>
+          <div style={{ height: 3, background: T.faint, borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
+            <div style={{ height: "100%", background: T.accent, borderRadius: 2, width: `${(tourStep / TOUR_STEPS.length) * 100}%`, transition: "width 0.4s ease" }} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ background: T.accent, color: "#0f1410", borderRadius: 20, padding: "2px 10px", fontSize: 10, fontFamily: T.font, fontWeight: 800, whiteSpace: "nowrap" }}>{tourStep}/{TOUR_STEPS.length}</div>
+            <div style={{ flex: 1, fontSize: 12, color: T.text, fontFamily: T.body, lineHeight: 1.4, fontWeight: 500 }}>{currentTour.text}</div>
+            <button onClick={nextTour} disabled={!tourStepDone} style={{
+              background: tourStepDone ? T.accent : T.faint,
+              color: tourStepDone ? "#0f1410" : T.muted,
+              border: "none", borderRadius: 8, padding: "9px 14px",
+              fontSize: 12, fontFamily: T.font, fontWeight: 800,
+              cursor: tourStepDone ? "pointer" : "not-allowed", whiteSpace: "nowrap", flexShrink: 0,
+            }}>
+              {tourStep < TOUR_STEPS.length ? "Next →" : "Done ✓"}
+            </button>
+          </div>
+          <button onClick={() => setTourStep(0)} style={{ background: "none", border: "none", color: T.muted, fontSize: 10, fontFamily: T.body, cursor: "pointer", textDecoration: "underline", display: "block", textAlign: "center", width: "100%", marginTop: 6 }}>Skip tour</button>
+        </div>
       )}
 
-      {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} onComplete={() => setDemoScanCompleted(true)} isMobile={isMobile} />}
-
-      <div style={{ background: T.card, borderTop: `1px solid ${T.border}`, padding: "24px", textAlign: "center" }}>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: 14, color: T.muted, fontFamily: T.body }}>Ready to use this with your real restaurant?</span>
-          <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 24px ${T.accent}44` }}>
-            Get Started — $89/month →
-          </button>
-          {onBack && <button onClick={onBack} style={{ background: "transparent", color: T.muted, border: "none", fontSize: 13, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>← Back to home</button>}
+      {/* ── BOTTOM CTA ── */}
+      <div style={{ borderTop: `1px solid ${T.border}`, background: T.card, padding: "32px 24px" }}>
+        <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: isMobile ? 20 : 24, color: T.text, marginBottom: 8 }}>Ready to use this with your real restaurant?</div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body, marginBottom: 20 }}>Set up in under 10 minutes. Scan your first invoice and you're live.</div>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <button onClick={onSignUp} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 8, padding: "13px 30px", fontSize: 14, fontFamily: T.font, fontWeight: 800, cursor: "pointer", boxShadow: `0 0 24px ${T.accent}44` }}>
+              Start free trial — $89/month →
+            </button>
+            {onBack && <button onClick={onBack} style={{ background: "transparent", color: T.muted, border: "none", fontSize: 13, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>← Back to home</button>}
+          </div>
+          <p style={{ fontSize: 11, color: T.muted, marginTop: 12, opacity: 0.5, fontFamily: T.body }}>7-day free trial · No commitment · Cancel anytime</p>
         </div>
       </div>
+
+      {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} onComplete={() => setDemoScanCompleted(true)} isMobile={isMobile} />}
     </div>
   );
 }
