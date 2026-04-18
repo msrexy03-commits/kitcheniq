@@ -1239,10 +1239,32 @@ function Dashboard({ ingredients, menuItems, onNavigate, flashCard: externalFlas
     </div>
   );
 
+  const foodIngredients = ingredients.filter(i => !i.is_supply);
+  const lastScan = foodIngredients.length
+    ? foodIngredients.reduce((a, b) => new Date(b.created_at || b.date) > new Date(a.created_at || a.date) ? b : a)
+    : null;
+  const daysSinceLastScan = lastScan
+    ? Math.floor((Date.now() - new Date(lastScan.created_at || lastScan.date)) / 86400000)
+    : null;
+  const lastScanLabel = daysSinceLastScan === null ? null
+    : daysSinceLastScan === 0 ? "Scanned today"
+    : daysSinceLastScan === 1 ? "Last scanned yesterday"
+    : daysSinceLastScan <= 7 ? `Last scanned ${daysSinceLastScan}d ago`
+    : `⚠ Last scanned ${daysSinceLastScan}d ago — data may be stale`;
+  const lastScanWarn = daysSinceLastScan !== null && daysSinceLastScan > 7;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <style>{`@keyframes cardFlash { 0% { border-color: #1e2b1f; } 50% { border-color: #4eca6e; box-shadow: 0 0 16px #4eca6e33; } 100% { border-color: #1e2b1f; } }`}</style>
       <OnboardingBanner ingredients={ingredients} menuItems={menuItems} onNavigate={onNavigate} tier={tier} />
+
+      {/* Last scanned indicator */}
+      {lastScanLabel && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: lastScanWarn ? T.warn : T.accent, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: lastScanWarn ? T.warn : T.muted, fontFamily: T.body }}>{lastScanLabel}</span>
+        </div>
+      )}
 
       {/* ── TOP ROW: 2×2 stat grid + spike alerts + margin leaders ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
