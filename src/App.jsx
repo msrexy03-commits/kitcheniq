@@ -769,126 +769,72 @@ function InvoiceScanner({ onIngredientsFound, onClose, userId, onAliasSaved, ing
         "anthropic-dangerous-direct-browser-access": "true",
       };
 
-      // ── PASS 1: Raw reading — describe what you see, no strict format required ──
-      const pass1 = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: apiHeaders,
         body: JSON.stringify({
           model: "claude-opus-4-5",
-          max_tokens: 2048,
+          max_tokens: 4096,
           messages: [{
             role: "user",
             content: [
               { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
-              { type: "text", text: `You are reading a supplier invoice image. For every product line item you can see, output one line in this format:
+              { type: "text", text: `You are a restaurant invoice parser. Extract every product line item from this supplier invoice image.
 
-ITEM: [description exactly as printed] | PACK: [pack/size exactly as printed] | QTY: [quantity shipped] | PRICE1: [first price column value] | PRICE2: [second price column value]
+Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
 
-Rules:
-- Copy text exactly as it appears — ALL CAPS, abbreviations, everything
-- PRICE1 is the leftmost price column (usually unit price), PRICE2 is the rightmost (usually extended total)
-- If you can only see one price column, put it in PRICE1 and write NULL for PRICE2
-- If a field is unclear or missing write NULL
-- Include every row that has a product description and at least one price
-- Do not skip rows just because they are hard to read — do your best
-- Output supplier name on the first line as: SUPPLIER: [name]
-- Output invoice date on the second line as: DATE: [YYYY-MM-DD or NULL]
-- Then output all item lines
-- Do not add any other text` }
+For each line item:
+- name: ingredient type first, descriptors after, Title Case, no brands/SKUs
+  Examples: "SLICED BACON 18/14-16CT" → "Bacon Sliced", "SWEET ITALIAN SAUSAGE" → "Sausage Italian Sweet", "HALF AND HALF CREAMER" → "Creamer Half And Half", "SHREDDED CHEDDAR JACK" → "Cheese Cheddar Jack Shredded", "GROUND BEEF 80/20" → "Beef Ground 80/20", "CHICKEN BREAST BNLS SKNLS" → "Chicken Breast Boneless"
+  Strip: brand names (Hormel, Tyson, Perdue, Kraft, Sysco, Swift, Pilgrim's), item codes, SKUs
+  Keep: flavor descriptors, fat ratios, size grades
+
+- price: the UNIT price for ONE case — always the SMALLER of the two price columns
+  Sysco/US Foods column order: Item# | Description | Pack | QTY Ordered | QTY Shipped | UNIT PRICE | EXTENDED PRICE
+  UNIT PRICE × QTY = EXTENDED PRICE — you want UNIT PRICE (smaller number, appears first)
+  Never use the extended/total price. Verify: if price × qty shipped ≈ the larger number, you have the right price.
+
+- case_size: multiply pack numbers — "4/5LB"→20, "2/10LB"→20, "24CT"→24, "3 5LB"→15, "12/1LB"→12
+  NEVER concatenate. Always multiply.
+
+- case_unit: "lb", "oz", "each", "gallon", or "pack"
+- unit: same as case_unit
+- supplier: vendor name from invoice header
+- date: invoice date YYYY-MM-DD, use ${today()} if not visible
+
+Non-food items (napkins, cups, cleaning supplies, delivery fees, fuel surcharges) — include them, mark with is_supply: true.
+Food/beverage items — mark with is_supply: false.
+
+If a row is unclear, make your best guess rather than skipping it.
+
+Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit":"lb","supplier":"...","date":"${today()}","is_supply":false}]` }
             ]
           }]
         })
       });
-      const pass1Data = await pass1.json();
-      if (pass1Data.error) throw new Error(pass1Data.error.message);
-      const rawText = pass1Data.content[0].text.trim();
 
-      // Pass 1 only fails if it returns nothing at all
-      const itemLines = rawText.split("\n").filter(l => l.trim().startsWith("ITEM:"));
-      if (itemLines.length === 0) throw new Error("PASS1_NO_ITEMS");
-
-      setRawRows(rawText);
-
-      // Parse price columns from raw text for suggestion context
-      const parsedCols = itemLines.map(line => {
-        const p1 = line.match(/PRICE1:\s*([\d.]+)/)?.[1];
-        const p2 = line.match(/PRICE2:\s*([\d.]+)/)?.[1];
-        const qty = line.match(/QTY:\s*(\d+)/)?.[1];
-        return {
-          col5: p1 ? parseFloat(p1) : null,
-          col6: p2 ? parseFloat(p2) : null,
-          qty: qty ? parseFloat(qty) : 1
-        };
-      });
-
-      // ── PASS 2: Interpretation — text description → structured JSON ──
-      const pass2 = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: apiHeaders,
-        body: JSON.stringify({
-          model: "claude-opus-4-5",
-          max_tokens: 2048,
-          messages: [{
-            role: "user",
-            content: [{ type: "text", text: `You are a restaurant food cost data processor. Convert this raw invoice reading into clean structured JSON.
-
-RAW INVOICE READING:
-${rawText}
-
-PRICE RULE:
-- PRICE1 = unit price (price for ONE case) — use this
-- PRICE2 = extended price (PRICE1 × QTY) — never use this as the price
-- Unit price is always the SMALLER number
-- Verify: if PRICE1 × QTY ≈ PRICE2, you have the right one
-- If only one price is given, use it
-
-CASE SIZE RULES (from PACK field):
-- "4/5LB" → case_size=20, case_unit="lb" (multiply 4×5)
-- "2/10LB" → case_size=20, case_unit="lb"
-- "24CT" → case_size=24, case_unit="each"
-- "3 5LB" → case_size=15, case_unit="lb"
-- "12/1LB" → case_size=12, case_unit="lb"
-- Always multiply the two numbers — never concatenate
-
-NAME FORMAT: "Base Ingredient + Descriptors" in Title Case
-- "SLICED BACON 18/14-16CT" → "Bacon Sliced"
-- "SWEET ITALIAN SAUSAGE LINKS" → "Sausage Italian Sweet"
-- "HALF AND HALF CREAMER" → "Creamer Half And Half"
-- "SHREDDED CHEDDAR JACK CHEESE" → "Cheese Cheddar Jack Shredded"
-- "GROUND BEEF 80/20" → "Beef Ground 80/20"
-- "CHICKEN BREAST BNLS SKNLS FZN" → "Chicken Breast Boneless"
-- Strip: brands (Hormel, Tyson, Perdue, Kraft, Sysco, Swift), SKUs, item codes, size specs in case_size
-- Keep: flavor (Sweet, Hot, Italian, Smoked), size grades (Large, Jumbo), fat ratios (80/20)
-
-Return ONLY a raw JSON array — no markdown, no backticks, no explanation:
-[{ name, price, case_size, case_unit, unit, supplier, date }]
-- unit = same as case_unit
-- supplier = from SUPPLIER line, or "Unknown"
-- date = from DATE line in YYYY-MM-DD, or ${today()} if NULL
-
-Example: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"}]` }]
-          }]
-        })
-      });
-      const pass2Data = await pass2.json();
-      if (pass2Data.error) throw new Error(pass2Data.error.message);
-      let text = pass2Data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      let text = data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No items found");
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("NO_ITEMS");
+
       const withIds = parsed.map((r, i) => ({
         ...normalizeIngredient(r),
+        is_supply: r.is_supply || detectIsSupply(r.name),
         _id: `row_${i}_${Date.now()}`,
         _originalName: r.name,
-        _col5: parsedCols[i]?.col5 || null,
-        _col6: parsedCols[i]?.col6 || null,
-        _qty: parsedCols[i]?.qty || 1,
+        _col5: null,
+        _col6: null,
+        _qty: 1,
       }));
       setResults(withIds);
+
     } catch (e) {
-      if (e.message === "PASS1_NO_ITEMS") {
-        setError("Couldn't find any line items on this invoice. Make sure the invoice is fully visible in the frame and try again.");
+      if (e.message === "NO_ITEMS") {
+        setError("Couldn't find any line items. Make sure the invoice is fully visible and try again.");
       } else {
-        setError("Scan failed — please try again. If the problem persists, make sure the invoice is flat and fully in frame.");
+        setError("Scan failed — please try again.");
       }
     }
     setScanning(false);
@@ -4591,59 +4537,40 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
       const enhanced = await enhanceInvoiceImage(scanImageBase64);
       const apiHeaders = { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
 
-      // Pass 1 — Lenient free-form reading
-      const pass1 = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST", headers: apiHeaders,
         body: JSON.stringify({
-          model: "claude-opus-4-5", max_tokens: 2048,
+          model: "claude-opus-4-5", max_tokens: 4096,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
-            { type: "text", text: `You are reading a supplier invoice image. For every product line item you can see, output one line:
+            { type: "text", text: `You are a restaurant invoice parser. Extract every FOOD and BEVERAGE product line item from this supplier invoice. Skip non-food items (napkins, cups, fees, cleaning supplies).
 
-ITEM: [description exactly as printed] | PACK: [pack/size] | QTY: [qty shipped] | PRICE1: [first/smaller price] | PRICE2: [second/larger price]
+Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
 
-- Copy text exactly — ALL CAPS, abbreviations, everything
-- PRICE1 = unit price (smaller), PRICE2 = extended total (larger)
-- Write NULL for missing fields
-- Include every row with a product and at least one price — do your best even on hard-to-read rows
-- First two lines: SUPPLIER: [name] and DATE: [YYYY-MM-DD or NULL]
-- No other text` }
+For each food item:
+- name: ingredient type first, Title Case, no brands/SKUs. Examples: "SLICED BACON" → "Bacon Sliced", "HALF AND HALF CREAMER" → "Creamer Half And Half", "GROUND BEEF 80/20" → "Beef Ground 80/20"
+- price: UNIT price for ONE case (the SMALLER of the two price columns). Sysco/US Foods: UNIT PRICE comes before EXTENDED PRICE. Unit price × qty = extended price.
+- case_size: multiply pack numbers — "4/5LB"→20, "2/10LB"→20, "24CT"→24, "3 5LB"→15. Always multiply, never concatenate.
+- case_unit: "lb", "oz", "each", "gallon", or "pack"
+- unit: same as case_unit
+- supplier: vendor from invoice header
+- date: YYYY-MM-DD from invoice, or ${today()} if not visible
+
+Make your best guess on unclear rows rather than skipping them.
+
+Return format: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"}]` }
           ]}]
         })
       });
-      const pass1Data = await pass1.json();
-      if (pass1Data.error) throw new Error(pass1Data.error.message);
-      const rawText = pass1Data.content[0].text.trim();
-      const itemLines = rawText.split("\n").filter(l => l.trim().startsWith("ITEM:"));
-      if (itemLines.length === 0) throw new Error("PASS1_NO_ITEMS");
-
-      // Pass 2 — Food items only
-      const pass2 = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: apiHeaders,
-        body: JSON.stringify({
-          model: "claude-opus-4-5", max_tokens: 2048,
-          messages: [{ role: "user", content: [{ type: "text", text: `Convert this invoice reading to JSON. Include ONLY food and beverage items — skip fees, cleaning supplies, paper products.
-
-RAW READING:
-${rawText}
-
-PRICE RULE: PRICE1 = unit price (use this). PRICE2 = extended total (never use). Unit price is always smaller. Verify: PRICE1 × QTY ≈ PRICE2.
-CASE SIZE: "4/5LB"→20lb, "2/10LB"→20lb, "24CT"→24each, "3 5LB"→15lb. Always multiply.
-NAME FORMAT: "Base Ingredient + Descriptors" in Title Case. Strip brands/SKUs. Keep flavor/grade.
-
-Return ONLY a raw JSON array: [{name, price, case_size, case_unit, unit, supplier, date}]
-Date: YYYY-MM-DD, use ${today()} if NULL.` }] }]
-        })
-      });
-      const pass2Data = await pass2.json();
-      if (pass2Data.error) throw new Error(pass2Data.error.message);
-      let text = pass2Data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      let text = data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("No food items found");
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("NO_ITEMS");
       setScanResults(parsed.map(r => normalizeIngredient(r)));
     } catch (e) {
-      setScanError(e.message === "PASS1_NO_ITEMS"
-        ? "Couldn't find any line items. Make sure the invoice is fully visible in the frame."
+      setScanError(e.message === "NO_ITEMS"
+        ? "Couldn't find any food items. Make sure the invoice is fully visible."
         : "Scan failed — please try again.");
     }
     setScanning(false);
