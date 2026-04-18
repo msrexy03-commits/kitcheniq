@@ -3092,105 +3092,13 @@ const DEMO_SCAN_ITEMS = [
 ];
 
 // ─── Demo Invoice Scanner ─────────────────────────────────────────────────────
-function DemoInvoiceScanner({ onClose, onComplete, isMobile }) {
-  const [step, setStep] = useState("upload");
-  const [visibleItems, setVisibleItems] = useState([]);
-
-  const startScan = () => {
-    setStep("scanning");
-    setTimeout(() => {
-      setStep("results");
-      DEMO_SCAN_ITEMS.forEach((item, i) => {
-        setTimeout(() => {
-          setVisibleItems(prev => {
-            const next = [...prev, item];
-            // When all items loaded, fire onComplete automatically
-            if (next.length === DEMO_SCAN_ITEMS.length) {
-              onComplete && onComplete();
-              // On mobile auto-close after a beat so they can see results
-              if (isMobile) setTimeout(onClose, 1800);
-            }
-            return next;
-          });
-        }, i * 400);
-      });
-    }, 2200);
-  };
-
-  return (
-    <Modal title="📸 AI Invoice Scanner" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ background: T.accentDim, border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: T.accent, fontFamily: T.body }}>
-          ✨ AI reads your invoice and extracts ingredients, prices, and case sizes automatically
-        </div>
-        {step === "upload" && (
-          <>
-            <div style={{ border: `2px dashed ${T.accentMid}`, borderRadius: 10, padding: "28px 20px", textAlign: "center", background: T.accentDim, cursor: "pointer" }} onClick={startScan}>
-              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/240px-PNG_transparency_demonstration_1.png"
-                alt="Sample invoice" style={{ maxWidth: "100%", maxHeight: 140, borderRadius: 6, objectFit: "contain", opacity: 0.7 }} />
-              <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 600, marginTop: 8 }}>Sample Sysco Invoice Loaded</div>
-              <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body, marginTop: 4 }}>Click Scan to extract ingredients</div>
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-              <button onClick={startScan} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, color: T.accent, border: `2px solid ${T.accent}`, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", animation: "tourPulse 2s ease-in-out infinite" }}>🔍 Scan Invoice</button>
-            </div>
-          </>
-        )}
-        {step === "scanning" && (
-          <div style={{ textAlign: "center", padding: "40px 20px" }}>
-            <div style={{ fontSize: 48, marginBottom: 16, animation: "spin 1s linear infinite" }}>⏳</div>
-            <div style={{ fontSize: 15, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 8 }}>AI is reading your invoice...</div>
-            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.body }}>Identifying ingredients, prices, and case sizes</div>
-            <div style={{ marginTop: 20, height: 4, background: T.faint, borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ height: "100%", background: T.accent, borderRadius: 2, animation: "progress 2.2s ease-in-out forwards" }} />
-            </div>
-          </div>
-        )}
-        {step === "results" && (
-          <>
-            <div style={{ fontSize: 11, color: T.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: T.body }}>✓ Found {DEMO_SCAN_ITEMS.length} items — AI extracted everything automatically</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
-              {visibleItems.map((item, i) => (
-                <div key={i} style={{ background: T.faint, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", animation: "fadeIn 0.3s ease" }}>
-                  <div>
-                    <div style={{ fontSize: 13, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{item.name}</div>
-                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.body }}>{item.case_size} {item.case_unit} per case · unit cost: ${(item.price / item.case_size).toFixed(4)}/{item.case_unit}</div>
-                  </div>
-                  <div style={{ fontSize: 14, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>${item.price.toFixed(2)}</div>
-                </div>
-              ))}
-            </div>
-            {visibleItems.length === DEMO_SCAN_ITEMS.length && (
-              <div style={{ background: "#1a2a0a", border: `1px solid ${T.accentMid}`, borderRadius: 8, padding: "12px 16px" }}>
-                <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>⚡ 2 price changes detected from your last invoice</div>
-                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.body }}>🔴 Bacon Sliced: $41.20 → $47.80 (+16%) · 🔴 Eggs Large Grade A: $38.40 → $52.80 (+38%)</div>
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              {isMobile ? (
-                <button onClick={() => { onComplete && onComplete(); onClose(); }} style={{ background: T.accent, color: "#0f1410", border: "none", borderRadius: 6, padding: "12px 24px", fontSize: 14, fontFamily: T.font, fontWeight: 700, cursor: "pointer", width: "100%" }}>
-                  ✓ Got it — close
-                </button>
-              ) : (
-                <button onClick={() => { onComplete && onComplete(); onClose(); }} style={{ background: T.accent, color: "#0f1410", border: `2px solid ${T.accent}`, borderRadius: 6, padding: "10px 20px", fontSize: 13, fontFamily: T.font, fontWeight: 700, cursor: "pointer", animation: "tourPulse 2s ease-in-out infinite" }}>
-                  ✓ This is what your real invoices would look like
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
 // ─── Demo Screen ──────────────────────────────────────────────────────────────
 function DemoScreen({ onSignUp, onLogin, onBack }) {
   const isMobile = useIsMobile();
   const [tab, setTab] = useState(0);
   const [pulse, setPulse] = useState(false);
-  const [showDemoScanner, setShowDemoScanner] = useState(false);
+  const [scanStage, setScanStage] = useState("idle"); // idle | viewfinder | flash | scanning | results
+  const [scanItems, setScanItems] = useState([]);
   const [tourStep, setTourStep] = useState(0);
   const [flashCard, setFlashCard] = useState(null);
   const [liveAlertVisible, setLiveAlertVisible] = useState(false);
@@ -3234,6 +3142,26 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
   useEffect(() => {
     if (tourStep === 2 && demoScanCompleted) setTourStepDone(true);
   }, [demoScanCompleted, tourStep]);
+
+  const startDemoScan = () => {
+    if (scanStage !== "idle") return;
+    setScanItems([]);
+    setScanStage("viewfinder");
+    setTimeout(() => setScanStage("flash"), 1200);
+    setTimeout(() => setScanStage("scanning"), 1450);
+    setTimeout(() => {
+      setScanStage("results");
+      DEMO_SCAN_ITEMS.forEach((item, i) => {
+        setTimeout(() => {
+          setScanItems(prev => {
+            const next = [...prev, item];
+            if (next.length === DEMO_SCAN_ITEMS.length) setDemoScanCompleted(true);
+            return next;
+          });
+        }, i * 350);
+      });
+    }, 3000);
+  };
 
   const nextTour = () => {
     if (!tourStepDone) return;
@@ -3364,38 +3292,130 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
         )}
         {tab === 1 && (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_INGREDIENTS.length} tracked</div>
-              <button onClick={() => setShowDemoScanner(true)} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 12px", fontSize: 10, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📸 Scan Invoice</button>
-            </div>
-            {(() => {
-              const grouped = {};
-              DEMO_INGREDIENTS.forEach(ing => {
-                const key = ing.date || "Unknown";
-                if (!grouped[key]) grouped[key] = [];
-                grouped[key].push(ing);
-              });
-              return Object.keys(grouped).sort((a,b) => new Date(b)-new Date(a)).map(date => (
-                <div key={date} style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 9, color: T.accent, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600, marginBottom: 6 }}>📄 {date}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {grouped[date].sort((a,b) => a.name.localeCompare(b.name)).map(ing => {
-                      const uc = getUnitCost(ing);
-                      return (
-                        <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div>
-                            <div style={{ fontSize: 11, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
-                            <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body }}>{ing.case_size} {ing.case_unit}</div>
-                            {uc && <div style={{ fontSize: 9, color: T.accent }}>${uc.toFixed(3)}/{ing.case_unit}</div>}
-                          </div>
-                          <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
-                        </div>
-                      );
-                    })}
+            <style>{`
+              @keyframes scanLine { 0% { top: 0%; } 100% { top: 100%; } }
+              @keyframes flashFade { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+              @keyframes progressBar { from { width: 0%; } to { width: 100%; } }
+              @keyframes itemPop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+            `}</style>
+
+            {/* Viewfinder stage — camera looking at invoice */}
+            {(scanStage === "viewfinder" || scanStage === "flash") && (
+              <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", background: "#000", height: 240 }}>
+                {/* Fake invoice background */}
+                <div style={{ position: "absolute", inset: 0, background: "#f8f6f0", display: "flex", flexDirection: "column", gap: 0 }}>
+                  {/* Fake invoice header */}
+                  <div style={{ background: "#1a3a5c", padding: "8px 12px" }}>
+                    <div style={{ fontSize: 10, color: "#fff", fontFamily: "monospace", fontWeight: 700 }}>SYSCO</div>
+                    <div style={{ fontSize: 7, color: "#aac", fontFamily: "monospace" }}>Invoice #8841029 · Apr 16 2026</div>
                   </div>
+                  {/* Fake invoice rows */}
+                  {["BACON LAYOUT APWD 15LB........$68.89", "EGGS SHELL LG GR AA 180CT.....$32.63", "CHEESE CHDR JCK SHRD 20LB.....$51.55", "PANCAKE MIX CMPL 30LB.........$57.95", "CREAMER H&H 384EA.............$24.95", "BUTTER SOLID USDA AA 36LB....$114.45", "POTATO RED A SZ 50LB..........$22.95"].map((row, i) => (
+                    <div key={i} style={{ padding: "3px 12px", borderBottom: "1px solid #e8e4dc", fontSize: 7, color: "#333", fontFamily: "monospace", lineHeight: 1.6 }}>{row}</div>
+                  ))}
                 </div>
-              ));
-            })()}
+
+                {/* Camera UI overlay */}
+                <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)" }}>
+                  {/* Corner brackets */}
+                  <div style={{ position: "absolute", top: 12, left: 12, width: 16, height: 16, borderTop: "2px solid #4eca6e", borderLeft: "2px solid #4eca6e" }} />
+                  <div style={{ position: "absolute", top: 12, right: 12, width: 16, height: 16, borderTop: "2px solid #4eca6e", borderRight: "2px solid #4eca6e" }} />
+                  <div style={{ position: "absolute", bottom: 12, left: 12, width: 16, height: 16, borderBottom: "2px solid #4eca6e", borderLeft: "2px solid #4eca6e" }} />
+                  <div style={{ position: "absolute", bottom: 12, right: 12, width: 16, height: 16, borderBottom: "2px solid #4eca6e", borderRight: "2px solid #4eca6e" }} />
+                  {/* Scanning line */}
+                  {scanStage === "viewfinder" && (
+                    <div style={{ position: "absolute", left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${T.accent}, transparent)`, animation: "scanLine 1.2s ease-in-out", boxShadow: `0 0 8px ${T.accent}` }} />
+                  )}
+                </div>
+
+                {/* Flash overlay */}
+                {scanStage === "flash" && (
+                  <div style={{ position: "absolute", inset: 0, background: "#fff", animation: "flashFade 0.25s ease-out forwards" }} />
+                )}
+
+                {/* Camera shutter label */}
+                <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, textAlign: "center" }}>
+                  <div style={{ fontSize: 9, color: "#fff", fontFamily: T.body, opacity: 0.8, textShadow: "0 1px 2px #000" }}>📸 Scanning invoice...</div>
+                </div>
+              </div>
+            )}
+
+            {/* Scanning stage — AI processing */}
+            {scanStage === "scanning" && (
+              <div style={{ padding: "24px 12px", textAlign: "center" }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>🤖</div>
+                <div style={{ fontSize: 12, color: T.accent, fontFamily: T.font, fontWeight: 700, marginBottom: 4 }}>AI reading invoice...</div>
+                <div style={{ fontSize: 10, color: T.muted, fontFamily: T.body, marginBottom: 16 }}>Identifying ingredients, prices, case sizes</div>
+                <div style={{ height: 3, background: T.faint, borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: T.accent, borderRadius: 2, animation: "progressBar 1.6s ease-in-out forwards" }} />
+                </div>
+              </div>
+            )}
+
+            {/* Results stage — items pop in */}
+            {scanStage === "results" && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>✓ {scanItems.length}/{DEMO_SCAN_ITEMS.length} items extracted</div>
+                  <button onClick={() => { setScanStage("idle"); setScanItems([]); }} style={{ background: "none", border: "none", color: T.muted, fontSize: 9, fontFamily: T.body, cursor: "pointer", textDecoration: "underline" }}>Reset</button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {scanItems.map((item, i) => (
+                    <div key={i} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", animation: "itemPop 0.3s ease" }}>
+                      <div style={{ flex: 1, overflow: "hidden" }}>
+                        <div style={{ fontSize: 10, color: T.text, fontFamily: T.font, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
+                        <div style={{ fontSize: 8, color: T.muted, fontFamily: T.body }}>{item.case_size}{item.case_unit}</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: T.accent, fontFamily: T.font, fontWeight: 700, flexShrink: 0, marginLeft: 6 }}>${item.price.toFixed(2)}</div>
+                    </div>
+                  ))}
+                </div>
+                {scanItems.length === DEMO_SCAN_ITEMS.length && (
+                  <div style={{ marginTop: 8, background: T.warnDim, border: `1px solid ${T.warn}33`, borderRadius: 7, padding: "8px 10px" }}>
+                    <div style={{ fontSize: 9, color: T.warn, fontFamily: T.font, fontWeight: 700 }}>⚡ 2 price changes detected</div>
+                    <div style={{ fontSize: 8, color: T.muted, fontFamily: T.body, marginTop: 2 }}>Bacon +16% · Eggs +38%</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Idle stage — show existing ingredients + scan button */}
+            {scanStage === "idle" && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body }}>{DEMO_INGREDIENTS.length} tracked</div>
+                  <button onClick={startDemoScan} style={{ background: `linear-gradient(135deg, #4eca6e22, #6e4eca22)`, border: `1px solid ${T.accentMid}`, color: T.accent, borderRadius: 6, padding: "7px 12px", fontSize: 10, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>📸 Scan Invoice</button>
+                </div>
+                {(() => {
+                  const grouped = {};
+                  DEMO_INGREDIENTS.forEach(ing => {
+                    const key = ing.date || "Unknown";
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push(ing);
+                  });
+                  return Object.keys(grouped).sort((a,b) => new Date(b)-new Date(a)).map(date => (
+                    <div key={date} style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 9, color: T.accent, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: T.body, fontWeight: 600, marginBottom: 6 }}>📄 {date}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {grouped[date].sort((a,b) => a.name.localeCompare(b.name)).map(ing => {
+                          const uc = getUnitCost(ing);
+                          return (
+                            <div key={ing.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div>
+                                <div style={{ fontSize: 11, color: T.text, fontFamily: T.font, fontWeight: 600 }}>{ing.name}</div>
+                                <div style={{ fontSize: 9, color: T.muted, fontFamily: T.body }}>{ing.case_size} {ing.case_unit}</div>
+                                {uc && <div style={{ fontSize: 9, color: T.accent }}>${uc.toFixed(3)}/{ing.case_unit}</div>}
+                              </div>
+                              <div style={{ fontSize: 13, color: T.accent, fontFamily: T.font, fontWeight: 700 }}>{fmt$2(ing.price)}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
         )}
         {tab === 2 && (
@@ -3653,8 +3673,6 @@ function DemoScreen({ onSignUp, onLogin, onBack }) {
           <p style={{ fontSize: 11, color: T.muted, marginTop: 12, opacity: 0.5, fontFamily: T.body }}>7-day free trial · No commitment · Cancel anytime</p>
         </div>
       </div>
-
-      {showDemoScanner && <DemoInvoiceScanner onClose={() => setShowDemoScanner(false)} onComplete={() => setDemoScanCompleted(true)} isMobile={isMobile} />}
     </div>
   );
 }
