@@ -814,8 +814,10 @@ Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit"
       });
 
       const data = await response.json();
+      console.log("Scan API status:", response.status, "| stop_reason:", data.stop_reason, "| error:", data.error?.message);
       if (data.error) throw new Error(data.error.message);
-      let text = data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      let text = (data.content?.[0]?.text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      console.log("Claude response (first 500):", text.slice(0, 500));
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("NO_ITEMS");
 
@@ -831,10 +833,13 @@ Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit"
       setResults(withIds);
 
     } catch (e) {
+      console.error("Scan error:", e.message, e);
       if (e.message === "NO_ITEMS") {
         setError("Couldn't find any line items. Make sure the invoice is fully visible and try again.");
+      } else if (e instanceof SyntaxError) {
+        setError(`Parse error — Claude returned unexpected format. Raw: ${e.message}`);
       } else {
-        setError("Scan failed — please try again.");
+        setError(`Scan failed: ${e.message}`);
       }
     }
     setScanning(false);
