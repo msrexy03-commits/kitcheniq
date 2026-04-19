@@ -698,11 +698,11 @@ function enhanceInvoiceImage(base64) {
       const ctx = canvas.getContext("2d");
 
       if (needsRotation) {
-        ctx.translate(w, 0);
-        ctx.rotate(Math.PI / 2);
-        ctx.drawImage(img, 0, 0, h, w); // draw rotated
+        ctx.translate(0, w);
         ctx.rotate(-Math.PI / 2);
-        ctx.translate(-w, 0);
+        ctx.drawImage(img, 0, 0, h, w);
+        ctx.rotate(Math.PI / 2);
+        ctx.translate(0, -w);
       } else {
         ctx.drawImage(img, 0, 0, w, h);
       }
@@ -782,81 +782,18 @@ function InvoiceScanner({ onIngredientsFound, onClose, userId, onAliasSaved, ing
     setScanning(true); setError(null);
     try {
       const enhanced = await enhanceInvoiceImage(imageBase64);
-      const apiHeaders = {
-        "Content-Type": "application/json",
-        "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      };
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/scan-invoice", {
         method: "POST",
-        headers: apiHeaders,
-        body: JSON.stringify({
-          model: "claude-opus-4-5",
-          max_tokens: 4096,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
-              { type: "text", text: `You are a restaurant invoice parser. Extract every product line item from this supplier invoice image.
-
-IMPORTANT: The invoice may be rotated — read it in whatever orientation makes the text readable.
-
-Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
-
-WHAT TO SKIP — do not create items for these:
-- Section group headers like "*** FROZEN MEATS ***", "*** POULTRY ***", "*** PAPER & DISPOSABLE ***"
-- Group total lines like "GROUP TOTAL****" or "ORDER SUMMARY"
-- Any row that does not have its own item code/number
-- Summary, subtotal, tax, invoice total lines
-
-SYSCO INVOICE LAYOUT for this invoice type:
-QTY | PACK | SIZE | ITEM DESCRIPTION | ITEM CODE | UNIT PRICE | PAST DUE AMT | EXTENDED PRICE
-
-- UNIT PRICE is the price per case (what you want)
-- EXTENDED PRICE = UNIT PRICE × QTY (never use this)
-- Each real product line has its own 7-digit ITEM CODE number
-- If a row has no item code, it is a header or total — skip it
-
-For each real product line item:
-- name: ingredient type first, Title Case, no brands/SKUs
-  "SYS CLS CHICKEN TNDR BRD ORIG FLAT SM" → "Chicken Tender Breaded Original Flat"
-  "SYS CLS LONGINI SAUSAGE ITALIAN SWEET BULK" → "Sausage Italian Sweet"
-  "SYS CLS SAUSAGE PORK INK MAPLE SYRUP" → "Sausage Pork Maple Syrup"
-  "SYS CLS SAUSAGE PORK PATTY CKD CN NAT" → "Sausage Pork Patty Cooked"
-  "SYS CLS STEAK STRIP VEIN FRZN" → "Steak Strip Vein Frozen"
-  "BHB/NPM JONES D SAUSAGE" → "Sausage Jones"
-  "CTVCLS COFFEE GRND HSE BLEND MED W/F" → "Coffee Ground House Blend Medium"
-  "SYS REL GLOVE VINYL FDSVC PF XL" → "Glove Vinyl Foodservice"
-  Strip: SYS, CLS, BHB, NPM, REL, CTVCLS prefixes; brand codes; item codes
-  Keep: flavor, grade, fat ratio descriptors
-
-- price: UNIT PRICE column value — the smaller number per row
-- case_size: the SIZE column value — multiply if it shows "4/5LB" style. Do NOT use ORDER SUMMARY totals.
-- case_unit: "lb", "oz", "each", "gallon", or "cs"
-- unit: same as case_unit
-- supplier: from invoice header
-- date: invoice date YYYY-MM-DD, use ${today()} if not visible
-- is_supply: true for gloves, paper, cleaning items, fuel surcharge, fees; false for food
-
-One JSON object per item code. Never merge two rows into one item.
-
-Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}","is_supply":false}]` }
-            ]
-          }]
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: enhanced }),
       });
 
       const data = await response.json();
-      console.log("Scan API status:", response.status, "| stop_reason:", data.stop_reason, "| error:", data.error?.message);
-      if (data.error) throw new Error(data.error.message);
-      let text = (data.content?.[0]?.text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-      console.log("Claude response (first 500):", text.slice(0, 500));
-      const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("NO_ITEMS");
+      if (!response.ok) throw new Error(data.message || data.error || "Scan failed");
+      if (!data.items || data.items.length === 0) throw new Error("NO_ITEMS");
 
-      const withIds = parsed.map((r, i) => ({
+      const withIds = data.items.map((r, i) => ({
         ...normalizeIngredient(r),
         is_supply: r.is_supply || detectIsSupply(r.name),
         _id: `row_${i}_${Date.now()}`,
@@ -868,11 +805,9 @@ Return format: [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit"
       setResults(withIds);
 
     } catch (e) {
-      console.error("Scan error:", e.message, e);
+      console.error("Scan error:", e.message);
       if (e.message === "NO_ITEMS") {
         setError("Couldn't find any line items. Make sure the invoice is fully visible and try again.");
-      } else if (e instanceof SyntaxError) {
-        setError(`Parse error — Claude returned unexpected format. Raw: ${e.message}`);
       } else {
         setError(`Scan failed: ${e.message}`);
       }
@@ -4569,43 +4504,19 @@ function OnboardingWizard({ session, ingredients, setIngredients, menuItems, set
     setScanning(true); setScanError(null);
     try {
       const enhanced = await enhanceInvoiceImage(scanImageBase64);
-      const apiHeaders = { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: apiHeaders,
-        body: JSON.stringify({
-          model: "claude-opus-4-5", max_tokens: 4096,
-          messages: [{ role: "user", content: [
-            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: enhanced } },
-            { type: "text", text: `You are a restaurant invoice parser. Extract every FOOD and BEVERAGE product line item from this supplier invoice. Skip non-food items (napkins, cups, fees, cleaning supplies).
-
-Return ONLY a raw JSON array. No markdown, no backticks, no explanation.
-
-For each food item:
-- name: ingredient type first, Title Case, no brands/SKUs. Examples: "SLICED BACON" → "Bacon Sliced", "HALF AND HALF CREAMER" → "Creamer Half And Half", "GROUND BEEF 80/20" → "Beef Ground 80/20"
-- price: UNIT price for ONE case (the SMALLER of the two price columns). Sysco/US Foods: UNIT PRICE comes before EXTENDED PRICE. Unit price × qty = extended price.
-- case_size: multiply pack numbers — "4/5LB"→20, "2/10LB"→20, "24CT"→24, "3 5LB"→15. Always multiply, never concatenate.
-- case_unit: "lb", "oz", "each", "gallon", or "pack"
-- unit: same as case_unit
-- supplier: vendor from invoice header
-- date: YYYY-MM-DD from invoice, or ${today()} if not visible
-
-Make your best guess on unclear rows rather than skipping them.
-
-Return format: [{"name":"Bacon Sliced","price":42.50,"case_size":15,"case_unit":"lb","unit":"lb","supplier":"Sysco","date":"${today()}"}]` }
-          ]}]
-        })
+      const response = await fetch("/api/scan-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: enhanced }),
       });
       const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      let text = data.content[0].text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-      const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("NO_ITEMS");
-      setScanResults(parsed.map(r => normalizeIngredient(r)));
+      if (!response.ok) throw new Error(data.message || data.error || "Scan failed");
+      if (!data.items || data.items.length === 0) throw new Error("NO_ITEMS");
+      setScanResults(data.items.map(r => normalizeIngredient(r)));
     } catch (e) {
       setScanError(e.message === "NO_ITEMS"
         ? "Couldn't find any food items. Make sure the invoice is fully visible."
-        : "Scan failed — please try again.");
+        : `Scan failed: ${e.message}`);
     }
     setScanning(false);
   };
