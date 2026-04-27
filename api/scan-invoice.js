@@ -122,6 +122,10 @@ export default async function handler(req, res) {
     const supplier = detectSupplier(rawLines);
     const date = detectDate(rawLines);
 
+    console.log("Textract total rows:", tableRows?.length);
+    console.log("Textract rows sample:", JSON.stringify(tableRows?.slice(0, 20)));
+    console.log("Raw lines sample:", rawLines.slice(0, 500));
+
     // Pre-filter rows before sending to Claude — drop obvious headers/totals/blanks
     const SKIP_PATTERNS = /group total|order summary|misc charges|sub total|invoice total|last page|\*\*\*|^\s*$/i;
     const filteredRows = tableRows.filter(row => {
@@ -136,6 +140,9 @@ export default async function handler(req, res) {
     if (filteredRows.length === 0) {
       return res.status(422).json({ error: "NO_TABLE", message: "Textract couldn't find any product rows." });
     }
+
+    console.log("Filtered rows count:", filteredRows.length);
+    console.log("Filtered rows:", JSON.stringify(filteredRows));
 
     // Format table as compact text for Claude — only send relevant columns
     const tableText = filteredRows
