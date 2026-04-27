@@ -122,66 +122,49 @@ export default async function handler(req, res) {
     const supplier = detectSupplier(rawLines);
     const date = detectDate(rawLines);
 
-    if (!tableRows || tableRows.length === 0) {
-      return res.status(422).json({ error: "NO_TABLE", message: "Textract couldn't find a table in this image." });
+    // Pre-filter rows before sending to Claude — drop obvious headers/totals/blanks
+    const SKIP_PATTERNS = /group total|order summary|misc charges|sub total|invoice total|last page|\*\*\*|^\s*$/i;
+    const filteredRows = tableRows.filter(row => {
+      const rowText = row.join(" ").trim();
+      if (!rowText) return false;
+      if (SKIP_PATTERNS.test(rowText)) return false;
+      // Must have at least one cell with a number (price or item code)
+      if (!/\d/.test(rowText)) return false;
+      return true;
+    });
+
+    if (filteredRows.length === 0) {
+      return res.status(422).json({ error: "NO_TABLE", message: "Textract couldn't find any product rows." });
     }
 
-    // Format table as readable text for Claude
-    const tableText = tableRows
-      .map((row, i) => `Row ${i + 1}: ${row.map((cell, j) => `[${j + 1}]${cell}`).join(" | ")}`)
+    // Format table as compact text for Claude — only send relevant columns
+    const tableText = filteredRows
+      .map((row, i) => row.filter(c => c.trim()).join(" | "))
       .join("\n");
 
     // ── Step 2: Claude — interpret the clean table text into JSON ──────────────
     const today = new Date().toISOString().split("T")[0];
 
     const message = await anthropic.messages.create({
-      model: "claude-opus-4-5",
-      max_tokens: 4096,
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1500,
       messages: [{
         role: "user",
-        content: `You are a restaurant invoice data processor. A table was extracted from a Sysco/food supplier invoice using OCR. Convert it to structured JSON.
+        content: `Convert these pre-filtered invoice rows to JSON. Supplier: ${supplier}. Date: ${date}.
 
-SUPPLIER DETECTED: ${supplier}
-DATE DETECTED: ${date}
-
-RAW TABLE (each row is one line, columns are numbered [1], [2], etc):
-${tableText}
-
-SYSCO TABLE COLUMN ORDER (typical):
-[1] QTY ordered | [2] PACK | [3] SIZE | [4] ITEM DESCRIPTION | [5] ITEM CODE | [6] UNIT PRICE | [7] PAST DUE | [8] EXTENDED PRICE
+Each row format: QTY | PACK | SIZE | DESCRIPTION | ITEM CODE | UNIT PRICE | PAST DUE | EXTENDED PRICE
 
 RULES:
-- SKIP rows that are section headers (contain "***", "GROUP TOTAL", "ORDER SUMMARY", "MISC CHARGES", "SUB TOTAL", "TAX", "INVOICE TOTAL")
-- SKIP rows with no numeric item code
-- SKIP rows where the description is blank or just a category label
-- Each real product row has a 7-digit item code in column [5]
+- price = UNIT PRICE (smaller number). Never use EXTENDED PRICE.
+- case_size/case_unit from SIZE: "25 LB"→25/lb, "802 OZ"→802/oz, "35LB"→35/lb, "1010CT"→1010/each, "9620Z"→96/oz
+- For catch-weight rows (T/WT= in description): price is per-lb, use T/WT value as case_size
+- name: strip prefixes (SYS, CLS, SYS CLS, REL, CTVCLS, BHB/NPM, LONGINI, CITVCLS) and brands (JONES D, PILLSBY, OZPILLSBY). Title Case.
+- is_supply: true for gloves/paper/fees/surcharges, false for food
 
-PRICE: Use UNIT PRICE (col [6]) — the smaller price. Extended price = unit price × qty, never use it.
-For catch-weight items (T/WT= appears in description or next row), unit price is per-lb. Use T/WT value as case_size.
+ROWS:
+${tableText}
 
-CASE SIZE: Parse from SIZE column [3]:
-- "25 LB" → case_size: 25, case_unit: "lb"
-- "802 OZ" → case_size: 802, case_unit: "oz"
-- "1010CT" → case_size: 1010, case_unit: "each"
-- "9620Z" → case_size: 96, case_unit: "oz"
-- "904.5 OZ" → case_size: 904.5, case_unit: "oz"
-- "35LB" → case_size: 35, case_unit: "lb"
-
-NAME: Strip these prefixes/brands from description: SYS, CLS, SYS CLS, REL, CTVCLS, BHB/NPM, OZPILLSBY, LONGINI, CITVCLS, JONES D, PILLSBY
-Format as "Type Descriptor" in Title Case. Examples:
-- "SYS CLS SAUSAGE PORK PATTY CKD CN NAT" → "Sausage Pork Patty Cooked"
-- "BHB/NPM STEAK STRIP VEIN FRZN" → "Steak Strip Vein Frozen"
-- "JONES D SAUSAGE PORK PATTY CKD" → "Sausage Pork Patty Cooked"
-- "CITVCLS COFFEE GRND HSE BLEND MED W/F" → "Coffee Ground House Blend Medium"
-- "SYS REL GLOVE VINYL FDSVC PF XL" → "Glove Vinyl Foodservice"
-- "LONGINI SAUSAGE ITALIAN SWEET BULK" → "Sausage Italian Sweet Bulk"
-- "SYS CLS CHICKEN BRST IFZ BNLS/SKL" → "Chicken Breast Boneless Skinless Frozen"
-- "SYS CLS CHICKEN TNDR BRD ORIG FLAT SM" → "Chicken Tender Breaded Original Flat Small"
-- "OZPILLSBY DOUGH ROLL CINNAMON CLASSI" → "Dough Roll Cinnamon"
-
-is_supply: true for gloves, paper products, cleaning supplies, fuel surcharges, fees. false for food/beverage.
-
-Return ONLY a raw JSON array, no markdown, no backticks:
+Return ONLY a JSON array, no markdown:
 [{"name":"...","price":0.00,"case_size":0,"case_unit":"lb","unit":"lb","supplier":"${supplier}","date":"${date}","is_supply":false}]`
       }]
     });
